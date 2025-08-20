@@ -31,14 +31,14 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  FileText, 
-  Plus, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Plus,
   ArrowUpDown,
   Filter,
-  Printer
+  Printer,
 } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { SurveyRow, TableFilters } from "@/lib/types";
@@ -55,14 +55,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedRow, setSelectedRow] = useState<string>("");
-  const [sortColumn, setSortColumn] = useState<keyof SurveyRow>('submittedAt');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortColumn, setSortColumn] = useState<keyof SurveyRow>("submittedAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [filters, setFilters] = useState<TableFilters>({
     faculty: "",
     department: "",
     program: "",
     submitterName: "",
-    submitterEmail: ""
+    submitterEmail: "",
   });
 
   // Debounce filters for better performance
@@ -72,27 +72,54 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const filteredAndSortedData = useMemo(() => {
     let result = data.filter((row) => {
       return (
-        (!debouncedFilters.faculty || row.faculty.toLowerCase().includes(debouncedFilters.faculty.toLowerCase())) &&
-        (!debouncedFilters.department || row.department.toLowerCase().includes(debouncedFilters.department.toLowerCase())) &&
-        (!debouncedFilters.program || row.program.toLowerCase().includes(debouncedFilters.program.toLowerCase())) &&
-        (!debouncedFilters.submitterName || row.submitterName.toLowerCase().includes(debouncedFilters.submitterName.toLowerCase())) &&
-        (!debouncedFilters.submitterEmail || row.submitterEmail.toLowerCase().includes(debouncedFilters.submitterEmail.toLowerCase()))
+        (!debouncedFilters.faculty ||
+          row.faculty
+            .toLowerCase()
+            .includes(debouncedFilters.faculty.toLowerCase())) &&
+        (!debouncedFilters.department ||
+          row.department
+            .toLowerCase()
+            .includes(debouncedFilters.department.toLowerCase())) &&
+        (!debouncedFilters.program ||
+          row.program
+            .toLowerCase()
+            .includes(debouncedFilters.program.toLowerCase())) &&
+        (!debouncedFilters.submitterName ||
+          row.submitterName
+            .toLowerCase()
+            .includes(debouncedFilters.submitterName.toLowerCase())) &&
+        (!debouncedFilters.submitterEmail ||
+          row.submitterEmail
+            .toLowerCase()
+            .includes(debouncedFilters.submitterEmail.toLowerCase()))
       );
     });
 
     // Sort data
     result.sort((a, b) => {
-      let aVal = a[sortColumn];
-      let bVal = b[sortColumn];
-      
-      if (sortColumn === 'submittedAt') {
-        aVal = new Date(aVal as string).getTime();
-        bVal = new Date(bVal as string).getTime();
+      const isDate = sortColumn === "submittedAt";
+
+      const aRaw = a[sortColumn];
+      const bRaw = b[sortColumn];
+
+      const aComp: number | string = isDate
+        ? new Date(String(aRaw)).getTime()
+        : String(aRaw ?? "");
+      const bComp: number | string = isDate
+        ? new Date(String(bRaw)).getTime()
+        : String(bRaw ?? "");
+
+      let cmp: number;
+
+      if (typeof aComp === "number" && typeof bComp === "number") {
+        cmp = aComp - bComp;
+      } else {
+        const aStr = String(aComp).toLowerCase();
+        const bStr = String(bComp).toLowerCase();
+        cmp = aStr.localeCompare(bStr);
       }
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+
+      return sortDirection === "asc" ? cmp : -cmp;
     });
 
     return result;
@@ -108,25 +135,25 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
   const handleSort = (column: keyof SurveyRow) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortColumn(column);
-      setSortDirection('asc');
+      setSortDirection("asc");
     }
   };
 
   const handleFilterChange = (key: keyof TableFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
     setCurrentPage(1); // Reset to first page when filtering
   };
 
   const handlePrintPDF = () => {
     // Mock PDF generation
-    console.log('Generating PDF for row:', selectedRow);
+    console.log("Generating PDF for row:", selectedRow);
   };
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'dd MMM yyyy, HH:mm', { locale: th });
+    return format(new Date(dateString), "dd MMM yyyy, HH:mm", { locale: th });
   };
 
   return (
@@ -136,11 +163,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         <div className="flex flex-col sm:flex-row gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full sm:w-auto"
-                disabled={!selectedRow}
-              >
+                disabled={!selectedRow}>
                 <Printer className="mr-2 h-4 w-4" />
                 ปริ้นแบบฟอร์ม PDF
               </Button>
@@ -169,10 +195,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           <span className="text-sm text-gray-600">
             แสดง {filteredAndSortedData.length} รายการ
           </span>
-          <Select value={pageSize.toString()} onValueChange={(v) => {
-            setPageSize(parseInt(v));
-            setCurrentPage(1);
-          }}>
+          <Select
+            value={pageSize.toString()}
+            onValueChange={(v) => {
+              setPageSize(parseInt(v));
+              setCurrentPage(1);
+            }}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -194,95 +222,99 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead className="min-w-[150px]">
                   <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => handleSort('faculty')}
-                      className="justify-start p-0 h-auto font-medium"
-                    >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("faculty")}
+                      className="justify-start p-0 h-auto font-medium">
                       คณะ <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                     <Input
                       placeholder="ค้นหาคณะ..."
                       value={filters.faculty}
-                      onChange={(e) => handleFilterChange('faculty', e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("faculty", e.target.value)
+                      }
                       className="h-8 text-xs"
                     />
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[180px]">
                   <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => handleSort('department')}
-                      className="justify-start p-0 h-auto font-medium"
-                    >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("department")}
+                      className="justify-start p-0 h-auto font-medium">
                       ภาควิชา <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                     <Input
                       placeholder="ค้นหาภาควิชา..."
                       value={filters.department}
-                      onChange={(e) => handleFilterChange('department', e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("department", e.target.value)
+                      }
                       className="h-8 text-xs"
                     />
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[200px]">
                   <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => handleSort('program')}
-                      className="justify-start p-0 h-auto font-medium"
-                    >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("program")}
+                      className="justify-start p-0 h-auto font-medium">
                       สาขาวิชา <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                     <Input
                       placeholder="ค้นหาสาขาวิชา..."
                       value={filters.program}
-                      onChange={(e) => handleFilterChange('program', e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("program", e.target.value)
+                      }
                       className="h-8 text-xs"
                     />
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[150px]">
                   <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => handleSort('submitterName')}
-                      className="justify-start p-0 h-auto font-medium"
-                    >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("submitterName")}
+                      className="justify-start p-0 h-auto font-medium">
                       ชื่อผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                     <Input
                       placeholder="ค้นหาชื่อ..."
                       value={filters.submitterName}
-                      onChange={(e) => handleFilterChange('submitterName', e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("submitterName", e.target.value)
+                      }
                       className="h-8 text-xs"
                     />
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[180px]">
                   <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => handleSort('submitterEmail')}
-                      className="justify-start p-0 h-auto font-medium"
-                    >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("submitterEmail")}
+                      className="justify-start p-0 h-auto font-medium">
                       อีเมลผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                     <Input
                       placeholder="ค้นหาอีเมล..."
                       value={filters.submitterEmail}
-                      onChange={(e) => handleFilterChange('submitterEmail', e.target.value)}
+                      onChange={(e) =>
+                        handleFilterChange("submitterEmail", e.target.value)
+                      }
                       className="h-8 text-xs"
                     />
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[120px]">
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('submittedAt')}
-                    className="justify-start p-0 h-auto font-medium"
-                  >
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("submittedAt")}
+                    className="justify-start p-0 h-auto font-medium">
                     กรอกเมื่อวันที่ <ArrowUpDown className="ml-2 h-3 w-3" />
                   </Button>
                 </TableHead>
@@ -307,13 +339,17 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     <TableCell>{row.program}</TableCell>
                     <TableCell>{row.submitterName}</TableCell>
                     <TableCell>
-                      <span className="text-blue-600">{row.submitterEmail}</span>
+                      <span className="text-blue-600">
+                        {row.submitterEmail}
+                      </span>
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {formatDate(row.submittedAt)}
                     </TableCell>
                     <TableCell>
-                      <RadioGroup value={selectedRow} onValueChange={setSelectedRow}>
+                      <RadioGroup
+                        value={selectedRow}
+                        onValueChange={setSelectedRow}>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value={row.id} id={row.id} />
                           <Label htmlFor={row.id} className="sr-only">
@@ -334,26 +370,25 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            หน้า {currentPage} จาก {totalPages} (รวม {filteredAndSortedData.length} รายการ)
+            หน้า {currentPage} จาก {totalPages} (รวม{" "}
+            {filteredAndSortedData.length} รายการ)
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium">
-              {currentPage}
-            </span>
+            <span className="text-sm font-medium">{currentPage}</span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            >
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
