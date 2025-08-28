@@ -1,6 +1,13 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 export type Faculty = {
   id: string;
@@ -172,18 +179,18 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
       onSubmit={(e) => e.preventDefault()}>
       <div className="flex flex-col gap-1 md:col-span-1">
         <label className="text-sm text-gray-600">เลือกคณะ *</label>
-        <select
-          className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={facultyId}
-          onChange={(e) => setFacultyId(e.target.value)}
-          aria-required>
-          <option value="">— เลือกคณะ —</option>
-          {(faculties ?? []).map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.nameTH}
-            </option>
-          ))}
-        </select>
+        <Select value={facultyId} onValueChange={(v) => setFacultyId(v)}>
+          <SelectTrigger className="rounded-xl">
+            <SelectValue placeholder="— เลือกคณะ —" />
+          </SelectTrigger>
+          <SelectContent>
+            {(faculties ?? []).map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.nameTH}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -635,18 +642,28 @@ function CapsEditor({
       {/* DDL ภาควิชา */}
       <div>
         <label className="mb-1 block text-sm text-gray-600">ภาควิชา *</label>
-        <select
-          className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <Select
           value={departmentId}
-          onChange={(e) => onDepartmentChange?.(e.target.value)}
-          aria-required>
-          <option value="">— เลือกภาควิชา —</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.nameTH}
-            </option>
-          ))}
-        </select>
+          onValueChange={(v) => onDepartmentChange?.(v)}
+          disabled={departments.length === 0}>
+          <SelectTrigger className="w-full rounded-xl">
+            <SelectValue placeholder="— เลือกภาควิชา —" />
+          </SelectTrigger>
+
+          <SelectContent>
+            {departments.length > 0 ? (
+              departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.nameTH}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                ไม่มีข้อมูลภาควิชา
+              </div>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ชื่อสาขา */}
