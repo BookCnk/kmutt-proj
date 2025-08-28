@@ -37,7 +37,6 @@ import {
   FileText,
   Plus,
   ArrowUpDown,
-  Filter,
   Printer,
 } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -65,10 +64,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     submitterEmail: "",
   });
 
-  // Debounce filters for better performance
+  // NEW: view modal states
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewRow, setViewRow] = useState<SurveyRow | null>(null);
+
   const debouncedFilters = useDebounce(filters, 300);
 
-  // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
     let result = data.filter((row) => {
       return (
@@ -95,37 +96,29 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       );
     });
 
-    // Sort data
     result.sort((a, b) => {
       const isDate = sortColumn === "submittedAt";
-
       const aRaw = a[sortColumn];
       const bRaw = b[sortColumn];
-
       const aComp: number | string = isDate
         ? new Date(String(aRaw)).getTime()
         : String(aRaw ?? "");
       const bComp: number | string = isDate
         ? new Date(String(bRaw)).getTime()
         : String(bRaw ?? "");
-
       let cmp: number;
-
-      if (typeof aComp === "number" && typeof bComp === "number") {
+      if (typeof aComp === "number" && typeof bComp === "number")
         cmp = aComp - bComp;
-      } else {
-        const aStr = String(aComp).toLowerCase();
-        const bStr = String(bComp).toLowerCase();
-        cmp = aStr.localeCompare(bStr);
-      }
-
+      else
+        cmp = String(aComp)
+          .toLowerCase()
+          .localeCompare(String(bComp).toLowerCase());
       return sortDirection === "asc" ? cmp : -cmp;
     });
 
     return result;
   }, [data, debouncedFilters, sortColumn, sortDirection]);
 
-  // Paginate data
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
     return filteredAndSortedData.slice(startIndex, startIndex + pageSize);
@@ -134,9 +127,9 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const totalPages = Math.ceil(filteredAndSortedData.length / pageSize);
 
   const handleSort = (column: keyof SurveyRow) => {
-    if (sortColumn === column) {
+    if (sortColumn === column)
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
+    else {
       setSortColumn(column);
       setSortDirection("asc");
     }
@@ -144,16 +137,21 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
   const handleFilterChange = (key: keyof TableFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
-    setCurrentPage(1); // Reset to first page when filtering
+    setCurrentPage(1);
   };
 
   const handlePrintPDF = () => {
-    // Mock PDF generation
+    // mock only
     console.log("Generating PDF for row:", selectedRow);
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "dd MMM yyyy, HH:mm", { locale: th });
+  const formatDate = (dateString: string) =>
+    format(new Date(dateString), "dd MMM yyyy, HH:mm", { locale: th });
+
+  const openView = (row: SurveyRow) => {
+    setViewRow(row);
+    setSelectedRow(row.id);
+    setViewOpen(true);
   };
 
   return (
@@ -184,10 +182,13 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
           <Button onClick={onCreateNew} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             กรอกข้อมูล
+          </Button>{" "}
+          <Button onClick={onCreateNew} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            เพิ่มข้อมูล Master Data
           </Button>
         </div>
 
@@ -318,13 +319,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     กรอกเมื่อวันที่ <ArrowUpDown className="ml-2 h-3 w-3" />
                   </Button>
                 </TableHead>
+                <TableHead className="w-24 text-center">ดู</TableHead>
                 <TableHead className="w-16">เลือก</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={9} className="p-0">
                     <EmptyState />
                   </TableCell>
                 </TableRow>
@@ -345,6 +347,15 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {formatDate(row.submittedAt)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openView(row)}>
+                        <FileText className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <RadioGroup
@@ -394,6 +405,73 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           </div>
         </div>
       )}
+
+      {/* View Modal */}
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>รายละเอียดแบบสำรวจ</DialogTitle>
+            <DialogDescription>
+              ข้อมูลจากรายการที่เลือกจะแสดงด้านล่าง
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewRow && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">คณะ</p>
+                  <p className="font-medium">{viewRow.faculty}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">ภาควิชา</p>
+                  <p className="font-medium">{viewRow.department}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-gray-500">สาขาวิชา</p>
+                  <p className="font-medium">{viewRow.program}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500">รูปแบบรับสมัคร</p>
+                  <Badge variant="secondary">{viewRow.intakeMode}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">ผู้ประสานงาน</p>
+                  <p className="font-medium">{viewRow.coordinator}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500">โทรศัพท์</p>
+                  <p className="font-medium">{viewRow.phone}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">อีเมล</p>
+                  <p className="font-medium text-blue-600">
+                    {viewRow.submitterEmail}
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-gray-500">กรอกเมื่อ</p>
+                  <p className="font-medium">
+                    {formatDate(viewRow.submittedAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setViewOpen(false)}>
+              ปิด
+            </Button>
+            <DialogTrigger asChild>
+              <Button onClick={() => setViewOpen(false)}>ตกลง</Button>
+            </DialogTrigger>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

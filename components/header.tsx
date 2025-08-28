@@ -1,6 +1,11 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  
+} from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +17,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LogOut, User, Settings } from "lucide-react";
 import { mockUser } from "@/lib/mock-data";
+import { Database } from "lucide-react";
+
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -36,7 +43,9 @@ export function Header({ onLogout }: HeaderProps) {
           <div className="flex items-center space-x-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 space-x-2 px-3">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 space-x-2 px-3">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={mockUser.avatar} alt={mockUser.name} />
                     <AvatarFallback className="bg-gradient-to-br from-red-500 to-orange-500 text-white">
@@ -44,7 +53,9 @@ export function Header({ onLogout }: HeaderProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col space-y-1">
-                    <span className="text-sm font-medium">{mockUser.initials}</span>
+                    <span className="text-sm font-medium">
+                      {mockUser.initials}
+                    </span>
                   </div>
                   <Badge variant="secondary" className="text-xs">
                     {mockUser.role}
@@ -68,6 +79,10 @@ export function Header({ onLogout }: HeaderProps) {
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>การตั้งค่า</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Database className="mr-2 h-4 w-4" />
+                  <span>เพิ่มฐานข้อมูล</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout}>
