@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -40,7 +41,7 @@ import {
   Printer,
 } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { SurveyRow, TableFilters } from "@/lib/types";
+import { SurveyRow, TableFilters } from "@/types/types";
 import { mockSurveyData } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -186,9 +187,11 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             <Plus className="mr-2 h-4 w-4" />
             กรอกข้อมูล
           </Button>{" "}
-          <Button onClick={onCreateNew} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            เพิ่มข้อมูล Master Data
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/dashboard/add">
+              <Plus className="mr-2 h-4 w-4" />
+              เพิ่มข้อมูล Master Data
+            </Link>
           </Button>
         </div>
 

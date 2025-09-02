@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +18,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectContentSimple,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -26,21 +28,31 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import {
-  Calendar,
   AlertCircle,
+  Calendar,
   CheckCircle2,
-  Loader2,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
-import { FormData } from "@/lib/types";
+import { toast } from "sonner";
+
+import { FormData } from "@/types/types";
 import { faculties, intakeConfig, mockUser } from "@/lib/mock-data";
 import {
-  validateEmail,
-  validatePhone,
   formatPhone,
   isWithinApplyWindow,
+  validateEmail,
+  validatePhone,
 } from "@/lib/utils/validation";
-import { toast } from "sonner";
+
+import { getFaculties } from "@/api/facultyService";
+import { getDepartmentsByFaculty } from "@/api/departmentService";
+import { getProgramsByDepartment } from "@/api/programService";
+
+// -----------------------------------------------------------------------------
+// Types & Schemas
+// -----------------------------------------------------------------------------
+type Option = { value: string; label: string };
 
 const formSchema = z.object({
   faculty: z.string().min(1, "กรุณาเลือกคณะ"),
@@ -71,17 +83,35 @@ interface SurveyFormProps {
 }
 
 export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [availableDepartments, setAvailableDepartments] = useState<any[]>([]);
-  const [availablePrograms, setAvailablePrograms] = useState<any[]>([]);
-  const [showIntakeRounds, setShowIntakeRounds] = useState(false);
-  const [availableRounds, setAvailableRounds] = useState<string[]>([]);
+  // ---------------------------------------------------------------------------
+  // Loading / Options (Faculty)
+  // ---------------------------------------------------------------------------
+  const [options, setOptions] = useState<Option[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const isWindowOpen = isWithinApplyWindow(
-    intakeConfig.applyWindow.start,
-    intakeConfig.applyWindow.end
-  );
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const list: any = await getFaculties();
+        setOptions(
+          list.data.map((f: any) => ({
+            value: String(f._id),
+            label: f.title,
+          }))
+        );
+      } catch (err) {
+        console.error("getFaculties error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
+  // ---------------------------------------------------------------------------
+  // Form
+  // ---------------------------------------------------------------------------
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -92,7 +122,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
       intakeRound: "",
       coordinator: "",
       phone: "",
-      email: mockUser.email, // Prefill with logged-in user's email
+      email: mockUser.email,
     },
   });
 
@@ -100,37 +130,112 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
   const watchedDepartment = form.watch("department");
   const watchedIntakeMode = form.watch("intakeMode");
 
-  // Update departments when faculty changes
-  useEffect(() => {
-    if (watchedFaculty) {
-      const faculty = faculties.find((f) => f.id === watchedFaculty);
-      setAvailableDepartments(faculty?.departments || []);
+  // ---------------------------------------------------------------------------
+  // Derived flags
+  // ---------------------------------------------------------------------------
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isWindowOpen = isWithinApplyWindow(
+    intakeConfig.applyWindow.start,
+    intakeConfig.applyWindow.end
+  );
 
-      // Reset dependent fields
-      form.setValue("department", "");
-      form.setValue("program", "");
-    } else {
+  // ---------------------------------------------------------------------------
+  // Department & Program states
+  // ---------------------------------------------------------------------------
+  const [availableDepartments, setAvailableDepartments] = useState<any[]>([]);
+  const [availablePrograms, setAvailablePrograms] = useState<any[]>([]);
+  const [deptLoading, setDeptLoading] = useState(false);
+  const [progLoading, setProgLoading] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // Intake rounds UI states
+  // ---------------------------------------------------------------------------
+  const [showIntakeRounds, setShowIntakeRounds] = useState(false);
+  const [availableRounds, setAvailableRounds] = useState<string[]>([]);
+
+  // ---------------------------------------------------------------------------
+  // Effects: Load Departments by Faculty
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    let cancelled = false;
+
+    // reset child fields on faculty change
+    form.setValue("department", "");
+    form.setValue("program", "");
+    setAvailablePrograms([]);
+
+    if (!watchedFaculty) {
       setAvailableDepartments([]);
+      return;
     }
+
+    const loadDepartments = async () => {
+      setDeptLoading(true);
+      try {
+        const res = await getDepartmentsByFaculty(String(watchedFaculty)); // DepartmentResponse
+        if (cancelled) return;
+
+        const mapped = (res.data ?? []).map((d: any) => ({
+          id: String(d._id),
+          name: d.title,
+        }));
+        setAvailableDepartments(mapped);
+      } catch (err) {
+        console.error("getDepartmentsByFaculty error:", err);
+        if (!cancelled) setAvailableDepartments([]);
+      } finally {
+        if (!cancelled) setDeptLoading(false);
+      }
+    };
+
+    loadDepartments();
+    return () => {
+      cancelled = true;
+    };
   }, [watchedFaculty, form]);
 
-  // Update programs when department changes
+  // ---------------------------------------------------------------------------
+  // Effects: Load Programs by Department
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (watchedDepartment && watchedFaculty) {
-      const faculty = faculties.find((f) => f.id === watchedFaculty);
-      const department = faculty?.departments.find(
-        (d) => d.id === watchedDepartment
-      );
-      setAvailablePrograms(department?.programs || []);
+    let cancelled = false;
 
-      // Reset program field
-      form.setValue("program", "");
-    } else {
-      setAvailablePrograms([]);
-    }
-  }, [watchedDepartment, watchedFaculty, form]);
+    form.setValue("program", "");
+    setAvailablePrograms([]);
 
-  // Handle intake mode changes
+    if (!watchedDepartment) return;
+
+    const load = async () => {
+      setProgLoading(true);
+      try {
+        const res = await getProgramsByDepartment(String(watchedDepartment)); // ProgramResponse
+        if (cancelled) return;
+
+        const mapped =
+          (res?.data ?? []).map((p: any) => ({
+            id: String(p._id),
+            name: p.title,
+            open: !!p.active,
+          })) || [];
+
+        setAvailablePrograms(mapped);
+      } catch (err) {
+        console.error("getProgramsByDepartment error:", err);
+        if (!cancelled) setAvailablePrograms([]);
+      } finally {
+        if (!cancelled) setProgLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [watchedDepartment, form]);
+
+  // ---------------------------------------------------------------------------
+  // Effects: Intake mode → rounds
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (watchedIntakeMode) {
       const intakeMode = intakeConfig.intakeModes.find(
@@ -149,8 +254,6 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
         setShowIntakeRounds(false);
         setAvailableRounds([]);
       }
-
-      // Reset round selection
       form.setValue("intakeRound", "");
     } else {
       setShowIntakeRounds(false);
@@ -158,14 +261,16 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
     }
   }, [watchedIntakeMode, form]);
 
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // simulate API call
+      await new Promise((r) => setTimeout(r, 2000));
 
-      // Get faculty and department names for display
+      // NOTE: ตรรกะ mapping ชื่อยังคงอิง mock-data เดิม (คงไว้ตามคำสั่ง)
       const faculty = faculties.find((f) => f.id === values.faculty);
       const department = faculty?.departments.find(
         (d) => d.id === values.department
@@ -184,12 +289,9 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
       };
 
       onSubmit?.(formData);
-
       toast.success("ส่งข้อมูลสำเร็จ", {
         description: "ข้อมูลแบบสำรวจได้รับการบันทึกเรียบร้อยแล้ว",
       });
-
-      // Reset form
       form.reset();
     } catch (error) {
       toast.error("เกิดข้อผิดพลาด", {
@@ -200,6 +302,9 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
   const getStatusColor = () => {
     switch (intakeConfig.status) {
       case "open":
@@ -260,7 +365,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-6">
-            {/* Faculty Selection */}
+            {/* Faculty (เดิม) */}
             <FormField
               control={form.control}
               name="faculty"
@@ -270,27 +375,29 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
                     คณะ <span className="text-red-500">*</span>
                   </FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}>
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกคณะ" />
+                      <SelectTrigger disabled={loading}>
+                        <SelectValue
+                          placeholder={loading ? "กำลังโหลดคณะ..." : "เลือกคณะ"}
+                        />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {faculties.map((faculty) => (
-                        <SelectItem key={faculty.id} value={faculty.id}>
-                          {faculty.name}
+                    <SelectContentSimple>
+                      {options.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
                         </SelectItem>
                       ))}
-                    </SelectContent>
+                    </SelectContentSimple>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Department Selection */}
+            {/* Department (แก้เฉพาะส่วนนี้: ใช้ availableDepartments ที่มาจาก API) */}
             <FormField
               control={form.control}
               name="department"
@@ -303,32 +410,44 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={
-                      !watchedFaculty || availableDepartments.length === 0
+                      !watchedFaculty ||
+                      deptLoading ||
+                      availableDepartments.length === 0
                     }>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="เลือกภาควิชา" />
+                        <SelectValue
+                          placeholder={
+                            !watchedFaculty
+                              ? "กรุณาเลือกคณะก่อน"
+                              : deptLoading
+                              ? "กำลังโหลดภาควิชา..."
+                              : "เลือกภาควิชา"
+                          }
+                        />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContentSimple>
                       {availableDepartments.map((department) => (
                         <SelectItem key={department.id} value={department.id}>
                           {department.name}
                         </SelectItem>
                       ))}
-                      {availableDepartments.length === 0 && (
-                        <SelectItem value="ไม่มีข้อมูล" disabled>
-                          ไม่มีข้อมูล
-                        </SelectItem>
-                      )}
-                    </SelectContent>
+                      {!deptLoading &&
+                        availableDepartments.length === 0 &&
+                        watchedFaculty && (
+                          <SelectItem value="__empty__" disabled>
+                            ไม่มีข้อมูล
+                          </SelectItem>
+                        )}
+                    </SelectContentSimple>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Program Selection */}
+            {/* Program (เดิม – ยังไม่เชื่อม API) */}
             <FormField
               control={form.control}
               name="program"
@@ -337,17 +456,29 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
                   <FormLabel className="text-base font-medium">
                     สาขาวิชา <span className="text-red-500">*</span>
                   </FormLabel>
+
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={
-                      !watchedDepartment || availablePrograms.length === 0
+                      !watchedDepartment ||
+                      progLoading ||
+                      availablePrograms.length === 0
                     }>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="เลือกสาขาวิชา" />
+                        <SelectValue
+                          placeholder={
+                            !watchedDepartment
+                              ? "กรุณาเลือกภาควิชาก่อน"
+                              : progLoading
+                              ? "กำลังโหลดสาขาวิชา..."
+                              : "เลือกสาขาวิชา"
+                          }
+                        />
                       </SelectTrigger>
                     </FormControl>
+
                     <SelectContent>
                       {availablePrograms.map((program) => (
                         <SelectItem
@@ -357,13 +488,17 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
                           {program.name} {!program.open && " (ปิดรับสมัคร)"}
                         </SelectItem>
                       ))}
-                      {availablePrograms.length === 0 && (
-                        <SelectItem value="__no_department__" disabled>
-                          ไม่มีข้อมูล
-                        </SelectItem>
-                      )}
+
+                      {!progLoading &&
+                        watchedDepartment &&
+                        availablePrograms.length === 0 && (
+                          <SelectItem value="__no_programs__" disabled>
+                            ไม่มีข้อมูล
+                          </SelectItem>
+                        )}
                     </SelectContent>
                   </Select>
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -371,7 +506,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
 
             <Separator />
 
-            {/* Intake Mode */}
+            {/* Intake Mode (เดิม) */}
             <FormField
               control={form.control}
               name="intakeMode"
@@ -402,7 +537,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
               )}
             />
 
-            {/* Intake Rounds (Conditional) */}
+            {/* Intake Rounds (เดิม) */}
             {showIntakeRounds && availableRounds.length > 0 && (
               <FormField
                 control={form.control}
@@ -436,7 +571,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
 
             <Separator />
 
-            {/* Coordinator */}
+            {/* Coordinator (เดิม) */}
             <FormField
               control={form.control}
               name="coordinator"
@@ -453,7 +588,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
               )}
             />
 
-            {/* Phone */}
+            {/* Phone (เดิม) */}
             <FormField
               control={form.control}
               name="phone"
@@ -477,7 +612,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
               )}
             />
 
-            {/* Email */}
+            {/* Email (เดิม) */}
             <FormField
               control={form.control}
               name="email"
@@ -500,7 +635,7 @@ export function SurveyForm({ onSubmit, onBack }: SurveyFormProps) {
               )}
             />
 
-            {/* Submit Button */}
+            {/* Submit (เดิม) */}
             <div className="flex flex-col sm:flex-row gap-4 pt-6">
               {onBack && (
                 <Button

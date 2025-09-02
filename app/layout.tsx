@@ -1,7 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/toast";
 import { Kanit } from "next/font/google";
+import { ToastHub } from "@/components/ui/toast-hub";
 
 const kanit = Kanit({
   subsets: ["thai", "latin"],
@@ -23,11 +24,10 @@ export default function RootLayout({
   return (
     <html lang="th" className={kanit.variable}>
       <body className="font-sans antialiased">
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{ duration: 4000, className: "thai-text" }}
-        />
+        <Toaster>
+          <ToastHub />
+          {children}
+        </Toaster>
       </body>
     </html>
   );

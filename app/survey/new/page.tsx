@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { SurveyForm } from "@/components/survey-form";
-import { FormData } from "@/lib/types";
+import { FormData } from "@/types/types";
 
 export default function NewSurveyPage() {
   const router = useRouter();
@@ -10,7 +10,7 @@ export default function NewSurveyPage() {
   const handleSubmit = (data: FormData) => {
     // In a real app, this would submit to an API
     console.log("Form submitted:", data);
-    
+
     // Navigate back to dashboard after successful submission
     setTimeout(() => {
       router.push("/dashboard/overview");
