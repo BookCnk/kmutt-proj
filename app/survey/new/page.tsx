@@ -8,10 +8,8 @@ export default function NewSurveyPage() {
   const router = useRouter();
 
   const handleSubmit = (data: FormData) => {
-    // In a real app, this would submit to an API
     console.log("Form submitted:", data);
 
-    // Navigate back to dashboard after successful submission
     setTimeout(() => {
       router.push("/dashboard/overview");
     }, 1500);
