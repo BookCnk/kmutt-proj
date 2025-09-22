@@ -6,8 +6,8 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider } from "react-hook-form";
 
-import { Separator } from "@/components/ui/separator";
 import { Form } from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
 
 import AnnouncementBanner from "./AnnouncementBanner";
 import WindowStatusAlert from "./WindowStatusAlert";
@@ -22,17 +22,19 @@ import CoordinatorField from "./fields/CoordinatorField";
 import PhoneField from "./fields/PhoneField";
 import EmailField from "./fields/EmailField";
 
+import { createForm } from "@/api/formService";
 import { baseSchema, type FormValues } from "./schema";
 import { useFacultiesOptions } from "./hooks/useFacultiesOptions";
 import { useDepartmentsOptions } from "./hooks/useDepartmentsOptions";
 import { useProgramsOptions } from "./hooks/useProgramsOptions";
 import { useAdmissionOption } from "./hooks/useAdmissionOption";
-import type { IntakeConfig } from "./types";
 
-/** -------------------------------------------------------
- * คอนฟิก (ทำให้ self-contained ตามที่ขอ)
- * - สามารถย้ายไปไฟล์ config ภายหลังได้
- * ------------------------------------------------------ */
+import type { IntakeConfig } from "./types";
+import type { CreateFormDto, IntakeCalendar } from "@/types/form";
+
+/* ------------------------------------------------------------------ */
+/* Config                                                             */
+/* ------------------------------------------------------------------ */
 const intakeConfig: IntakeConfig = {
   term: "2/2568",
   announcementText:
@@ -61,27 +63,24 @@ const intakeConfig: IntakeConfig = {
   ],
 };
 
-// utils
+/* ------------------------------------------------------------------ */
+/* Utils                                                              */
+/* ------------------------------------------------------------------ */
 function isWithinApplyWindow(startISO: string, endISO: string) {
   const now = Date.now();
   return now >= Date.parse(startISO) && now <= Date.parse(endISO);
 }
+
 const emailDomainAllowed = (email: string, domains: string[]) => {
   const at = email.lastIndexOf("@");
   if (at === -1) return false;
   const domain = email.slice(at + 1).toLowerCase();
   return domains.some((d) => domain === d.toLowerCase());
 };
+
 const phoneLooksValid = (phone: string) =>
   /^[0-9+()\-.\s]{7,}$/.test(phone || "");
 
-// props
-type Props = {
-  onSubmit?: (data: FormValues) => void;
-  onBack?: () => void;
-};
-
-/* ---------------- Utils สำหรับ Banner ---------------- */
 const within = (now: number, startISO?: string, endISO?: string) => {
   if (!startISO || !endISO) return false;
   const s = Date.parse(startISO);
@@ -99,8 +98,8 @@ const computeBannerFromAdmissions = (list: any[]) => {
       status: "unknown" as const,
     };
   }
+
   const now = Date.now();
-  // เลือกอันที่กำลังเปิดรับวันนี้ก่อน ถ้าไม่มีใช้อันที่ term ใหม่สุด
   const bySort = [...list].sort(
     (a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
   );
@@ -109,17 +108,13 @@ const computeBannerFromAdmissions = (list: any[]) => {
   );
   const a = active ?? bySort[0];
 
-  // คำนวณสถานะ
   let status: "open" | "closing" | "closed" | "unknown" = "unknown";
   const s = Date.parse(a.application_window?.open_at ?? "");
   const e = Date.parse(a.application_window?.close_at ?? "");
   if (!Number.isNaN(s) && !Number.isNaN(e)) {
     if (now < s) status = "unknown";
     else if (now > e) status = "closed";
-    else {
-      const leftMs = e - now;
-      status = leftMs <= 1000 * 60 * 60 * 48 ? "closing" : "open"; // เหลือน้อยกว่า 48 ชม. = closing
-    }
+    else status = e - now <= 1000 * 60 * 60 * 48 ? "closing" : "open";
   }
 
   return {
@@ -130,8 +125,16 @@ const computeBannerFromAdmissions = (list: any[]) => {
   };
 };
 
+/* ------------------------------------------------------------------ */
+/* Component                                                          */
+/* ------------------------------------------------------------------ */
+type Props = {
+  onSubmit?: (data: FormValues) => void;
+  onBack?: () => void;
+};
+
 export default function SurveyForm({ onSubmit, onBack }: Props) {
-  // สร้าง schema runtime เพื่อเพิ่มกฎตาม config (email domain / phone)
+  /* -------- Schema (เพิ่มกฎ domain/phone เหมือนเดิม) -------- */
   const schema = useMemo(
     () =>
       baseSchema.superRefine((data, ctx) => {
@@ -160,13 +163,14 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     []
   );
 
+  /* -------- Form -------- */
   const methods = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       faculty: "",
       department: "",
-      program: "",
-      intakeMode: "",
+      programs: [], // << ใช้ array ของแถวโปรแกรม
+      intakeModes: [], // << array ของโหมด
       intakeRound: "",
       coordinator: "",
       phone: "",
@@ -181,65 +185,114 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     intakeConfig.applyWindow.end
   );
 
-  // watch values for cascading selects
+  /* -------- Watch (cascading selects) -------- */
   const facultyId = methods.watch("faculty");
   const departmentId = methods.watch("department");
-  const intakeModeId = methods.watch("intakeMode");
+  const intakeModeIds = methods.watch("intakeModes"); // string[]
+  const programsRows = methods.watch("programs"); // { program, masters?, doctorals? }[]
 
-  // load options
+  /* -------- Options loading -------- */
   const faculties = useFacultiesOptions();
   const departments = useDepartmentsOptions(facultyId || undefined);
   const programs = useProgramsOptions(departmentId || undefined);
+
   const admissions = useAdmissionOption();
+  // (ยังไม่ได้ใช้ใน UI แต่คงไว้เพื่อไม่เปลี่ยน flow)
   const banner = useMemo(
     () => computeBannerFromAdmissions(admissions.data),
     [admissions.data]
   );
 
-  // rounds availability
+  /* -------- Rounds visibility (รองรับ array) -------- */
   const { showRounds, rounds } = useMemo(() => {
-    const mode = intakeConfig.intakeModes.find((m) => m.id === intakeModeId);
-    if (!mode) return { showRounds: false, rounds: [] as string[] };
-    if ("rounds" in mode) return { showRounds: true, rounds: mode.rounds };
-    if ("days" in mode) {
+    const selected = new Set(intakeModeIds ?? []);
+    if (selected.has("rounds")) {
+      const cfg = intakeConfig.intakeModes.find(
+        (m) => "rounds" in m && m.id === "rounds"
+      ) as { rounds: string[] } | undefined;
+      return { showRounds: true, rounds: cfg?.rounds ?? [] };
+    }
+    if (selected.has("monthly")) {
+      const cfg = intakeConfig.intakeModes.find(
+        (m) => "days" in m && m.id === "monthly"
+      ) as { days: number[] } | undefined;
       return {
         showRounds: true,
-        rounds: mode.days.map((d) => `วันที่ ${d} ของทุกเดือน`),
+        rounds: (cfg?.days ?? []).map((d) => `วันที่ ${d} ของทุกเดือน`),
       };
     }
     return { showRounds: false, rounds: [] as string[] };
-  }, [intakeModeId]);
+  }, [intakeModeIds]);
 
-  const handleSubmit = async (values: FormValues) => {
-    setIsSubmitting(true);
-    try {
-      // ตัวอย่าง: รวม label ที่ผู้ใช้เลือกเพื่อส่งต่อ (ไม่ต้องพึ่ง mock)
-      const facultyName =
-        faculties.data.find((o) => o.value === values.faculty)?.label ??
-        values.faculty;
-      const departmentName =
-        departments.data.find((d) => d.id === values.department)?.name ??
-        values.department;
-      const programName =
-        programs.data.find((p) => p.id === values.program)?.name ??
-        values.program;
-
-      const payload: FormValues = {
-        ...values,
-        faculty: facultyName,
-        department: departmentName,
-        program: programName,
-      };
-
-      // simulate call
-      await new Promise((r) => setTimeout(r, 1200));
-      onSubmit?.(payload);
-      methods.reset();
-    } finally {
-      setIsSubmitting(false);
-    }
+  const normalizeId = (v: any): string => {
+    if (v == null) return "";
+    if (typeof v === "string" || typeof v === "number") return String(v);
+    if (typeof v === "object")
+      return String(v._id ?? v.id ?? v.value ?? v.code ?? "");
+    return "";
   };
 
+  /* -------- Submit -------- */
+const handleSubmit = async (values: FormValues) => {
+  setIsSubmitting(true);
+  try {
+    if (!Array.isArray(admissions?.data) || admissions.data.length === 0) {
+      throw new Error("ข้อมูลประกาศรับสมัครยังไม่พร้อม กรุณาลองอีกครั้ง");
+    }
+
+    const firstProgramId = values.programs?.[0]?.program ?? "";
+    if (!firstProgramId)
+      throw new Error("กรุณาเลือกสาขาวิชาอย่างน้อย 1 รายการ");
+
+    const admission = admissions.data[0];
+
+    const selected = new Set(values.intakeModes ?? []);
+    const intakeCalendar: IntakeCalendar = { rounds: [], monthly: [] };
+
+    if (selected.has("rounds")) {
+      intakeCalendar.rounds = (admission.rounds ?? []).map((r: any) => ({
+        active: r.open ?? true,
+        no: r.no,
+        interview_date: r.interview_date,
+      }));
+    }
+    if (selected.has("monthly")) {
+      intakeCalendar.monthly = (admission.monthly ?? []).map((m: any) => ({
+        active: m.open ?? true,
+        month: String(m.month ?? ""),
+        interview_date: m.interview_date,
+      }));
+    }
+
+    const payload: CreateFormDto = {
+      admission_id: String(admission._id),
+      faculty_id: String(values.faculty),
+      department_id: String(values.department),
+      program_id: String(firstProgramId),
+      intake_degree: {
+        master: { amount: 30, bachelor_req: true },
+        doctoral: { amount: 15, bachelor_req: true, master_req: true },
+      },
+      intake_calendar: intakeCalendar,
+      submitter: {
+        name: values.coordinator,
+        phone: values.phone,
+        email: values.email,
+      },
+      status: "received",
+    };
+
+    console.log("payload to API:", JSON.stringify(payload, null, 2));
+    await createForm(payload);
+    onSubmit?.(values);
+    methods.reset();
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+
+  /* -------- UI -------- */
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <AnnouncementBanner
@@ -248,6 +301,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
         calendarUrl={intakeConfig.calendarUrl}
         status={intakeConfig.status}
       />
+
       <WindowStatusAlert isOpen={isWindowOpen} />
 
       <div className="bg-white p-8 rounded-lg shadow-sm border">
@@ -261,16 +315,16 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
         <FormProvider {...methods}>
           <Form {...methods}>
             <form
-              onSubmit={methods.handleSubmit(handleSubmit)}
+              onSubmit={methods.handleSubmit(handleSubmit, (errors) =>
+                console.warn("RHForm errors:", errors)
+              )}
               className="space-y-6">
-              {/* Faculty */}
               <FacultySelect
                 name="faculty"
                 options={faculties.data}
                 loading={faculties.loading}
               />
 
-              {/* Department */}
               <DepartmentSelect
                 name="department"
                 facultySelected={!!facultyId}
@@ -278,9 +332,9 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
                 loading={departments.loading}
               />
 
-              {/* Program */}
+              {/* NOTE: ใช้ name="programs" ให้ตรงกับ schema */}
               <ProgramSelect
-                name="program"
+                name="programs"
                 departmentSelected={!!departmentId}
                 options={programs.data}
                 loading={programs.loading}
@@ -288,26 +342,21 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
               <Separator />
 
-              {/* Intake Mode */}
               <IntakeModeRadios
-                name="intakeModes"
+                name="intakeModes" // array field
                 admissions={admissions.data}
               />
 
-              {/* Intake Round */}
-              <IntakeRoundSelect
+              {/* <IntakeRoundSelect
                 name="intakeRound"
                 rounds={rounds}
                 visible={showRounds}
-              />
+              /> */}
 
               <Separator />
 
-              {/* Coordinator */}
               <CoordinatorField name="coordinator" />
-              {/* Phone */}
               <PhoneField name="phone" />
-              {/* Email */}
               <EmailField name="email" />
 
               <SubmitBar

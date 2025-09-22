@@ -704,24 +704,19 @@ export default function FacultyAdminPage() {
         <a href="/" className="text-sm text-blue-600 hover:underline">
           กลับหน้าแรก
         </a>
-      </header>
-
-      <Section title="เพิ่มคณะ">
-        <FacultyForm />
-      </Section>
-
-      <Section title="เพิ่มภาค">
-        <DepartmentForm />
-      </Section>
-
-      <Section title="เพิ่มสาขา">
-        <CapsEditor />
-      </Section>
-
+      </header>{" "}
       <Section title="ตั้งค่ารอบสัมภาษณ์">
         <RoundsEditor />
       </Section>
-
+      <Section title="เพิ่มคณะ">
+        <FacultyForm />
+      </Section>
+      <Section title="เพิ่มภาค">
+        <DepartmentForm />
+      </Section>
+      <Section title="เพิ่มสาขา">
+        <CapsEditor />
+      </Section>
       <Section title="รายการคณะ">
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-gray-500">ตัวอย่างข้อมูล</span>

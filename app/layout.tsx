@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toast";
 import { Kanit } from "next/font/google";
 import { ToastHub } from "@/components/ui/toast-hub";
+import Script from "next/script";
 
 const kanit = Kanit({
   subsets: ["thai", "latin"],
@@ -26,6 +27,10 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Toaster>
           <ToastHub />
+          <Script
+            src="https://accounts.google.com/gsi/client"
+            strategy="afterInteractive"
+          />
           {children}
         </Toaster>
       </body>

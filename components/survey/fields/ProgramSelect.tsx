@@ -1,8 +1,9 @@
-// components/survey/fields/ProgramSelect.tsx
 "use client";
 
 import { useMemo } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,19 +20,22 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import type { ProgramOption } from "../types";
-import { toast } from "sonner";
 
-/** โครงสร้างข้อมูลต่อแถว */
-export type ProgramRow = {
-  program: string; // program id
-  masters: number; // จำนวนรับ ป.โท
-  doctorals: number; // จำนวนรับ ป.เอก
+export type ProgramOption = {
+  id: string;
+  name: string;
+  open: boolean;
+  degree_level?: "master" | "doctoral";
+};
+
+type Row = {
+  program: string;
+  masters?: number;
+  doctorals?: number;
 };
 
 type Props = {
-  /** path ของ array ในฟอร์ม เช่น "programs" */
-  name: string;
+  name: string; // เช่น "programs"
   departmentSelected: boolean;
   options: ProgramOption[];
   loading: boolean;
@@ -43,36 +47,22 @@ export default function ProgramSelect({
   options,
   loading,
 }: Props) {
-  const { control, register, setValue, watch } = useFormContext();
+  const { control, register, setValue, watch, unregister } = useFormContext();
+  const { fields, append, remove } = useFieldArray({ control, name });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name, // e.g. "programs"
-  });
+  const rows = (Array.isArray(watch(name)) ? (watch(name) as Row[]) : []) ?? [];
 
-  // ✅ กัน crash: ดูค่าในฟอร์ม ถ้าไม่ใช่ array ให้กลายเป็น []
-  const raw = watch(name as any);
-  const rows: ProgramRow[] = Array.isArray(raw) ? (raw as ProgramRow[]) : [];
-
-  // ✅ สร้างเซ็ตของ program-id ที่ถูกเลือกอยู่ทั้งหมด
+  // กันเลือกสาขาซ้ำข้ามแถว
   const selectedIdsAll = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) {
-      if (r && r.program) set.add(String(r.program));
-    }
-    return set;
+    const s = new Set<string>();
+    rows.forEach((r) => r?.program && s.add(String(r.program)));
+    return s;
   }, [rows]);
 
-  const addRow = () =>
-    append({
-      program: "",
-      masters: 0,
-      doctorals: 0,
-    } as ProgramRow);
+  const addRow = () => append({ program: "", masters: 0, doctorals: 0 } as Row);
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <FormLabel className="text-lg font-semibold">
           สาขาวิชา <span className="text-red-500">*</span>
@@ -94,32 +84,58 @@ export default function ProgramSelect({
 
       <div className="space-y-6">
         {fields.map((field, idx) => {
-          const base = `${name}.${idx}`; // e.g. "programs.0"
+          const base = `${name}.${idx}`;
           const currentSelected = rows?.[idx]?.program ?? "";
 
-          // ชุด id ที่ต้อง disabled ในแถวนี้ (คือ id ที่ถูกใช้ในแถวอื่น)
+          // กันเลือกซ้ำในแถวอื่น ๆ
           const disabledIdsForThisRow = (() => {
             const s = new Set(selectedIdsAll);
             if (currentSelected) s.delete(String(currentSelected));
             return s;
           })();
 
+          const selectedProgram = options.find(
+            (p) => String(p.id) === String(currentSelected)
+          );
+          const level = selectedProgram?.degree_level;
+          const hasPickedProgram = !!currentSelected;
+
           const handleSelectChange = (val: string) => {
             if (disabledIdsForThisRow.has(val)) {
-              toast.warning("สาขานี้ถูกเลือกในรายการอื่นแล้ว");
+              toast.warning("สาขานี้ถูกเลือกแล้ว");
               return;
             }
             setValue(`${base}.program`, val, {
               shouldValidate: true,
               shouldDirty: true,
             });
+
+            // รีเซ็ต/ยกเลิกฟิลด์ตามระดับปริญญาที่เลือก
+            const picked = options.find((p) => String(p.id) === String(val));
+            if (picked?.degree_level === "master") {
+              setValue(`${base}.doctorals`, 0);
+              unregister(`${base}.doctorals`);
+            } else if (picked?.degree_level === "doctoral") {
+              setValue(`${base}.masters`, 0);
+              unregister(`${base}.masters`);
+            }
           };
+
+          // label และชื่อฟิลด์สำหรับ input จำนวนรับ
+          const inputLabel =
+            level === "master"
+              ? "จำนวนการรับระดับปริญญาโท *"
+              : level === "doctoral"
+              ? "จำนวนการรับระดับปริญญาเอก *"
+              : "จำนวนการรับ *";
+
+          const fieldName: "masters" | "doctorals" =
+            level === "doctoral" ? "doctorals" : "masters";
 
           return (
             <Card
               key={field.id}
               className="rounded-xl border border-blue-200 shadow-sm p-4 sm:p-5 space-y-4">
-              {/* Row header */}
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-blue-600">
                   รายการที่ {idx + 1}
@@ -133,7 +149,7 @@ export default function ProgramSelect({
                 </Button>
               </div>
 
-              {/* Select program */}
+              {/* เลือกสาขา */}
               <FormItem>
                 <FormLabel className="text-base font-medium">
                   เลือกสาขาวิชา
@@ -159,11 +175,13 @@ export default function ProgramSelect({
                   </FormControl>
                   <SelectContent>
                     {options.map((p) => {
-                      const pickedElsewhere = disabledIdsForThisRow.has(p.id);
+                      const pickedElsewhere = disabledIdsForThisRow.has(
+                        String(p.id)
+                      );
                       return (
                         <SelectItem
                           key={p.id}
-                          value={p.id}
+                          value={String(p.id)}
                           disabled={!p.open || pickedElsewhere}>
                           {p.name}
                           {!p.open && " (ปิดรับสมัคร)"}
@@ -171,42 +189,39 @@ export default function ProgramSelect({
                         </SelectItem>
                       );
                     })}
-                    {!loading && departmentSelected && options.length === 0 && (
-                      <SelectItem value="__no_programs__" disabled>
-                        ไม่มีข้อมูล
-                      </SelectItem>
-                    )}
                   </SelectContent>
                 </Select>
 
-                {/* ให้ RHF เก็บค่า/validate ตอน submit */}
+                {/* เก็บค่า program ใน RHF */}
                 <input
                   type="hidden"
                   {...register(`${base}.program` as const, { required: true })}
                 />
-
                 <FormMessage />
               </FormItem>
 
-              <div className="border-t border-blue-100" />
+              {!hasPickedProgram && (
+                <div className="rounded-md bg-blue-50 text-blue-700 border border-blue-100 px-3 py-2 text-sm">
+                  กรุณาเลือกสาขาก่อน จึงจะระบุจำนวนรับได้
+                </div>
+              )}
 
-              {/* Numbers grid */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                {/* Masters */}
+              {hasPickedProgram && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    จำนวนการรับระดับปริญญาโท *
-                  </label>
+                  <label className="text-sm font-medium">{inputLabel}</label>
                   <div className="relative">
                     <Input
                       type="number"
                       min={0}
                       step={1}
                       className="h-11 pr-14"
-                      {...register(`${base}.masters` as const, {
+                      {...register(`${base}.${fieldName}` as const, {
                         valueAsNumber: true,
                         required: true,
                         min: 0,
+                        // กัน NaN เงียบ ๆ หากช่องถูกล้างจนว่าง
+                        setValueAs: (v) =>
+                          v === "" || v === null ? undefined : Number(v),
                       })}
                     />
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
@@ -214,30 +229,7 @@ export default function ProgramSelect({
                     </span>
                   </div>
                 </div>
-
-                {/* Doctorals */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    จำนวนการรับระดับปริญญาเอก *
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={1}
-                      className="h-11 pr-14"
-                      {...register(`${base}.doctorals` as const, {
-                        valueAsNumber: true,
-                        required: true,
-                        min: 0,
-                      })}
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
-                      คน
-                    </span>
-                  </div>
-                </div>
-              </div>
+              )}
             </Card>
           );
         })}
