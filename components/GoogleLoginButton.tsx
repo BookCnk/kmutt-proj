@@ -1,7 +1,6 @@
-// src/components/GoogleLoginButton.tsx
 "use client";
 import * as React from "react";
-import api from "@/lib/api"; // axios instance ของคุณ
+import api from "@/lib/api";
 
 declare global {
   interface Window {
@@ -9,13 +8,26 @@ declare global {
   }
 }
 
+type LoginResponse = {
+  status: boolean;
+  message: string;
+  access_token: string;
+  data: {
+    id: string;
+    email: string;
+    name: string;
+    picture?: string;
+    role: string;
+  };
+};
+
 export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
   const googleBtnContainerRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  const initGsi = React.useCallback(() => {
     if (
       !window.google?.accounts?.id ||
       !clientId ||
@@ -29,24 +41,18 @@ export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
         try {
           const idToken = resp?.credential as string;
           if (!idToken) throw new Error("ไม่พบ ID Token");
-
           setLoading(true);
-          // backend ของคุณรอ body = { token: string }
-          const r = await api.post<{
-            status: boolean;
-            message: string;
-            access_token: string;
-            data: {
-              id: string;
-              email: string;
-              name: string;
-              picture?: string;
-              role: string;
-            };
-          }>("/auth/google", { token: idToken }, { withCredentials: true });
 
-          localStorage.setItem("token", r.data.access_token);
-          localStorage.setItem("user", JSON.stringify(r.data.data));
+          const r = await api.post<LoginResponse, LoginResponse>(
+            "/auth/google",
+            {
+              token: idToken,
+            }
+          );
+
+          localStorage.setItem("token", r.access_token);
+          localStorage.setItem("user", JSON.stringify(r.data));
+
           onDone?.();
         } catch (e: any) {
           console.error(e);
@@ -55,10 +61,12 @@ export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
           setLoading(false);
         }
       },
-      use_fedcm_for_prompt: true, // ช่วยลดปัญหา ITP/3rd-party cookie
+      ux_mode: "popup",
+      auto_select: false,
+      itp_support: true,
+      use_fedcm_for_prompt: true,
     });
 
-    // render ปุ่มจริงของ Google ลง container (เราจะคลิกมันผ่าน JS)
     window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
       type: "standard",
       theme: "outline",
@@ -67,22 +75,30 @@ export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
     });
   }, [clientId]);
 
-  const openPopup = () => {
-    setErr(null);
-    if (!window.google?.accounts?.id) {
-      setErr("ยังโหลดสคริปต์ Google ไม่เสร็จ");
+  React.useEffect(() => {
+    if (window.google?.accounts?.id) {
+      initGsi();
       return;
     }
-    // คลิกปุ่มจริงของ Google ภายใน container → เปิด popup
+    const onLoaded = () => initGsi();
+    window.addEventListener("gsi-loaded", onLoaded);
+    return () => window.removeEventListener("gsi-loaded", onLoaded);
+  }, [initGsi]);
+
+  const openPopup = () => {
+    setErr(null);
     const realBtn = googleBtnContainerRef.current?.querySelector(
       "div[role=button]"
     ) as HTMLDivElement | null;
-    realBtn?.click();
+    if (!realBtn) {
+      setErr("ยังโหลดสคริปต์ Google ไม่เสร็จ");
+      return;
+    }
+    realBtn.click();
   };
 
   return (
     <div className="space-y-2">
-      {/* ปุ่ม UI ของคุณ */}
       <button
         type="button"
         onClick={openPopup}
@@ -91,8 +107,7 @@ export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
         {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย Google"}
       </button>
 
-      {/* ปุ่มจริงของ Google (ซ่อนไว้ด้วย visually-hidden class) */}
-      <div className="sr-only" aria-hidden>
+      <div aria-hidden className="sr-only">
         <div ref={googleBtnContainerRef} />
       </div>
 

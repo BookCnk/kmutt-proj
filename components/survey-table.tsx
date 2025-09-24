@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { toast } from "sonner";
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Plus,
+  ArrowUpDown,
+  Printer,
+  Trash2,
+} from "lucide-react";
 
-import { getForms, deleteForm } from "@/api/formService";
-
+import { getForms, deleteForm, FormListParams } from "@/api/formService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,19 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Plus,
-  ArrowUpDown,
-  Printer,
-  Trash2,
-} from "lucide-react";
-
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { SurveyRow, TableFilters } from "@/types/types";
-import { mockSurveyData } from "@/lib/mock-data";
 
 /* ---------------- helpers ---------------- */
 function normalizeId(v: unknown): string {
@@ -72,6 +68,40 @@ function formatDateTH(dateString: string) {
     return "-";
   }
 }
+
+// — map ชื่อคอลัมน์ฝั่ง UI -> หมายเลข sort ของ Backend
+function mapSortKeyFrontToAPINumber(k: keyof SurveyRow): number | undefined {
+  switch (k) {
+    case "faculty":
+      return 1;
+    case "department":
+      return 2;
+    case "program":
+      return 3;
+    case "submitterName":
+      return 4;
+    case "submitterEmail":
+      return 5;
+    case "submittedAt":
+      return 6; // created_at
+    default:
+      return undefined;
+  }
+}
+
+export type SurveyRow = {
+  id: string;
+  faculty: string;
+  department: string;
+  program: string;
+  intakeMode: string;
+  coordinator: string;
+  phone: string;
+  submitterEmail: string;
+  submitterName: string;
+  submittedAt: string;
+};
+
 function mapFormToSurveyRow(doc: any): SurveyRow {
   const id = normalizeId(doc._id);
   const faculty = asText(doc.faculty_id);
@@ -108,20 +138,33 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
 }
 
 /* ---------------- component ---------------- */
+interface TableFilters {
+  faculty: string;
+  department: string;
+  program: string;
+  submitterName: string;
+  submitterEmail: string;
+}
+
 interface SurveyTableProps {
   onCreateNew?: () => void;
 }
 
 export function SurveyTable({ onCreateNew }: SurveyTableProps) {
-  const [data, setData] = useState<SurveyRow[]>([]);
+  const [rows, setRows] = useState<SurveyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // server-side page/sort/filter
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedRow, setSelectedRow] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<keyof SurveyRow>("submittedAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [selectedRow, setSelectedRow] = useState<string>("");
+
   const [filters, setFilters] = useState<TableFilters>({
     faculty: "",
     department: "",
@@ -129,6 +172,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     submitterName: "",
     submitterEmail: "",
   });
+  const debouncedFilters = useDebounce(filters, 300);
 
   // view modal
   const [viewOpen, setViewOpen] = useState(false);
@@ -138,89 +182,83 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string>("");
 
+  function normTH(s: string) {
+    return (s || "").trim().normalize("NFC");
+  }
+
+  /** ล็อก mapping ฝั่ง UI → คีย์ search_option ที่แบ็กเอนด์ต้องการ */
+  const SEARCH_OPTION_MAP: Record<
+    "faculty" | "department" | "program",
+    string
+  > = {
+    faculty: "faculty",
+    department: "department_name", // หรือ "department" ตามที่ Backend รองรับจริง
+    program: "program",
+  };
+
+  /** ใช้แม็พเดียวเป็นแหล่งจริง ไม่ต้องเดาในจุดอื่น */
+  function buildSearchParamsFromFilters(
+    f: TableFilters
+  ): Pick<FormListParams, "search" | "search_option"> {
+    const fac = normTH(f.faculty);
+    if (fac) return { search_option: SEARCH_OPTION_MAP.faculty, search: fac };
+
+    const dep = normTH(f.department);
+    if (dep)
+      return { search_option: SEARCH_OPTION_MAP.department, search: dep };
+
+    const prog = normTH(f.program);
+    if (prog) return { search_option: SEARCH_OPTION_MAP.program, search: prog };
+
+    return {};
+  }
+
+  // โหลดแบบ server-side ทุกครั้งที่มีการเปลี่ยน page/size/sort/filter
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
+    (async () => {
       setLoading(true);
       setLoadError("");
+
       try {
-        const res = await getForms();
-        const rawList: any[] = Array.isArray(res)
-          ? res
-          : Array.isArray((res as any)?.data)
-          ? (res as any).data
-          : [];
-        const mapped = rawList.map(mapFormToSurveyRow);
-        if (!cancelled) setData(mapped);
+        const sortNum = mapSortKeyFrontToAPINumber(sortColumn);
+        const { search, search_option } =
+          buildSearchParamsFromFilters(debouncedFilters);
+
+        const params: FormListParams = {
+          page: currentPage,
+          limit: pageSize,
+          search,
+          search_option,
+          submitter_name: normTH(debouncedFilters.submitterName) || undefined,
+          submitter_email: normTH(debouncedFilters.submitterEmail) || undefined,
+          sort: sortNum,
+          sort_option: sortNum ? sortDirection : undefined,
+        };
+
+        const { items, total, pages } = await getForms(params);
+        const mapped = items.map(mapFormToSurveyRow);
+
+        if (!cancelled) {
+          setRows(mapped);
+          setTotal(total);
+          setTotalPages(Math.max(1, pages));
+        }
       } catch (e: any) {
         if (!cancelled) {
           setLoadError(e?.message || "ไม่สามารถโหลดข้อมูลได้");
-          setData(mockSurveyData); // fallback demo
+          setRows([]);
+          setTotal(0);
+          setTotalPages(1);
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
-    };
-    run();
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const debouncedFilters = useDebounce(filters, 300);
-
-  const filteredAndSortedData = useMemo(() => {
-    const f = debouncedFilters;
-    const result = data
-      .filter(
-        (row) =>
-          (!f.faculty ||
-            row.faculty.toLowerCase().includes(f.faculty.toLowerCase())) &&
-          (!f.department ||
-            row.department
-              .toLowerCase()
-              .includes(f.department.toLowerCase())) &&
-          (!f.program ||
-            row.program.toLowerCase().includes(f.program.toLowerCase())) &&
-          (!f.submitterName ||
-            row.submitterName
-              .toLowerCase()
-              .includes(f.submitterName.toLowerCase())) &&
-          (!f.submitterEmail ||
-            row.submitterEmail
-              .toLowerCase()
-              .includes(f.submitterEmail.toLowerCase()))
-      )
-      .sort((a, b) => {
-        const isDate = sortColumn === "submittedAt";
-        const aRaw = a[sortColumn];
-        const bRaw = b[sortColumn];
-        const aComp: number | string = isDate
-          ? new Date(String(aRaw)).getTime()
-          : String(aRaw ?? "");
-        const bComp: number | string = isDate
-          ? new Date(String(bRaw)).getTime()
-          : String(bRaw ?? "");
-        const cmp =
-          typeof aComp === "number" && typeof bComp === "number"
-            ? aComp - bComp
-            : String(aComp)
-                .toLowerCase()
-                .localeCompare(String(bComp).toLowerCase());
-        return sortDirection === "asc" ? cmp : -cmp;
-      });
-    return result;
-  }, [data, debouncedFilters, sortColumn, sortDirection]);
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedData = filteredAndSortedData.slice(
-    startIndex,
-    startIndex + pageSize
-  );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredAndSortedData.length / pageSize)
-  );
+  }, [currentPage, pageSize, sortColumn, sortDirection, debouncedFilters]);
 
   const handleSort = useCallback(
     (column: keyof SurveyRow) => {
@@ -228,6 +266,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         sortColumn === column ? (prev === "asc" ? "desc" : "asc") : "asc"
       );
       setSortColumn(column);
+      setCurrentPage(1);
     },
     [sortColumn]
   );
@@ -261,22 +300,22 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     if (!id) return;
     setDeleteOpen(false);
 
-    // optimistic
-    const prev = data;
-    setData((ds) => ds.filter((r) => r.id !== id));
+    const prev = rows;
+    setRows((ds) => ds.filter((r) => r.id !== id));
 
     try {
       await deleteForm(id);
       toast.success("ลบรายการสำเร็จ");
       if (selectedRow === id) setSelectedRow("");
+      // รีเฟรชหน้าให้ sync total อีกครั้ง
+      setCurrentPage((p) => p); // trigger useEffect
     } catch (e: any) {
-      // rollback
-      setData(prev);
+      setRows(prev);
       toast.error(e?.message || "ลบรายการไม่สำเร็จ");
     } finally {
       setDeletingId("");
     }
-  }, [deletingId, data, selectedRow]);
+  }, [deletingId, rows, selectedRow]);
 
   /* -------------- render states -------------- */
   if (loading) {
@@ -286,7 +325,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       </div>
     );
   }
-  if (loadError && data.length === 0) {
+  if (loadError && rows.length === 0) {
     return (
       <div className="border rounded-lg bg-white p-8 text-center">
         <div className="text-red-600 font-medium mb-2">โหลดข้อมูลไม่สำเร็จ</div>
@@ -342,13 +381,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <span className="text-sm text-gray-600">
-            แสดง {filteredAndSortedData.length} รายการ
-          </span>
+          <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
           <Select
-            value={pageSize.toString()}
+            value={String(pageSize)}
             onValueChange={(v) => {
-              setPageSize(parseInt(v));
+              const n = parseInt(v);
+              setPageSize(n);
               setCurrentPage(1);
             }}>
             <SelectTrigger className="w-32">
@@ -370,6 +408,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="w-12">#</TableHead>
+
                 <TableHead className="min-w-[150px]">
                   <div className="flex flex-col space-y-2">
                     <Button
@@ -388,6 +427,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     />
                   </div>
                 </TableHead>
+
                 <TableHead className="min-w-[180px]">
                   <div className="flex flex-col space-y-2">
                     <Button
@@ -406,6 +446,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     />
                   </div>
                 </TableHead>
+
                 <TableHead className="min-w-[200px]">
                   <div className="flex flex-col space-y-2">
                     <Button
@@ -424,6 +465,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     />
                   </div>
                 </TableHead>
+
                 <TableHead className="min-w-[150px]">
                   <div className="flex flex-col space-y-2">
                     <Button
@@ -442,6 +484,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     />
                   </div>
                 </TableHead>
+
                 <TableHead className="min-w-[180px]">
                   <div className="flex flex-col space-y-2">
                     <Button
@@ -460,6 +503,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     />
                   </div>
                 </TableHead>
+
                 <TableHead className="min-w-[140px]">
                   <Button
                     variant="ghost"
@@ -468,6 +512,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     กรอกเมื่อวันที่ <ArrowUpDown className="ml-2 h-3 w-3" />
                   </Button>
                 </TableHead>
+
                 <TableHead className="w-28 text-center">ดู</TableHead>
                 <TableHead className="w-28 text-center">ลบ</TableHead>
                 <TableHead className="w-16">เลือก</TableHead>
@@ -475,17 +520,17 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             </TableHeader>
 
             <TableBody>
-              {paginatedData.length === 0 ? (
+              {rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="p-0">
                     <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedData.map((row, index) => (
+                rows.map((row, index) => (
                   <TableRow key={row.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">
-                      {startIndex + index + 1}
+                      {(currentPage - 1) * pageSize + index + 1}
                     </TableCell>
                     <TableCell className="font-medium">{row.faculty}</TableCell>
                     <TableCell>{row.department}</TableCell>
@@ -548,8 +593,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            หน้า {currentPage} จาก {totalPages} (รวม{" "}
-            {filteredAndSortedData.length} รายการ)
+            หน้า {currentPage} จาก {totalPages} (รวม {total} รายการ)
           </div>
           <div className="flex items-center space-x-2">
             <Button
@@ -639,7 +683,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           <DialogHeader>
             <DialogTitle>ยืนยันการลบ</DialogTitle>
             <DialogDescription>
-              คุณต้องการลบรายการนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+              การดำเนินการนี้ไม่สามารถย้อนกลับได้
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

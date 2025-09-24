@@ -36,20 +36,33 @@ const runQueue = (token: string | null) => {
   pendingQueue = [];
 };
 
+const isRefreshEndpoint = (url?: string) =>
+  !!url && url.includes("/auth/refresh");
+
 api.interceptors.response.use(
   (response: AxiosResponse) => response.data as any,
   async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+    const original = error.config as
+      | (InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        })
+      | undefined;
 
-    if (error.response?.status === 401 && !original?._retry) {
+    const status = error.response?.status;
+    const url = original?.url || "";
+
+    if (!original || isRefreshEndpoint(url)) {
+      return Promise.reject(error);
+    }
+
+    if (status === 401 && !original._retry) {
       if (isRefreshing) {
         const token = await new Promise<string | null>((resolve) =>
           pendingQueue.push(resolve)
         );
-        if (token && original.headers)
+        if (token && original.headers) {
           original.headers.set("Authorization", `Bearer ${token}`);
+        }
         original._retry = true;
         return api(original);
       }
@@ -58,19 +71,25 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post<{
+        // ใช้ instance เดียวกัน + ใส่ flag เพื่อกันโดนดักซ้ำ (เผื่อกรณีอนาคต)
+        const res = await api.post<{
           status: boolean;
           message: string;
           access_token: string;
           data: any;
-        }>(`${BASE_URL}/auth/refresh`, null, { withCredentials: true });
+        }>("/auth/refresh", null, {
+          headers: { "x-refresh": "1" },
+          // withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
+        });
 
-        const newToken = res.data?.access_token;
+        const newToken = (res as any)?.access_token;
         if (newToken) {
           localStorage.setItem("token", newToken);
           runQueue(newToken);
-          if (original.headers)
+
+          if (original.headers) {
             original.headers.set("Authorization", `Bearer ${newToken}`);
+          }
           return api(original);
         } else {
           runQueue(null);
@@ -100,7 +119,7 @@ api.interceptors.response.use(
   }
 );
 
-// helper (ไม่เปลี่ยน)
+// helper (เดิม)
 export const apiHelper = {
   get: async <T, D = any>(
     url: string,
