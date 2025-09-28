@@ -47,6 +47,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { useAuthStore } from "@/stores/auth";
+import { getAuthUser } from "@/utils/storage";
 
 /* ---------------- helpers ---------------- */
 function normalizeId(v: unknown): string {
@@ -212,6 +214,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
     return {};
   }
+  const storeUser = useAuthStore((s) => s.user);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const role = storeUser?.role ?? getAuthUser()?.role; // fallback จาก localStorage
+    setIsAdmin(role === "admin");
+  }, [storeUser]);
 
   // โหลดแบบ server-side ทุกครั้งที่มีการเปลี่ยน page/size/sort/filter
   useEffect(() => {
@@ -372,12 +380,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             กรอกข้อมูล
           </Button>
 
-          <Button asChild className="w-full sm:w-auto">
-            <Link href="/dashboard/add">
-              <Plus className="mr-2 h-4 w-4" />
-              เพิ่มข้อมูล Master Data
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/dashboard/add">
+                <Plus className="mr-2 h-4 w-4" />
+                เพิ่มข้อมูล Master Data
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">

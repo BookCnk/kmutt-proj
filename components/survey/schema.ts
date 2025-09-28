@@ -6,11 +6,21 @@ const isoDate = z
   .string()
   .refine((v) => !Number.isNaN(Date.parse(v)), "รูปแบบวันที่ไม่ถูกต้อง");
 
-const programRowSchema = z.object({
-  program: z.string().min(1, "กรุณาเลือกสาขาวิชา"),
-  masters: z.number().int().min(0).optional(),
-  doctorals: z.number().int().min(0).optional(),
-});
+// ✅ เพิ่มฟิลด์ *_req (boolean) และใส่ .passthrough() กันคีย์หลุด
+const programRowSchema = z
+  .object({
+    program: z.string().min(1, "กรุณาเลือกสาขาวิชา"),
+
+    // master
+    masters: z.number().int().min(0).optional(),
+    master_bachelor_req: z.boolean().optional(),
+
+    // doctoral
+    doctorals: z.number().int().min(0).optional(),
+    doctoral_bachelor_req: z.boolean().optional(),
+    doctoral_master_req: z.boolean().optional(),
+  })
+  .passthrough();
 
 const intakeRoundItemSchema = z.object({
   no: z.number().int().nonnegative().optional(), // ให้ว่างได้ เดี๋ยวไปจัดลำดับตอนส่ง
@@ -18,8 +28,7 @@ const intakeRoundItemSchema = z.object({
 });
 
 const intakeMonthlyItemSchema = z.object({
-  no: z.number().int().nonnegative().optional(), // ให้ว่างได้ เดี๋ยวไปจัดลำดับตอนส่ง
-  month: z.union([z.string(), z.number()]).optional(), // ชื่อเดือนหรือเลขเดือน
+  month: z.union([z.string(), z.number()]).optional(),
   interview_date: isoDate,
 });
 
@@ -50,7 +59,7 @@ export const baseSchema = z.object({
   phone: z.string().min(1, "กรุณากรอกหมายเลขโทรศัพท์"),
   email: z.string().min(1, "กรุณากรอกอีเมล").email("รูปแบบอีเมลไม่ถูกต้อง"),
 
-  // ✅ เพิ่ม intake_calendar แบบ optional + default เพื่อไม่ให้ค่าโดน strip
+  // เก็บปฏิทินแบบ optional + default กันโดน strip
   intake_calendar: intakeCalendarSchema.optional(),
 });
 

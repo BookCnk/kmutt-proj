@@ -18,19 +18,22 @@ export const getDepartmentById = async (id: string): Promise<Department> =>
 export const createDepartment = async (
   payload: CreateDepartmentDto
 ): Promise<Department> =>
-  api.post<Department, Department, CreateDepartmentDto>(BASE, payload);
+  api.post<Department, Department, CreateDepartmentDto>(
+    `/admin${BASE}`,
+    payload
+  );
 
 export const updateDepartment = async (
   id: string,
   payload: UpdateDepartmentDto
 ): Promise<Department> =>
   api.put<Department, Department, UpdateDepartmentDto>(
-    `${BASE}/${id}`,
+    `/admin${BASE}/${id}`,
     payload
   );
 
 export const deleteDepartment = async (id: string): Promise<void> => {
-  await api.delete<void, void>(`${BASE}/${id}`);
+  await api.delete<void, void>(`/admin${BASE}/${id}`);
 };
 
 // get departments by facultyId

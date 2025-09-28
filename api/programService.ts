@@ -18,16 +18,16 @@ export const getProgramById = async (id: string): Promise<Program> =>
 export const createProgram = async (
   payload: CreateProgramDto
 ): Promise<Program> =>
-  api.post<Program, Program, CreateProgramDto>(BASE, payload);
+  api.post<Program, Program, CreateProgramDto>(`/admin${BASE}`, payload);
 
 export const updateProgram = async (
   id: string,
   payload: UpdateProgramDto
 ): Promise<Program> =>
-  api.put<Program, Program, UpdateProgramDto>(`${BASE}/${id}`, payload);
+  api.put<Program, Program, UpdateProgramDto>(`/admin${BASE}/${id}`, payload);
 
 export const deleteProgram = async (id: string): Promise<void> => {
-  await api.delete<void, void>(`${BASE}/${id}`);
+  await api.delete<void, void>(`/admin${BASE}/${id}`);
 };
 
 // --- Filters ---

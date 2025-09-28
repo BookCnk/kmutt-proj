@@ -1,7 +1,9 @@
+// src/components/survey/fields/ProgramSelect.tsx
 "use client";
-
+import * as React from "react";
 import { useMemo } from "react";
-import { useFieldArray, useFormContext } from "react-hook-form";
+import { Controller, useFieldArray, useFormContext } from "react-hook-form";
+
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -30,12 +32,19 @@ export type ProgramOption = {
 
 type Row = {
   program: string;
-  masters?: number;
-  doctorals?: number;
+
+  // master fields
+  masters?: number; // amount
+  master_bachelor_req?: boolean;
+
+  // doctoral fields
+  doctorals?: number; // amount
+  doctoral_bachelor_req?: boolean;
+  doctoral_master_req?: boolean;
 };
 
 type Props = {
-  name: string; // เช่น "programs"
+  name: string; // e.g. "programs"
   departmentSelected: boolean;
   options: ProgramOption[];
   loading: boolean;
@@ -59,7 +68,15 @@ export default function ProgramSelect({
     return s;
   }, [rows]);
 
-  const addRow = () => append({ program: "", masters: 0, doctorals: 0 } as Row);
+  const addRow = () =>
+    append({
+      program: "",
+      masters: undefined,
+      master_bachelor_req: false,
+      doctorals: undefined,
+      doctoral_bachelor_req: false,
+      doctoral_master_req: false,
+    } as Row);
 
   return (
     <div className="space-y-4">
@@ -113,24 +130,19 @@ export default function ProgramSelect({
             // รีเซ็ต/ยกเลิกฟิลด์ตามระดับปริญญาที่เลือก
             const picked = options.find((p) => String(p.id) === String(val));
             if (picked?.degree_level === "master") {
-              setValue(`${base}.doctorals`, 0);
+              setValue(`${base}.doctorals`, undefined);
+              setValue(`${base}.doctoral_bachelor_req`, false);
+              setValue(`${base}.doctoral_master_req`, false);
               unregister(`${base}.doctorals`);
+              unregister(`${base}.doctoral_bachelor_req`);
+              unregister(`${base}.doctoral_master_req`);
             } else if (picked?.degree_level === "doctoral") {
-              setValue(`${base}.masters`, 0);
+              setValue(`${base}.masters`, undefined);
+              setValue(`${base}.master_bachelor_req`, false);
               unregister(`${base}.masters`);
+              unregister(`${base}.master_bachelor_req`);
             }
           };
-
-          // label และชื่อฟิลด์สำหรับ input จำนวนรับ
-          const inputLabel =
-            level === "master"
-              ? "จำนวนการรับระดับปริญญาโท *"
-              : level === "doctoral"
-              ? "จำนวนการรับระดับปริญญาเอก *"
-              : "จำนวนการรับ *";
-
-          const fieldName: "masters" | "doctorals" =
-            level === "doctoral" ? "doctorals" : "masters";
 
           return (
             <Card
@@ -202,33 +214,206 @@ export default function ProgramSelect({
 
               {!hasPickedProgram && (
                 <div className="rounded-md bg-blue-50 text-blue-700 border border-blue-100 px-3 py-2 text-sm">
-                  กรุณาเลือกสาขาก่อน จึงจะระบุจำนวนรับได้
+                  กรุณาเลือกสาขาก่อน จึงจะระบุจำนวนรับ/เงื่อนไขได้
                 </div>
               )}
 
               {hasPickedProgram && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{inputLabel}</label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={1}
-                      className="h-11 pr-14"
-                      {...register(`${base}.${fieldName}` as const, {
-                        valueAsNumber: true,
-                        required: true,
-                        min: 0,
-                        // กัน NaN เงียบ ๆ หากช่องถูกล้างจนว่าง
-                        setValueAs: (v) =>
-                          v === "" || v === null ? undefined : Number(v),
-                      })}
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
-                      คน
-                    </span>
-                  </div>
-                </div>
+                <>
+                  {/* master-only */}
+                  {level === "master" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">
+                        จำนวนการรับระดับปริญญาโท *
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          className="h-11 pr-14"
+                          {...register(`${base}.masters` as const, {
+                            valueAsNumber: true,
+                            required: true,
+                            min: 0,
+                            setValueAs: (v) =>
+                              v === "" || v == null ? undefined : Number(v),
+                          })}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
+                          คน
+                        </span>
+                      </div>
+
+                      {/* ✔ ใช้ Controller เพื่อได้ boolean จริง */}
+                      <label className="flex items-center gap-2 text-sm">
+                        <Controller
+                          name={`${base}.master_bachelor_req` as const}
+                          control={control}
+                          render={({ field }) => (
+                            <input
+                              type="checkbox"
+                              checked={!!field.value}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                            />
+                          )}
+                        />
+                        ต้องสำเร็จปริญญาตรี (bachelor_req)
+                      </label>
+                    </div>
+                  )}
+
+                  {/* doctoral-only */}
+                  {level === "doctoral" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">
+                        จำนวนการรับระดับปริญญาเอก *
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          className="h-11 pr-14"
+                          {...register(`${base}.doctorals` as const, {
+                            valueAsNumber: true,
+                            required: true,
+                            min: 0,
+                            setValueAs: (v) =>
+                              v === "" || v == null ? undefined : Number(v),
+                          })}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
+                          คน
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <label className="flex items-center gap-2">
+                          <Controller
+                            name={`${base}.doctoral_bachelor_req` as const}
+                            control={control}
+                            render={({ field }) => (
+                              <input
+                                type="checkbox"
+                                checked={!!field.value}
+                                onChange={(e) =>
+                                  field.onChange(e.target.checked)
+                                }
+                              />
+                            )}
+                          />
+                          ต้องสำเร็จปริญญาตรี (bachelor_req)
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <Controller
+                            name={`${base}.doctoral_master_req` as const}
+                            control={control}
+                            render={({ field }) => (
+                              <input
+                                type="checkbox"
+                                checked={!!field.value}
+                                onChange={(e) =>
+                                  field.onChange(e.target.checked)
+                                }
+                              />
+                            )}
+                          />
+                          ต้องสำเร็จปริญญาโท (master_req)
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ไม่ระบุ degree_level => ให้กรอกได้ทั้งสองฝั่ง */}
+                  {!level && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium">
+                          โท: จำนวนรับ
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          {...register(`${base}.masters` as const, {
+                            valueAsNumber: true,
+                            min: 0,
+                            setValueAs: (v) =>
+                              v === "" || v == null ? undefined : Number(v),
+                          })}
+                        />
+                        <label className="flex items-center gap-2 text-sm">
+                          <Controller
+                            name={`${base}.master_bachelor_req` as const}
+                            control={control}
+                            render={({ field }) => (
+                              <input
+                                type="checkbox"
+                                checked={!!field.value}
+                                onChange={(e) =>
+                                  field.onChange(e.target.checked)
+                                }
+                              />
+                            )}
+                          />
+                          ต้องจบตรี
+                        </label>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium">
+                          เอก: จำนวนรับ
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          {...register(`${base}.doctorals` as const, {
+                            valueAsNumber: true,
+                            min: 0,
+                            setValueAs: (v) =>
+                              v === "" || v == null ? undefined : Number(v),
+                          })}
+                        />
+                        <div className="space-y-2 text-sm">
+                          <label className="flex items-center gap-2">
+                            <Controller
+                              name={`${base}.doctoral_bachelor_req` as const}
+                              control={control}
+                              render={({ field }) => (
+                                <input
+                                  type="checkbox"
+                                  checked={!!field.value}
+                                  onChange={(e) =>
+                                    field.onChange(e.target.checked)
+                                  }
+                                />
+                              )}
+                            />
+                            ต้องจบตรี
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <Controller
+                              name={`${base}.doctoral_master_req` as const}
+                              control={control}
+                              render={({ field }) => (
+                                <input
+                                  type="checkbox"
+                                  checked={!!field.value}
+                                  onChange={(e) =>
+                                    field.onChange(e.target.checked)
+                                  }
+                                />
+                              )}
+                            />
+                            ต้องจบโท
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </Card>
           );

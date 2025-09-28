@@ -57,7 +57,6 @@ export interface Form extends CreateFormDto {
 }
 
 export type CreateFormPayloadV2 = {
-  user_id: string;
   admission_id: string;
   faculty_id: string;
   department_id: string;

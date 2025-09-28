@@ -1,10 +1,10 @@
-// components/survey/SurveyForm.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +24,7 @@ import EmailField from "./fields/EmailField";
 
 import { createForm } from "@/api/formService";
 import { useAuthStore } from "@/stores/auth";
+import { getAuthUser } from "@/utils/storage";
 
 import { baseSchema, type FormValues } from "./schema";
 import { useFacultiesOptions } from "./hooks/useFacultiesOptions";
@@ -48,7 +49,7 @@ const intakeConfig: IntakeConfig = {
     end: "2025-11-25T16:59:59.000Z",
   },
   emailPolicy: {
-    allowedDomains: ["mail.kmutt.ac.th", "kmutt.ac.th"],
+    allowedDomains: ["gmail.com"],
   },
   intakeModes: [
     {
@@ -135,21 +136,12 @@ type Props = {
   onBack?: () => void;
 };
 
-/** เพิ่ม type เฉพาะตอน submit เพื่ออ่านค่า intake_calendar จาก RHF */
-type SubmitValues = FormValues & {
-  intake_calendar?: {
-    rounds?: Array<{ no?: number; interview_date?: string }>;
-    monthly?: Array<{
-      no?: number;
-      month?: string | number;
-      interview_date?: string;
-    }>;
-  };
-};
-
 export default function SurveyForm({ onSubmit, onBack }: Props) {
   /* -------- Auth: user_id สำหรับแนบไปให้หลังบ้าน -------- */
   const authUser = useAuthStore((s) => s.user);
+  const emailFromStorage = getAuthUser()?.email ?? undefined;
+  const initialEmail =
+    authUser?.email ?? emailFromStorage ?? "example@mail.kmutt.ac.th";
   const fallbackUserId =
     typeof window !== "undefined"
       ? (() => {
@@ -202,7 +194,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
       intakeRound: "",
       coordinator: "",
       phone: "",
-      email: "example@mail.kmutt.ac.th",
+      email: initialEmail || "",
       intake_calendar: { rounds: [], monthly: [] },
     } as any,
     mode: "onTouched",
@@ -218,7 +210,6 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   const facultyId = methods.watch("faculty");
   const departmentId = methods.watch("department");
   const intakeModeIds = methods.watch("intakeModes"); // string[]
-  // const programsRows = methods.watch("programs");
 
   /* -------- Options loading -------- */
   const faculties = useFacultiesOptions();
@@ -277,7 +268,6 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
       const calendarRaw = (methods.getValues("intake_calendar") ?? {}) as {
         rounds?: Array<{ no?: number; interview_date?: string }>;
         monthly?: Array<{
-          no?: number;
           month?: string | number;
           interview_date?: string;
         }>;
@@ -300,31 +290,42 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
       const pickedMonthly = pickedMonthlySrc
         .filter((m) => m && m.interview_date)
-        .map((m, idx) => {
-          const no = typeof m.no === "number" ? m.no : idx + 1;
-          return {
-            no,
-            month: m.month ?? no,
-            interview_date: new Date(String(m.interview_date)).toISOString(),
-          };
-        });
+        .map((m) => ({
+          ...(m.month !== undefined ? { month: m.month } : {}),
+          interview_date: new Date(String(m.interview_date)).toISOString(),
+        }));
 
-      // 2) map โปรแกรมที่เลือก -> intake_programs[]
-      const intake_programs = values.programs.map((row: any) => ({
-        program_id: String(normalizeId(row.program)),
-        intake_degree: {
-          master: { amount: 30, bachelor_req: true },
-          doctoral: { amount: 15, bachelor_req: true, master_req: true },
-        },
-        intake_calendar: {
-          rounds: pickedRounds,
-          monthly: pickedMonthly,
-        } as IntakeCalendar,
-      }));
+      // 2) map โปรแกรมที่เลือก -> intake_programs[] (เลิก hardcode)
+      const intake_programs = (values.programs as any[]).map((row) => {
+        const program_id = String(normalizeId(row.program));
+
+        const intake_degree: any = {};
+        if (typeof row.masters === "number" && !Number.isNaN(row.masters)) {
+          intake_degree.master = {
+            amount: row.masters,
+            bachelor_req: !!row.master_bachelor_req,
+          };
+        }
+        if (typeof row.doctorals === "number" && !Number.isNaN(row.doctorals)) {
+          intake_degree.doctoral = {
+            amount: row.doctorals,
+            bachelor_req: !!row.doctoral_bachelor_req,
+            master_req: !!row.doctoral_master_req,
+          };
+        }
+
+        return {
+          program_id,
+          intake_degree,
+          intake_calendar: {
+            rounds: pickedRounds,
+            monthly: pickedMonthly,
+          } as IntakeCalendar,
+        };
+      });
 
       // 3) payload V2
       const payload: CreateFormPayloadV2 = {
-        user_id: String(currentUserId),
         admission_id: String(admission._id),
         faculty_id: String(values.faculty),
         department_id: String(values.department),
@@ -338,17 +339,21 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
       };
 
       await createForm(payload);
+      toast.success("ส่งแบบสำเร็จ");
       onSubmit?.(values);
       methods.reset();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "ส่งแบบไม่สำเร็จ");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
   /* -------- UI -------- */
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* ถ้าต้องการโชว์ banner จาก admissions จริง ให้เปลี่ยน props มาใช้ 'banner' ที่คำนวณไว้ */}
       <AnnouncementBanner
         term={intakeConfig.term}
         text={intakeConfig.announcementText}
@@ -400,6 +405,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
                 name="intakeModes" // array field
                 admissions={admissions.data}
               />
+
               <Separator />
 
               <CoordinatorField name="coordinator" />

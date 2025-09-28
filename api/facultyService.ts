@@ -13,7 +13,7 @@ export const getFacultyById = async (id: string): Promise<Faculty> =>
 export const createFaculty = async (
   payload: CreateFacultyDto
 ): Promise<Faculty> =>
-  api.post<Faculty, Faculty, CreateFacultyDto>(BASE, payload);
+  api.post<Faculty, Faculty, CreateFacultyDto>(`/admin${BASE}`, payload);
 
 export const updateFaculty = async (
   id: string,
