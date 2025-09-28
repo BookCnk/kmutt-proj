@@ -1,6 +1,11 @@
 // src/api/formService.ts
 import api from "@/lib/api";
-import { Form, CreateFormDto, UpdateFormDto, FormStatus } from "@/types/form";
+import {
+  Form,
+  CreateFormDto,
+  UpdateFormDto,
+  CreateFormPayloadV2,
+} from "@/types/form";
 
 export const BASE = "/form";
 
@@ -87,8 +92,11 @@ export const getFormsRaw = () => getForms() as Promise<Form[]>;
 export const getFormById = async (id: string): Promise<Form> =>
   api.get<Form, Form>(`${BASE}/${id}`);
 
-export const createForm = async (payload: CreateFormDto): Promise<Form> =>
-  api.post<Form, Form, CreateFormDto>(BASE, payload);
+export const createForm = async (payload: CreateFormPayloadV2) =>
+  api.post<{ status: boolean; message?: string; data?: any }, CreateFormPayloadV2>(
+    BASE,
+    payload
+  );
 
 export const updateForm = async (
   id: string,
@@ -108,14 +116,14 @@ export const getFormsByAdmission = async (
 export const getFormsByProgram = async (programId: string): Promise<Form[]> =>
   api.get<Form[], Form[]>(`${BASE}/program/${programId}`);
 
-export const getFormsByStatus = async (status: FormStatus): Promise<Form[]> =>
+export const getFormsByStatus = async (status: any): Promise<Form[]> =>
   api.get<Form[], Form[]>(`${BASE}/status/${status}`);
 
 // อัปเดตสถานะอย่างเดียว
 export const updateFormStatus = async (
   id: string,
-  status: FormStatus
+  status: any
 ): Promise<Form> =>
-  api.put<Form, Form, { status: FormStatus }>(`${BASE}/${id}/status`, {
+  api.put<Form, Form, { status: any }>(`${BASE}/${id}/status`, {
     status,
   });

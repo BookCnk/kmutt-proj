@@ -17,12 +17,14 @@ import FacultySelect from "./fields/FacultySelect";
 import DepartmentSelect from "./fields/DepartmentSelect";
 import ProgramSelect from "./fields/ProgramSelect";
 import IntakeModeRadios from "./fields/IntakeModeRadios";
-import IntakeRoundSelect from "./fields/IntakeRoundSelect";
+// import IntakeRoundSelect from "./fields/IntakeRoundSelect";
 import CoordinatorField from "./fields/CoordinatorField";
 import PhoneField from "./fields/PhoneField";
 import EmailField from "./fields/EmailField";
 
 import { createForm } from "@/api/formService";
+import { useAuthStore } from "@/stores/auth";
+
 import { baseSchema, type FormValues } from "./schema";
 import { useFacultiesOptions } from "./hooks/useFacultiesOptions";
 import { useDepartmentsOptions } from "./hooks/useDepartmentsOptions";
@@ -30,7 +32,7 @@ import { useProgramsOptions } from "./hooks/useProgramsOptions";
 import { useAdmissionOption } from "./hooks/useAdmissionOption";
 
 import type { IntakeConfig } from "./types";
-import type { CreateFormDto, IntakeCalendar } from "@/types/form";
+import type { CreateFormPayloadV2, IntakeCalendar } from "@/types/form";
 
 /* ------------------------------------------------------------------ */
 /* Config                                                             */
@@ -133,8 +135,34 @@ type Props = {
   onBack?: () => void;
 };
 
+/** เพิ่ม type เฉพาะตอน submit เพื่ออ่านค่า intake_calendar จาก RHF */
+type SubmitValues = FormValues & {
+  intake_calendar?: {
+    rounds?: Array<{ no?: number; interview_date?: string }>;
+    monthly?: Array<{
+      no?: number;
+      month?: string | number;
+      interview_date?: string;
+    }>;
+  };
+};
+
 export default function SurveyForm({ onSubmit, onBack }: Props) {
-  /* -------- Schema (เพิ่มกฎ domain/phone เหมือนเดิม) -------- */
+  /* -------- Auth: user_id สำหรับแนบไปให้หลังบ้าน -------- */
+  const authUser = useAuthStore((s) => s.user);
+  const fallbackUserId =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("user") || "{}")?.id;
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
+  const currentUserId = authUser?.id ?? fallbackUserId;
+
+  /* -------- Schema (เพิ่มกฎ domain/phone) -------- */
   const schema = useMemo(
     () =>
       baseSchema.superRefine((data, ctx) => {
@@ -169,13 +197,14 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     defaultValues: {
       faculty: "",
       department: "",
-      programs: [], // << ใช้ array ของแถวโปรแกรม
-      intakeModes: [], // << array ของโหมด
+      programs: [], // array ของแถวโปรแกรม
+      intakeModes: [], // array ของโหมด
       intakeRound: "",
       coordinator: "",
       phone: "",
       email: "example@mail.kmutt.ac.th",
-    },
+      intake_calendar: { rounds: [], monthly: [] },
+    } as any,
     mode: "onTouched",
   });
 
@@ -189,7 +218,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   const facultyId = methods.watch("faculty");
   const departmentId = methods.watch("department");
   const intakeModeIds = methods.watch("intakeModes"); // string[]
-  const programsRows = methods.watch("programs"); // { program, masters?, doctorals? }[]
+  // const programsRows = methods.watch("programs");
 
   /* -------- Options loading -------- */
   const faculties = useFacultiesOptions();
@@ -197,7 +226,6 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   const programs = useProgramsOptions(departmentId || undefined);
 
   const admissions = useAdmissionOption();
-  // (ยังไม่ได้ใช้ใน UI แต่คงไว้เพื่อไม่เปลี่ยน flow)
   const banner = useMemo(
     () => computeBannerFromAdmissions(admissions.data),
     [admissions.data]
@@ -233,63 +261,89 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   };
 
   /* -------- Submit -------- */
-const handleSubmit = async (values: FormValues) => {
-  setIsSubmitting(true);
-  try {
-    if (!Array.isArray(admissions?.data) || admissions.data.length === 0) {
-      throw new Error("ข้อมูลประกาศรับสมัครยังไม่พร้อม กรุณาลองอีกครั้ง");
-    }
+  const handleSubmit = async (values: FormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (!currentUserId)
+        throw new Error("ยังไม่ได้เข้าสู่ระบบ (ไม่พบ user_id)");
+      if (!Array.isArray(admissions?.data) || admissions.data.length === 0)
+        throw new Error("ข้อมูลประกาศรับสมัครยังไม่พร้อม กรุณาลองอีกครั้ง");
+      if (!Array.isArray(values.programs) || values.programs.length === 0)
+        throw new Error("กรุณาเลือกสาขาวิชาอย่างน้อย 1 รายการ");
 
-    const firstProgramId = values.programs?.[0]?.program ?? "";
-    if (!firstProgramId)
-      throw new Error("กรุณาเลือกสาขาวิชาอย่างน้อย 1 รายการ");
+      const admission = admissions.data[0];
 
-    const admission = admissions.data[0];
+      // ✅ ดึงค่าที่ IntakeModeRadios ซิงก์ไว้แบบ raw (ไม่ผ่าน Zod)
+      const calendarRaw = (methods.getValues("intake_calendar") ?? {}) as {
+        rounds?: Array<{ no?: number; interview_date?: string }>;
+        monthly?: Array<{
+          no?: number;
+          month?: string | number;
+          interview_date?: string;
+        }>;
+      };
 
-    const selected = new Set(values.intakeModes ?? []);
-    const intakeCalendar: IntakeCalendar = { rounds: [], monthly: [] };
+      const pickedRoundsSrc = Array.isArray(calendarRaw.rounds)
+        ? calendarRaw.rounds
+        : [];
+      const pickedMonthlySrc = Array.isArray(calendarRaw.monthly)
+        ? calendarRaw.monthly
+        : [];
 
-    if (selected.has("rounds")) {
-      intakeCalendar.rounds = (admission.rounds ?? []).map((r: any) => ({
-        active: r.open ?? true,
-        no: r.no,
-        interview_date: r.interview_date,
+      // map -> เหลือฟิลด์ขั้นต่ำ
+      const pickedRounds = pickedRoundsSrc
+        .filter((r) => r && r.interview_date)
+        .map((r) => ({
+          no: Number(r.no ?? 0),
+          interview_date: new Date(String(r.interview_date)).toISOString(),
+        }));
+
+      const pickedMonthly = pickedMonthlySrc
+        .filter((m) => m && m.interview_date)
+        .map((m, idx) => {
+          const no = typeof m.no === "number" ? m.no : idx + 1;
+          return {
+            no,
+            month: m.month ?? no,
+            interview_date: new Date(String(m.interview_date)).toISOString(),
+          };
+        });
+
+      // 2) map โปรแกรมที่เลือก -> intake_programs[]
+      const intake_programs = values.programs.map((row: any) => ({
+        program_id: String(normalizeId(row.program)),
+        intake_degree: {
+          master: { amount: 30, bachelor_req: true },
+          doctoral: { amount: 15, bachelor_req: true, master_req: true },
+        },
+        intake_calendar: {
+          rounds: pickedRounds,
+          monthly: pickedMonthly,
+        } as IntakeCalendar,
       }));
-    }
-    if (selected.has("monthly")) {
-      intakeCalendar.monthly = (admission.monthly ?? []).map((m: any) => ({
-        active: m.open ?? true,
-        month: String(m.month ?? ""),
-        interview_date: m.interview_date,
-      }));
-    }
 
-    const payload: CreateFormDto = {
-      admission_id: String(admission._id),
-      faculty_id: String(values.faculty),
-      department_id: String(values.department),
-      program_id: String(firstProgramId),
-      intake_degree: {
-        master: { amount: 30, bachelor_req: true },
-        doctoral: { amount: 15, bachelor_req: true, master_req: true },
-      },
-      intake_calendar: intakeCalendar,
-      submitter: {
-        name: values.coordinator,
-        phone: values.phone,
-        email: values.email,
-      },
-      status: "received",
-    };
+      // 3) payload V2
+      const payload: CreateFormPayloadV2 = {
+        user_id: String(currentUserId),
+        admission_id: String(admission._id),
+        faculty_id: String(values.faculty),
+        department_id: String(values.department),
+        intake_programs,
+        submitter: {
+          name: values.coordinator,
+          phone: values.phone,
+          email: values.email,
+        },
+        status: "received",
+      };
 
-    console.log("payload to API:", JSON.stringify(payload, null, 2));
-    await createForm(payload);
-    onSubmit?.(values);
-    methods.reset();
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      await createForm(payload);
+      onSubmit?.(values);
+      methods.reset();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 
   /* -------- UI -------- */
@@ -332,7 +386,7 @@ const handleSubmit = async (values: FormValues) => {
                 loading={departments.loading}
               />
 
-              {/* NOTE: ใช้ name="programs" ให้ตรงกับ schema */}
+              {/* ใช้ name="programs" ให้ตรงกับ schema */}
               <ProgramSelect
                 name="programs"
                 departmentSelected={!!departmentId}
@@ -346,13 +400,6 @@ const handleSubmit = async (values: FormValues) => {
                 name="intakeModes" // array field
                 admissions={admissions.data}
               />
-
-              {/* <IntakeRoundSelect
-                name="intakeRound"
-                rounds={rounds}
-                visible={showRounds}
-              /> */}
-
               <Separator />
 
               <CoordinatorField name="coordinator" />

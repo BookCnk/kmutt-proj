@@ -12,7 +12,9 @@ export default function LoginPage() {
         <p className="text-sm opacity-80 mb-6">
           คลิกปุ่มด้านล่างเพื่อดำเนินการต่อ
         </p>
-        <GoogleLoginButton onDone={() => router.replace("/dashboard")} />
+        <GoogleLoginButton
+          onDone={() => router.replace("/dashboard/overview")}
+        />
       </div>
     </main>
   );

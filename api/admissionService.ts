@@ -6,12 +6,11 @@ import {
   CreateAdmissionDto,
   UpdateAdmissionDto,
 } from "@/types/admission";
-
 const BASE = "/admission";
 
 // GET /admission
 export const getAdmissions = async (): Promise<AdmissionResponse> =>
-  api.get<AdmissionResponse, AdmissionResponse>(BASE);
+  api.get<AdmissionResponse, AdmissionResponse>(`${BASE}/active`);
 
 // GET /admission/{id}
 export const getAdmissionById = async (id: string): Promise<Admission> =>
