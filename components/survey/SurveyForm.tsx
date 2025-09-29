@@ -49,7 +49,7 @@ const intakeConfig: IntakeConfig = {
     end: "2025-11-25T16:59:59.000Z",
   },
   emailPolicy: {
-    allowedDomains: ["gmail.com"],
+    allowedDomains: ["gmail.com", "mail.kmutt.ac.th"],
   },
   intakeModes: [
     {
