@@ -56,6 +56,12 @@ export interface Form extends CreateFormDto {
   updatedAt?: string;
 }
 
+export type SubmitterPayload = {
+  name: string;
+  email: string;
+  phone: string[]; // ✅ ใช้ array key เดียว
+};
+
 export type CreateFormPayloadV2 = {
   admission_id: string;
   faculty_id: string;
@@ -68,7 +74,7 @@ export type CreateFormPayloadV2 = {
     };
     intake_calendar: IntakeCalendar;
   }[];
-  submitter: { name: string; phone: string; email: string };
+  submitter: SubmitterPayload;
   status: "received" | "draft" | "submitted";
 };
 

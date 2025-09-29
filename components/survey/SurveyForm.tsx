@@ -19,7 +19,7 @@ import ProgramSelect from "./fields/ProgramSelect";
 import IntakeModeRadios from "./fields/IntakeModeRadios";
 // import IntakeRoundSelect from "./fields/IntakeRoundSelect";
 import CoordinatorField from "./fields/CoordinatorField";
-import PhoneField from "./fields/PhoneField";
+import PhonesField from "./fields/PhoneField";
 import EmailField from "./fields/EmailField";
 
 import { createForm } from "@/api/formService";
@@ -158,13 +158,18 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   const schema = useMemo(
     () =>
       baseSchema.superRefine((data, ctx) => {
-        if (!phoneLooksValid(data.phone)) {
-          ctx.addIssue({
-            path: ["phone"],
-            code: z.ZodIssueCode.custom,
-            message: "รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง",
-          });
-        }
+        // ตรวจทุกเบอร์ใน array
+        (data.phone ?? []).forEach((p: any, i: any) => {
+          if (!/^[0-9+()\-.\s]{7,}$/.test(p || "")) {
+            ctx.addIssue({
+              path: ["phone", i],
+              code: z.ZodIssueCode.custom,
+              message: "รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง",
+            });
+          }
+        });
+
+        // ตรวจ domain email ตามเดิม...
         if (
           !emailDomainAllowed(
             data.email,
@@ -193,7 +198,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
       intakeModes: [], // array ของโหมด
       intakeRound: "",
       coordinator: "",
-      phone: "",
+      phones: [""],
       email: initialEmail || "",
       intake_calendar: { rounds: [], monthly: [] },
     } as any,
@@ -332,7 +337,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
         intake_programs,
         submitter: {
           name: values.coordinator,
-          phone: values.phone,
+          phone: (values.phone ?? []).map((s) => s.trim()).filter(Boolean),
           email: values.email,
         },
         status: "received",
@@ -409,7 +414,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
               <Separator />
 
               <CoordinatorField name="coordinator" />
-              <PhoneField name="phone" />
+              <PhonesField name="phone" />
               <EmailField name="email" />
 
               <SubmitBar

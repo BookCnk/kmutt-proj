@@ -56,7 +56,9 @@ export const baseSchema = z.object({
   intakeRound: z.string().optional(),
 
   coordinator: z.string().min(1, "กรุณากรอกชื่อผู้ประสานงาน"),
-  phone: z.string().min(1, "กรุณากรอกหมายเลขโทรศัพท์"),
+  phone: z
+    .array(z.string().trim().min(1, "กรุณากรอกเบอร์"))
+    .min(1, "กรุณากรอกหมายเลขโทรศัพท์อย่างน้อย 1 เบอร์"),
   email: z.string().min(1, "กรุณากรอกอีเมล").email("รูปแบบอีเมลไม่ถูกต้อง"),
 
   // เก็บปฏิทินแบบ optional + default กันโดน strip
