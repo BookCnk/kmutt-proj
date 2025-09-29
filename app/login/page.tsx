@@ -1,11 +1,7 @@
 // src/app/login/page.tsx
 "use client";
-
-import Script from "next/script";
-import { useRouter, useSearchParams } from "next/navigation";
-import GoogleLoginButton from "@/components/GoogleLoginButton";
-import { isTokenValid } from "@/utils/auth";
-import { useEffect } from "react";
+import GoogleOneTap from "@/components/GoogleOneTap";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,10 +34,8 @@ export default function LoginPage() {
         <p className="text-sm opacity-80 mb-6">
           คลิกปุ่มด้านล่างเพื่อดำเนินการต่อ
         </p>
-
-        <GoogleLoginButton
-          // เมื่อ login สำเร็จ -> ไปยัง next (ถ้าไม่มีให้ไป overview)
-          onDone={() => router.replace(next)}
+        <GoogleOneTap
+          onDone={() => router.replace("/dashboard/overview")}
         />
       </div>
     </main>

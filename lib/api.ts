@@ -100,13 +100,17 @@ api.interceptors.response.use(
     original._retry = true;
     isRefreshing = true;
 
-    try {
-      // เรียก refresh แบบ absolute URL (ไม่ผ่าน baseURL)
-      const r = await axios.post(
-        REFRESH_URL,
-        {},
-        { withCredentials: true } // สำคัญ: เพื่อให้ browser ส่ง refresh_token cookie
-      );
+      try {
+        // ใช้ instance เดียวกัน + ใส่ flag เพื่อกันโดนดักซ้ำ (เผื่อกรณีอนาคต)
+        const res = await api.post<{
+          status: boolean;
+          message: string;
+          access_token: string;
+          data: any;
+        }>("/auth/refresh", null, {
+          headers: { "x-refresh": "1" },
+          // withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
+        });
 
       const newToken = (r as any)?.data?.access_token as string | undefined;
 
