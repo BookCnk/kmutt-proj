@@ -95,11 +95,11 @@ api.interceptors.response.use(
           access_token: string;
           data: any;
         }>("/auth/refresh", null, {
-          headers: { "x-refresh": "1" },
-          // withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
+          // headers: { "x-refresh": "1" },
+          withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
         });
 
-      const newToken = (r as any)?.data?.access_token as string | undefined;
+      const newToken = (res as any)?.data?.access_token as string | undefined;
 
       if (newToken) {
         localStorage.setItem("token", newToken);
