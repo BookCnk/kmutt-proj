@@ -1,3 +1,4 @@
+// src/components/intake/IntakeViewerWithAddModal.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -17,10 +18,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
+
 import {
   createAdmission,
   deleteAdmission,
   getAdmissions,
+  updateAdmission,
 } from "@/api/admissionService";
 import { toast } from "sonner";
 
@@ -45,8 +48,8 @@ type IntakeData = {
   active: boolean;
   intake_mode: IntakeMode;
   application_window: {
-    open_at: string; // full ISO (UTC) start of day
-    close_at: string; // full ISO (UTC) end of day
+    open_at: string; // full ISO
+    close_at: string; // full ISO
     notice?: string;
     calendar_url?: string;
   };
@@ -112,18 +115,13 @@ const toISODateLocal = (d: Date) =>
     "0"
   )}-${`${d.getDate()}`.padStart(2, "0")}`;
 
-// Convert an ISO UTC timestamp (full ISO) to a local Date representing the
-// same calendar day in the local timezone. This avoids shifting the day when
-// parsing UTC ISO strings like "2025-09-14T23:59:59.000Z" into local Date
-// objects, which can move the displayed date to the next/previous day.
+// Convert full ISO UTC -> local Date (keep calendar day)
 const parseUTCDateToLocalDate = (iso: string) => {
   const d = new Date(iso);
-  // Use local date components so the calendar displays the original
-  // local date the user selected (avoid switching to UTC date).
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 };
 
-// Extract local time string "HH:MM" from an ISO timestamp
+// Extract "HH:MM" from ISO
 const getTimeFromISO = (iso: string) => {
   try {
     const d = new Date(iso);
@@ -135,12 +133,10 @@ const getTimeFromISO = (iso: string) => {
   }
 };
 
-// Combine a local date (YYYY-MM-DD) and a local time (HH:MM) into an
-// ISO UTC timestamp representing that local moment in time.
+// Combine local date "YYYY-MM-DD" + "HH:MM" -> ISO(UTC)
 const localDateAndTimeToISOUTC = (dateISO: string, timeHHMM: string) => {
   const [y, m, d] = dateISO.split("-").map(Number);
   const [hh, mm] = timeHHMM.split(":").map((v) => Number(v || 0));
-  // Construct a local Date from components then convert to ISO (UTC)
   const local = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0);
   return local.toISOString();
 };
@@ -153,7 +149,22 @@ const fillMonthly = (rows: MonthlyRow[]) =>
     return { ...m, month, label };
   });
 
-/* ---------- DatePicker (ใช้ซ้ำได้ทุกช่อง) ---------- */
+/* ✅ helpers สำหรับ update payload */
+const toUTCStartISOFromLocalDate = (dateISO: string) => {
+  // "YYYY-MM-DD" -> ISO(UTC) 00:00
+  const [y, m, d] = dateISO.split("-").map(Number);
+  if (!y || !m || !d) return new Date(dateISO).toISOString();
+  const local = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0);
+  return local.toISOString();
+};
+const ensureFullISO = (v: string) =>
+  v.includes("T") ? v : toUTCStartISOFromLocalDate(v);
+const monthLabelFromDateLike = (v: string) => {
+  const dd = v.includes("T") ? new Date(v) : parseISODateLocal(v);
+  return MONTHS_TH[dd.getMonth()];
+};
+
+/* ---------- DatePicker ---------- */
 function DatePickerField({
   valueISO,
   onChangeISO,
@@ -163,7 +174,7 @@ function DatePickerField({
   valueISO: string;
   onChangeISO: (nextISO: string) => void;
   ariaLabel?: string;
-  disabledBefore?: string; // YYYY-MM-DD
+  disabledBefore?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const date = valueISO ? parseISODateLocal(valueISO) : undefined;
@@ -204,7 +215,7 @@ function DatePickerField({
   );
 }
 
-/* ---------- ตัวช่วยสร้างโครงว่าง เพื่อใช้ตอน “เพิ่มภาค” ครั้งแรก ---------- */
+/* ---------- สร้างโครงว่าง ---------- */
 const thaiYear = () => new Date().getFullYear() + 543;
 const makeBlankIntake = (): IntakeData => {
   const today = new Date();
@@ -236,36 +247,20 @@ const makeBlankIntake = (): IntakeData => {
    Main Component
    ========================================================= */
 export default function IntakeViewerWithAddModal() {
-  /* ======== Data state (พร้อมต่อ API ภายในไฟล์นี้) ======== */
   const [terms, setTerms] = useState<IntakeData[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // TODO: ดึงข้อมูลจาก API แล้ว setTerms / setSelectedId ตรงนี้
-  // useEffect(() => {
-  //   (async () => {
-  //     const res = await fetch("/api/intakes");         // <- แก้ endpoint เอง
-  //     const data: IntakeData[] = await res.json();
-  //     const sorted = [...data].sort((a, b) => b.term.sort_key - a.term.sort_key);
-  //     setTerms(sorted);
-  //     setSelectedId(sorted[0]?._id ?? null);
-  //   })();
-  // }, []);
 
   const selected = useMemo(
     () => (selectedId ? terms.find((t) => t._id === selectedId) ?? null : null),
     [terms, selectedId]
   );
 
-  // Fetch admissions from API and populate local state on mount
+  // initial fetch
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const res = await getAdmissions();
-        // Accept multiple response shapes from getAdmissions():
-        // - { items: Admission[] }
-        // - { data: Admission[] }
-        // - Admission[] (direct array)
         let items: any[] = [];
         if (Array.isArray(res)) items = res;
         else if (Array.isArray((res as any)?.items)) items = (res as any).items;
@@ -295,7 +290,6 @@ export default function IntakeViewerWithAddModal() {
           })),
           meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
         });
-
         const adapted = items.map(adapt);
         adapted.sort(
           (a: IntakeData, b: IntakeData) =>
@@ -330,8 +324,11 @@ export default function IntakeViewerWithAddModal() {
     setEditModalOpen(true);
   };
 
-  const saveEditModal = () => {
+  // ✅ ส่ง payload ตาม UpdateAdmissionDto เท่านั้น
+  const saveEditModal = async () => {
     if (!selected) return;
+
+    // อัปเดต state (optimistic UI)
     const roundsSaved = roundsDraft.map((r) => ({
       ...r,
       open: r.open ?? true,
@@ -349,13 +346,94 @@ export default function IntakeViewerWithAddModal() {
         .sort((a, b) => b.term.sort_key - a.term.sort_key)
     );
     setEditModalOpen(false);
+
+    // --- Build UpdateAdmissionDto payload ---
+    const payload: {
+      application_window?: {
+        open_at: string;
+        close_at: string;
+        notice?: string;
+        calendar_url?: string;
+      };
+      rounds?: Array<{ no: number; interview_date: string }>;
+      monthly?: Array<{ month: string; interview_date: string }>;
+    } = {
+      application_window: {
+        open_at: selected.application_window.open_at,
+        close_at: selected.application_window.close_at,
+        notice: selected.application_window.notice ?? "",
+        calendar_url: selected.application_window.calendar_url ?? "",
+      },
+      rounds: roundsSaved
+        .filter((r) => r.interview_date)
+        .map((r) => ({
+          no: r.no,
+          interview_date: ensureFullISO(r.interview_date),
+        })),
+      monthly: monthlySaved
+        .filter((m) => m.interview_date)
+        .map((m) => ({
+          month: m.label ?? monthLabelFromDateLike(m.interview_date),
+          interview_date: ensureFullISO(m.interview_date),
+        })),
+    };
+
+    try {
+      await updateAdmission(selected._id, payload as any);
+      toast.success("อัปเดตข้อมูลรอบสัมภาษณ์เรียบร้อยแล้ว");
+
+      // (optional) refetch
+      try {
+        const res = await getAdmissions();
+        let items: any[] = [];
+        if (Array.isArray(res)) items = res;
+        else if (Array.isArray((res as any)?.items)) items = (res as any).items;
+        else if (Array.isArray((res as any)?.data)) items = (res as any).data;
+        const adapt = (a: any): IntakeData => ({
+          _id: a._id ?? "",
+          term: a.term ?? {
+            semester: 1,
+            academic_year_th: new Date().getFullYear() + 543,
+            label: "-",
+            sort_key: 0,
+          },
+          active: a.active ?? true,
+          intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
+          application_window: a.application_window ?? {
+            open_at: toISOStartOfDayUTC(new Date()),
+            close_at: toISOEndOfDayUTC(new Date()),
+            notice: "",
+            calendar_url: "",
+          },
+          rounds: a.rounds ?? [],
+          monthly: (a.monthly ?? []).map((m: any) => ({
+            month: undefined,
+            label: m.month,
+            interview_date: m.interview_date,
+            open: true,
+          })),
+          meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
+        });
+        const adapted = items.map(adapt);
+        adapted.sort(
+          (a: IntakeData, b: IntakeData) =>
+            (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
+        );
+        setTerms(adapted);
+        setSelectedId(selected._id);
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("อัปเดตไม่สำเร็จ");
+    }
   };
 
-  /* ======== Add from example (clone จาก selected; ถ้าไม่มี ให้โครงว่าง) ======== */
+  /* ======== Add (เหมือนเดิม) ======== */
   const [addOpen, setAddOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<IntakeData>(makeBlankIntake());
 
-  // Delete selected admission
   const onDeleteSelected = async () => {
     if (!selected) return;
     const ok = window.confirm(
@@ -377,13 +455,12 @@ export default function IntakeViewerWithAddModal() {
   };
 
   const openAddModal = () => {
-    // Always start with a blank intake so the user fills all fields manually
     const base = makeBlankIntake();
     setAddDraft(base);
     setAddOpen(true);
   };
 
-  // คำนวณ label/sort_key อัตโนมัติจาก semester/year
+  // คำนวณ label/sort_key อัตโนมัติ
   useEffect(() => {
     setAddDraft((s) => {
       const newLabel = computeLabel(s.term.semester, s.term.academic_year_th);
@@ -393,7 +470,6 @@ export default function IntakeViewerWithAddModal() {
     });
   }, [addDraft.term.semester, addDraft.term.academic_year_th]);
 
-  // พรีวิวประกาศอิงจาก 2 อินพุตโดยตรง
   const termPreview = useMemo(
     () =>
       `${addDraft.term.semester || ""}/${addDraft.term.academic_year_th || ""}`,
@@ -419,7 +495,7 @@ export default function IntakeViewerWithAddModal() {
     };
 
     try {
-      // Build payload matching CreateAdmissionDto (monthly.month should be string label)
+      // CreateAdmissionDto payload (เหมือนเดิม)
       const payload = {
         term: normalized.term,
         active: normalized.active,
@@ -439,7 +515,6 @@ export default function IntakeViewerWithAddModal() {
 
       const created = await createAdmission(payload as any);
 
-      // Re-fetch admissions from server to keep UI consistent with backend
       try {
         const res = await getAdmissions();
         let items: any[] = [];
@@ -483,7 +558,6 @@ export default function IntakeViewerWithAddModal() {
         setAddOpen(false);
         toast.success("สร้างภาคการศึกษาเรียบร้อยแล้ว");
       } catch (err) {
-        // if refetch fails, fall back to adding the created item locally
         console.error("Refetch after create failed", err);
         const fallback: IntakeData = {
           _id: created._id ?? "",
@@ -968,7 +1042,7 @@ export default function IntakeViewerWithAddModal() {
         </DialogContent>
       </Dialog>
 
-      {/* ---------- Add New Term From Example (live preview + datepicker) ---------- */}
+      {/* ---------- Add New Term From Example (เต็มเหมือนเดิม) ---------- */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader className="border-b pb-3">
@@ -990,7 +1064,6 @@ export default function IntakeViewerWithAddModal() {
                 </span>
               </div>
 
-              {/* (เผื่ออนาคตจะใส่ช่องอื่น ๆ) */}
               <div className="grid gap-3 md:grid-cols-4"></div>
 
               {/* Semester & Year -> auto label/sort_key */}
@@ -1082,7 +1155,6 @@ export default function IntakeViewerWithAddModal() {
                           )
                         )}
                         onChangeISO={(iso) => {
-                          // keep current time portion when changing date
                           const currentTime = getTimeFromISO(
                             addDraft.application_window.open_at
                           );
@@ -1148,7 +1220,6 @@ export default function IntakeViewerWithAddModal() {
                           )
                         )}
                         onChangeISO={(iso) => {
-                          // keep current time portion when changing date
                           const currentTime = getTimeFromISO(
                             addDraft.application_window.close_at
                           );
@@ -1249,7 +1320,8 @@ export default function IntakeViewerWithAddModal() {
                 <AlertDescription className="flex items-center justify-between">
                   <div className="leading-relaxed">
                     <strong>
-                      ประกาศการรับสมัคร ภาคการศึกษาที่ {termPreview}
+                      ประกาศการรับสมัคร ภาคการศึกษาที่{" "}
+                      {`${addDraft.term.semester}/${addDraft.term.academic_year_th}`}
                     </strong>
                     <br />
                     {addDraft.application_window.notice ||

@@ -19,15 +19,10 @@ import {
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 
 import {
-  // user: ดึงทั้งหมดแบบไม่มี params
-  getForms as getFormsUser,
-  // admin: ดึงแบบมี params
-  adminListForms,
-  // delete
+  getForms as getFormsUser, // user โหมด: ดึงทั้งหมด
+  adminListForms, // admin โหมด: ยิงพร้อม query
   deleteForm as deleteFormUser,
   adminDeleteForm,
-  // params type (ใช้กับ admin และตัวช่วยฝั่ง client)
-  FormListParams,
 } from "@/api/formService";
 
 import { Button } from "@/components/ui/button";
@@ -76,8 +71,8 @@ import { getAuthUser } from "@/utils/storage";
 function normalizeId(v: unknown): string {
   if (!v) return "";
   if (typeof v === "string") return v;
-  const anyV = v as any;
-  return anyV._id || anyV.id || anyV.value || "";
+  const a = v as any;
+  return a._id || a.id || a.value || "";
 }
 function textOf(v: any): string {
   if (!v) return "";
@@ -87,70 +82,91 @@ function textOf(v: any): string {
 function asText(v: unknown): string {
   if (!v) return "";
   if (typeof v === "string") return v;
-  const anyV = v as any;
-  return anyV.title || anyV.name || anyV.label || normalizeId(anyV);
+  const a = v as any;
+  return a.title || a.name || a.label || normalizeId(a);
 }
-function formatDateTH(dateString?: string) {
+function formatDateTH(d?: string) {
   try {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "dd MMM yyyy", { locale: th });
+    if (!d) return "-";
+    return format(new Date(d), "dd MMM yyyy", { locale: th });
   } catch {
     return "-";
   }
 }
 
-/** map ชื่อคอลัมน์ฝั่ง UI -> หมายเลข sort ของ Backend */
-function mapSortKeyFrontToAPINumber(k: keyof SurveyRow): number | undefined {
+/** เดิมเรา map เป็น “หมายเลขคอลัมน์” เพื่อ client-sort.
+ *  เพิ่มฟังก์ชันใหม่ map ไปเป็น “ชื่อฟิลด์ใน DB” เพื่อส่งให้ backend */
+type SurveyCol = keyof SurveyRow;
+function mapSortKeyToClientNumber(k: SurveyCol): number | undefined {
   switch (k) {
     case "faculty":
       return 1;
     case "department":
       return 2;
-    case "program": // ใช้สรุปชื่อสาขาแถวแรก
+    case "program":
       return 3;
     case "submitterName":
       return 4;
     case "submitterEmail":
       return 5;
     case "submittedAt":
-      return 6; // created_at
+      return 6;
     default:
       return undefined;
   }
 }
 
-/* ---------- ตัวช่วยฝั่ง client (สำหรับโหมด user) ---------- */
-function clientFilter(all: any[], p: FormListParams) {
+/** ฟิลด์จริงฝั่ง DB (ตามโค้ดหลังบ้านที่ให้มา) */
+function mapSortKeyToApiField(k: SurveyCol): string | undefined {
+  switch (k) {
+    case "submittedAt":
+      return "created_at";
+    case "submitterName":
+      return "submitter.name";
+    case "submitterEmail":
+      return "submitter.email";
+    // สองอันล่างขึ้นกับสคีมาของคุณ:
+    // หลังบ้าน filter ใช้ department_id แต่ faculty ใช้ faculty (string)
+    case "department":
+      return "department_id";
+    case "faculty":
+      return "faculty"; // ถ้าใน DB เก็บเป็น faculty_id ให้เปลี่ยนเป็น "faculty_id"
+    // program เป็นข้อมูลใน array ถ้าจะ sort จริง ๆ อาจไม่เหมาะ
+    default:
+      return undefined;
+  }
+}
+
+/* ---------- client filter/sort/page สำหรับโหมด user ---------- */
+function clientFilter(all: any[], p: any) {
   let arr = Array.isArray(all) ? all.slice() : [];
 
-  if (p.search && p.search_option) {
-    const q = String(p.search).trim().toLowerCase();
-    if (p.search_option === "faculty") {
-      arr = arr.filter((d) => textOf(d.faculty_id).toLowerCase().includes(q));
-    } else if (
-      p.search_option === "department_name" ||
-      p.search_option === "department"
-    ) {
-      arr = arr.filter((d) =>
-        textOf(d.department_id).toLowerCase().includes(q)
+  if (p.faculty) {
+    const q = String(p.faculty).trim().toLowerCase();
+    // ข้อมูลที่ดึงมาฝั่ง user ใช้ faculty_id ที่ populate แล้ว
+    arr = arr.filter((d) => textOf(d.faculty_id).toLowerCase().includes(q));
+  }
+  if (p.department) {
+    const q = String(p.department).trim().toLowerCase();
+    arr = arr.filter((d) => textOf(d.department_id).toLowerCase().includes(q));
+  }
+  if (p.program) {
+    const q = String(p.program).trim().toLowerCase();
+    arr = arr.filter((d) => {
+      const ips = Array.isArray(d.intake_programs) ? d.intake_programs : [];
+      return ips.some((ip: any) =>
+        textOf(ip.program_id).toLowerCase().includes(q)
       );
-    } else if (p.search_option === "program") {
-      arr = arr.filter((d) => {
-        const ips = Array.isArray(d.intake_programs) ? d.intake_programs : [];
-        return ips.some((ip: any) =>
-          textOf(ip.program_id).toLowerCase().includes(q)
-        );
-      });
-    }
+    });
   }
   if (p.submitter_name) {
-    const q = p.submitter_name.toLowerCase();
+    const q = String(p.submitter_name).trim().toLowerCase();
     arr = arr.filter((d) =>
       (d.submitter?.name || "").toLowerCase().includes(q)
     );
   }
   if (p.submitter_email) {
-    const q = p.submitter_email.toLowerCase();
+    const q = String(p.submitter_email).trim().toLowerCase();
     arr = arr.filter((d) =>
       (d.submitter?.email || "").toLowerCase().includes(q)
     );
@@ -221,8 +237,8 @@ export type SurveyRow = {
   id: string;
   faculty: string;
   department: string;
-  program: string; // "ชื่อสาขาแรก +N"
-  programs: ProgramInForm[]; // รายการจริงทั้งหมด
+  program: string; // “ชื่อสาขาแรก +N”
+  programs: ProgramInForm[];
   submitterEmail: string;
   submitterName: string;
   coordinator: string;
@@ -230,7 +246,6 @@ export type SurveyRow = {
   submittedAt: string;
 };
 
-/** แปลงเอกสารจาก API -> แถวในตาราง */
 function mapFormToSurveyRow(doc: any): SurveyRow {
   const id = normalizeId(doc._id);
   const faculty = asText(doc.faculty_id);
@@ -307,7 +322,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // server-side page/sort/filter
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortColumn, setSortColumn] = useState<keyof SurveyRow>("submittedAt");
@@ -326,11 +340,9 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   });
   const debouncedFilters = useDebounce(filters, 300);
 
-  // view modal
+  // view/delete
   const [viewOpen, setViewOpen] = useState(false);
   const [viewRow, setViewRow] = useState<SurveyRow | null>(null);
-
-  // delete modal
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string>("");
 
@@ -338,33 +350,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     return (s || "").trim().normalize("NFC");
   }
 
-  /** mapping สำหรับ search_option */
-  const SEARCH_OPTION_MAP: Record<
-    "faculty" | "department" | "program",
-    string
-  > = {
-    faculty: "faculty",
-    department: "department_name",
-    program: "program",
-  };
-
-  function buildSearchParamsFromFilters(
-    f: TableFilters
-  ): Pick<FormListParams, "search" | "search_option"> {
-    const fac = normTH(f.faculty);
-    if (fac) return { search_option: SEARCH_OPTION_MAP.faculty, search: fac };
-
-    const dep = normTH(f.department);
-    if (dep)
-      return { search_option: SEARCH_OPTION_MAP.department, search: dep };
-
-    const prog = normTH(f.program);
-    if (prog) return { search_option: SEARCH_OPTION_MAP.program, search: prog };
-
-    return {};
-  }
-
-  // ตรวจ role
+  // role
   const storeUser = useAuthStore((s) => s.user);
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -372,16 +358,15 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     setIsAdmin(role === "admin");
   }, [storeUser]);
 
-  // helper: คลี่รายการให้เป็น array เสมอ
+  // unwrap helper
   function unwrapList(res: any): any[] {
     if (Array.isArray(res)) return res;
-    if (Array.isArray(res?.data)) return res.data; // { data: [...] }
-    if (Array.isArray(res?.items)) return res.items; // { items: [...] }
-    if (Array.isArray(res?.data?.data)) return res.data.data; // axios style { data: { data: [...] } }
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.items)) return res.items;
+    if (Array.isArray(res?.data?.data)) return res.data.data;
     return [];
   }
 
-  // โหลดข้อมูล (admin: server-side / user: client-side)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -389,19 +374,28 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       setLoadError("");
 
       try {
-        const sortNum = mapSortKeyFrontToAPINumber(sortColumn);
-        const { search, search_option } =
-          buildSearchParamsFromFilters(debouncedFilters);
+        // ⬇️ สำหรับ backend: ใช้ฟิลด์จริง + ทิศทาง 1/-1
+        const sortField = mapSortKeyToApiField(sortColumn);
+        const sortSign: 1 | -1 | undefined = sortField
+          ? sortDirection === "asc"
+            ? 1
+            : -1
+          : undefined;
 
-        const params: FormListParams = {
+        // ⬇️ สำหรับ client sort ในโหมด user (ยังใช้แมพเลขเดิม)
+        const clientSortNum = mapSortKeyToClientNumber(sortColumn);
+
+        const params: any = {
           page: currentPage,
           limit: pageSize,
-          search,
-          search_option,
+          faculty: normTH(debouncedFilters.faculty) || undefined,
+          department: normTH(debouncedFilters.department) || undefined,
+          program: normTH(debouncedFilters.program) || undefined,
           submitter_name: normTH(debouncedFilters.submitterName) || undefined,
           submitter_email: normTH(debouncedFilters.submitterEmail) || undefined,
-          sort: sortNum,
-          sort_option: sortNum ? sortDirection : undefined,
+          sort: sortSign, // ✅ 1 | -1
+          sort_option: sortField, // ✅ "created_at" | "submitter.name" | ...
+          // date_start / date_end / status / admission_id ถ้ามี UI ให้ใส่เพิ่มที่นี่
         };
 
         let items: any[] = [];
@@ -414,14 +408,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           total = res.total;
           pages = res.pages;
         } else {
-          const raw = await getFormsUser(); // อาจเป็น {status, info, data:[...]}
-          const list = unwrapList(raw); // <-- คลี่ให้เป็น array เสมอ
+          const raw = await getFormsUser();
+          const list = unwrapList(raw);
           const filtered = clientFilter(list, params);
-          const sorted = clientSort(
-            filtered,
-            params.sort,
-            params.sort_option || "asc"
-          );
+          const sorted = clientSort(filtered, clientSortNum, sortDirection);
           const paged = clientPage(
             sorted,
             params.page || 1,
@@ -433,7 +423,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         }
 
         const mapped = items.map(mapFormToSurveyRow);
-
         if (!cancelled) {
           setRows(mapped);
           setTotal(total);
@@ -442,7 +431,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       } catch (e: any) {
         if (!cancelled) {
           setLoadError(e?.message || "ไม่สามารถโหลดข้อมูลได้");
-          setRows([]); // ยังให้ตารางว่างแสดงอยู่
+          setRows([]);
           setTotal(0);
           setTotalPages(1);
         }
@@ -463,7 +452,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   ]);
 
   const handleSort = useCallback(
-    (column: keyof SurveyRow) => {
+    (column: SurveyCol) => {
       setSortDirection((prev) =>
         sortColumn === column ? (prev === "asc" ? "desc" : "asc") : "asc"
       );
@@ -510,7 +499,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       await del(id);
       toast.success("ลบรายการสำเร็จ");
       if (selectedRow === id) setSelectedRow("");
-      setCurrentPage((p) => p); // refresh
+      setCurrentPage((p) => p);
     } catch (e: any) {
       setRows(prev);
       toast.error(e?.message || "ลบรายการไม่สำเร็จ");
@@ -519,13 +508,11 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     }
   }, [deletingId, rows, selectedRow, isAdmin]);
 
-  // ใช้ flag นี้แทนการ return ออกจากคอมโพเนนต์ เพื่อไม่ให้ input หลุดโฟกัส
   const isInitialLoading = loading && rows.length === 0 && !loadError;
 
-  /* -------------- render -------------- */
+  /* ---------------- UI ---------------- */
   return (
     <div className="space-y-4">
-      {/* error banner (ไม่ปิดตาราง) */}
       {loadError && (
         <div className="border rounded-lg bg-red-50 text-red-700 p-3 text-sm">
           โหลดข้อมูลไม่สำเร็จ: {loadError}
@@ -564,15 +551,13 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             กรอกข้อมูล
           </Button>
 
-          {/* ปุ่มเฉพาะ admin */}
-          {isAdmin && (
-            <Button asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/add">
-                <Plus className="mr-2 h-4 w-4" />
-                เพิ่มข้อมูล Master Data
-              </Link>
-            </Button>
-          )}
+          {/* เฉพาะ admin */}
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/dashboard/add">
+              <Plus className="mr-2 h-4 w-4" />
+              เพิ่มข้อมูล Master Data
+            </Link>
+          </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
@@ -580,8 +565,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
-              const n = parseInt(v);
-              setPageSize(n);
+              setPageSize(parseInt(v));
               setCurrentPage(1);
             }}>
             <SelectTrigger className="w-32">
@@ -598,7 +582,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
       {/* Table */}
       <div className="border rounded-lg overflow-hidden bg-white relative">
-        {/* overlay ตอนรีเฟรช (ไม่ใช่ครั้งแรก) — ไม่บังการคลิก/โฟกัส */}
         {loading && rows.length > 0 && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-white/70 backdrop-blur-sm px-3 py-2 border-b">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -749,7 +732,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     <TableCell className="font-medium">{row.faculty}</TableCell>
                     <TableCell>{row.department}</TableCell>
 
-                    {/* Program cell: เป็นปุ่มเปิด dropdown */}
                     <TableCell className="align-top">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -768,7 +750,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                             สาขาทั้งหมดในรายการนี้
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
-
                           {row.programs.map((p) => (
                             <DropdownMenuItem
                               key={p.programId}
@@ -789,7 +770,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                               </div>
                             </DropdownMenuItem>
                           ))}
-
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={(e) => {
@@ -884,14 +864,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
       )}
 
-      {/* View Modal: รายละเอียดทุกสาขาในรายการ */}
+      {/* View / Delete */}
       <SurveyDetailsDialog
         open={viewOpen}
         onOpenChange={setViewOpen}
         row={viewRow}
       />
-
-      {/* Delete Confirm Modal */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

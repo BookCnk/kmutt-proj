@@ -20,19 +20,22 @@ export const getAdmissionById = async (id: string): Promise<Admission> =>
 export const createAdmission = async (
   payload: CreateAdmissionDto
 ): Promise<Admission> =>
-  api.post<Admission, Admission, CreateAdmissionDto>(BASE, payload);
+  api.post<Admission, Admission, CreateAdmissionDto>(`admin${BASE}`, payload);
 
 // PUT /admission/{id}
 export const updateAdmission = async (
   id: string,
   payload: UpdateAdmissionDto
 ): Promise<Admission> =>
-  api.put<Admission, Admission, UpdateAdmissionDto>(`${BASE}/${id}`, payload);
+  api.put<Admission, Admission, UpdateAdmissionDto>(
+    `admin${BASE}/${id}`,
+    payload
+  );
 
 // DELETE /admission/{id}
 export const deleteAdmission = async (id: string): Promise<void> =>
-  api.delete<void, void>(`${BASE}/${id}`);
+  api.delete<void, void>(`admin${BASE}/${id}`);
 
 // PUT /admission/{id}/toggle-active
 export const toggleAdmissionActive = async (id: string): Promise<Admission> =>
-  api.put<Admission, Admission>(`${BASE}/${id}/toggle-active`);
+  api.put<Admission, Admission>(`admin${BASE}/${id}/toggle-active`);
