@@ -20,7 +20,7 @@ export default function LoginPage() {
           onSuccess={(_res) => router.replace("/dashboard/overview")}
           autoPrompt={false}
           showButton
-          buttonContainerId="google-btn"
+          buttonContainerId="google-signin-host"
           debug
         />
       </div>
