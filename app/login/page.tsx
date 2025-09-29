@@ -17,13 +17,11 @@ export default function LoginPage() {
         </p>
         <div id="google-signin-host" className="flex justify-center" />
         <GoogleOneTap
-          onDone={() => router.replace("/dashboard/overview")}
+          onSuccess={(_res) => router.replace("/dashboard/overview")}
           autoPrompt={false}
           showButton
-          buttonContainerId="google-signin-host"
-          onSuccess={() => router.replace("/dashboard/overview")}
-          onError={(msg) => console.log("login error:", msg)}
-          debug={process.env.NODE_ENV === "development"}
+          buttonContainerId="google-btn"
+          debug
         />
       </div>
     </main>
