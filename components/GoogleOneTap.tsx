@@ -42,7 +42,6 @@ type GoogleOneTapProps = {
   buttonContainerId?: string;
 };
 
-// Minimal window typing for GSI
 declare global {
   interface Window {
     google?: {
@@ -204,7 +203,6 @@ export default function GoogleOneTap({
         // ux_mode: "popup" | "redirect" (One Tap uses prompt; button uses popup typically)
       });
 
-      // Optional: render classic button
       if (showButton) {
         const host =
           document.getElementById(buttonContainerId) ??
