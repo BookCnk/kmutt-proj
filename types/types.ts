@@ -31,19 +31,6 @@ export interface Program {
   open: boolean;
 }
 
-export interface SurveyRow {
-  id: string;
-  faculty: string;
-  department: string;
-  program: string;
-  submitterName: string;
-  submitterEmail: string;
-  submittedAt: string;
-  intakeMode: string;
-  coordinator: string;
-  phone: string;
-}
-
 export interface FormData {
   faculty: string;
   department: string;
@@ -70,3 +57,31 @@ export interface TableFilters {
   submitterName: string;
   submitterEmail: string;
 }
+
+// Shared types ระหว่างตารางกับโมดัล
+
+export type ProgramInForm = {
+  programId: string;
+  title: string;
+  master?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
+  doctoral?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
+  rounds?: Array<{ no?: number; interview_date?: string; active?: boolean }>;
+  monthly?: Array<{
+    month?: string | number;
+    interview_date?: string;
+    active?: boolean;
+  }>;
+};
+
+export type SurveyRow = {
+  id: string;
+  faculty: string;
+  department: string;
+  program: string; // string ย่อ เช่น "ชื่อสาขาแรก +N"
+  programs: ProgramInForm[]; // รายการจริงทั้งหมด
+  submitterEmail: string;
+  submitterName: string;
+  coordinator: string;
+  phone: string;
+  submittedAt: string;
+};
