@@ -4,6 +4,7 @@ import axios, {
   AxiosInstance,
   AxiosRequestConfig,
   InternalAxiosRequestConfig,
+  AxiosHeaders,
 } from "axios";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
@@ -13,12 +14,27 @@ const REFRESH_URL = `${API_BASE}/auth/refresh`;
 const isRefreshEndpoint = (url?: string) =>
   !!url && /\/auth\/refresh(\b|\/|\?)/.test(url);
 
+// ตั้งค่า header Authorization ให้รองรับทั้ง AxiosHeaders และ plain object
+function setAuthHeader(
+  headers: InternalAxiosRequestConfig["headers"] | undefined,
+  token: string
+) {
+  if (!headers) return;
+  if (headers instanceof AxiosHeaders || (headers as any)?.set) {
+    // AxiosHeaders
+    (headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+  } else {
+    // plain object
+    (headers as any)["Authorization"] = `Bearer ${token}`;
+  }
+}
+
 // ---------- axios instance ----------
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE,
   timeout: 10000,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // เพื่อส่ง refresh_token cookie ไปยัง sleepyleo.me
+  withCredentials: true, // ต้องส่ง refresh_token cookie ไปกับ /auth/refresh
 });
 
 // ---------- request interceptor ----------
@@ -27,9 +43,8 @@ api.interceptors.request.use(
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       const url = config.url || "";
-      // ไม่แนบ Authorization ให้ /auth/refresh
-      if (token && !isRefreshEndpoint(url) && config.headers) {
-        config.headers.set("Authorization", `Bearer ${token}`);
+      if (token && !isRefreshEndpoint(url)) {
+        setAuthHeader(config.headers, token);
       }
     }
     return config;
@@ -67,7 +82,6 @@ api.interceptors.response.use(
       (status === 401 || msg.includes("jwt expired"));
 
     if (!shouldRefresh) {
-      // ส่ง error payload ตรงๆ ให้ caller
       return Promise.reject(error.response?.data ?? error);
     }
 
@@ -76,8 +90,7 @@ api.interceptors.response.use(
       return new Promise((resolve, reject) => {
         pendingQueue.push((token) => {
           if (!token) return reject(error.response?.data ?? error);
-          if (original.headers)
-            original.headers.set("Authorization", `Bearer ${token}`);
+          setAuthHeader(original.headers, token);
           original._retry = true;
           resolve(api(original));
         });
@@ -88,11 +101,11 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // เรียก refresh แบบ absolute URL ไปที่ sleepyleo.me (ข้าม baseURL)
+      // เรียก refresh แบบ absolute URL (ไม่ผ่าน baseURL)
       const r = await axios.post(
         REFRESH_URL,
         {},
-        { withCredentials: true } // ⬅️ สำคัญมาก เพื่อให้ส่ง refresh_token cookie ไปด้วย
+        { withCredentials: true } // สำคัญ: เพื่อให้ browser ส่ง refresh_token cookie
       );
 
       const newToken = (r as any)?.data?.access_token as string | undefined;
@@ -101,8 +114,7 @@ api.interceptors.response.use(
         localStorage.setItem("token", newToken);
         runQueue(newToken);
 
-        if (original.headers)
-          original.headers.set("Authorization", `Bearer ${newToken}`);
+        setAuthHeader(original.headers, newToken);
         return api(original); // รันคำขอเดิมซ้ำ
       } else {
         runQueue(null);

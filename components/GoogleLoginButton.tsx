@@ -1,3 +1,4 @@
+// src/components/GoogleLoginButton.tsx
 "use client";
 import * as React from "react";
 import api from "@/lib/api";
@@ -45,13 +46,17 @@ export default function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
 
           const r = await api.post<LoginResponse, LoginResponse>(
             "/auth/google",
-            {
-              token: idToken,
-            }
+            { token: idToken }
           );
 
+          // เก็บ token ไว้ใช้เรียก API
           localStorage.setItem("token", r.access_token);
           localStorage.setItem("user", JSON.stringify(r.data));
+
+          // ตั้งคุกกี้ไว้มิดเดิลแวร์ใช้ตัดสินใจ (หมดอายุ 30 วัน)
+          document.cookie = `logged_in=yes; Path=/; Max-Age=${
+            60 * 60 * 24 * 30
+          }; SameSite=Lax`;
 
           onDone?.();
         } catch (e: any) {

@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Kanit } from "next/font/google";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 import { Toaster } from "@/components/ui/toast";
 import { ToastHub } from "@/components/ui/toast-hub";
@@ -34,7 +35,7 @@ export default function RootLayout({
             <ToastHub />
           </Toaster>
           <GsiLoader />
-          {children}
+          <AuthGuard>{children}</AuthGuard>
         </AppShell>
       </body>
     </html>

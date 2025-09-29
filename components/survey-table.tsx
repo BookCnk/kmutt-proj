@@ -14,6 +14,7 @@ import {
   ArrowUpDown,
   Printer,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 
@@ -371,6 +372,15 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     setIsAdmin(role === "admin");
   }, [storeUser]);
 
+  // helper: คลี่รายการให้เป็น array เสมอ
+  function unwrapList(res: any): any[] {
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.data)) return res.data; // { data: [...] }
+    if (Array.isArray(res?.items)) return res.items; // { items: [...] }
+    if (Array.isArray(res?.data?.data)) return res.data.data; // axios style { data: { data: [...] } }
+    return [];
+  }
+
   // โหลดข้อมูล (admin: server-side / user: client-side)
   useEffect(() => {
     let cancelled = false;
@@ -404,8 +414,9 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           total = res.total;
           pages = res.pages;
         } else {
-          const raw = await getFormsUser(); // ไม่มี params
-          const filtered = clientFilter(raw, params);
+          const raw = await getFormsUser(); // อาจเป็น {status, info, data:[...]}
+          const list = unwrapList(raw); // <-- คลี่ให้เป็น array เสมอ
+          const filtered = clientFilter(list, params);
           const sorted = clientSort(
             filtered,
             params.sort,
@@ -508,15 +519,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     }
   }, [deletingId, rows, selectedRow, isAdmin]);
 
-  /* -------------- render -------------- */
-  if (loading) {
-    return (
-      <div className="border rounded-lg bg-white p-8 text-center text-sm text-gray-600">
-        กำลังโหลดข้อมูล…
-      </div>
-    );
-  }
+  // ใช้ flag นี้แทนการ return ออกจากคอมโพเนนต์ เพื่อไม่ให้ input หลุดโฟกัส
+  const isInitialLoading = loading && rows.length === 0 && !loadError;
 
+  /* -------------- render -------------- */
   return (
     <div className="space-y-4">
       {/* error banner (ไม่ปิดตาราง) */}
@@ -591,7 +597,15 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden bg-white">
+      <div className="border rounded-lg overflow-hidden bg-white relative">
+        {/* overlay ตอนรีเฟรช (ไม่ใช่ครั้งแรก) — ไม่บังการคลิก/โฟกัส */}
+        {loading && rows.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-white/70 backdrop-blur-sm px-3 py-2 border-b">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-gray-600">กำลังอัปเดตข้อมูล…</span>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -709,7 +723,18 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             </TableHeader>
 
             <TableBody>
-              {rows.length === 0 ? (
+              {isInitialLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={10}
+                    className="p-6 text-center text-sm text-gray-600">
+                    <div className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      กำลังโหลดข้อมูล…
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="p-0">
                     <EmptyState />

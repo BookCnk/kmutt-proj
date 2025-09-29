@@ -4,8 +4,8 @@ import { createDepartment } from "@/api/departmentService";
 import { getFaculties, createFaculty } from "@/api/facultyService";
 import { getDepartmentsByFaculty } from "@/api/departmentService";
 import { createProgram } from "@/api/programService";
-import FacultyTable from "@/app/dashboard/add/FacultyTable";
-import RoundsEditor from "@/app/dashboard/add/RoundsEditor";
+import FacultyTable from "@/app/(protected)/dashboard/add/FacultyTable";
+import RoundsEditor from "@/app/(protected)/dashboard/add/RoundsEditor";
 
 import React, { useMemo, useState, useEffect } from "react";
 import {
