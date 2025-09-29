@@ -112,7 +112,7 @@ api.interceptors.response.use(
           // withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
         });
 
-      const newToken = (r as any)?.data?.access_token as string | undefined;
+      const newToken = res?.data?.access_token as string | undefined;
 
       if (newToken) {
         localStorage.setItem("token", newToken);

@@ -16,12 +16,6 @@ import {
   SelectItem,
   SelectContentSimple,
 } from "@/components/ui/select";
-import {
-  Toast,
-  ToastTitle,
-  ToastDescription,
-  ToastClose,
-} from "@/components/ui/toast";
 import { CreateFacultyDto } from "@/types/faculty";
 
 export type Caps = { maxMasters: number; maxDoctoral: number };
@@ -103,29 +97,9 @@ function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
   const [nameTH, setNameTH] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // toast state
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastVariant, setToastVariant] = useState<"success" | "destructive">(
-    "success"
-  );
-  const [toastTitle, setToastTitle] = useState("");
-  const [toastDesc, setToastDesc] = useState("");
-
   const canSubmit = useMemo(() => {
     return nameTH.trim().length > 0 && (!!ddlValue?.trim() || !ddlValue);
   }, [nameTH, ddlValue]);
-
-  const showToast = (
-    variant: "success" | "destructive",
-    title: string,
-    desc?: string
-  ) => {
-    setToastVariant(variant);
-    setToastTitle(title);
-    setToastDesc(desc ?? "");
-    setToastOpen(false);
-    requestAnimationFrame(() => setToastOpen(true));
-  };
 
   const handleSubmit = async () => {
     if (!canSubmit || loading) return;
@@ -135,52 +109,39 @@ function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
       const created = await createFaculty(payload);
       setNameTH("");
       onCreated?.(created);
-
-      showToast("success", "บันทึกสำเร็จ", "เพิ่มคณะเรียบร้อยแล้ว");
+      alert("บันทึกสำเร็จ: เพิ่มคณะเรียบร้อยแล้ว");
     } catch (err) {
       console.error("createFaculty error:", err);
-      showToast("destructive", "เกิดข้อผิดพลาด", "เพิ่มคณะไม่สำเร็จ");
+      alert("เกิดข้อผิดพลาด: เพิ่มคณะไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <form className="w-full" onSubmit={(e) => e.preventDefault()}>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">ชื่อคณะ (ไทย) *</label>
-          <input
-            className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="คณะวิศวกรรมศาสตร์"
-            value={nameTH}
-            onChange={(e) => setNameTH(e.target.value)}
-            aria-required
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          />
-        </div>
+    <form className="w-full" onSubmit={(e) => e.preventDefault()}>
+      <div className="flex flex-col gap-1">
+        <label className="text-sm text-gray-600">ชื่อคณะ (ไทย) *</label>
+        <input
+          className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="คณะวิศวกรรมศาสตร์"
+          value={nameTH}
+          onChange={(e) => setNameTH(e.target.value)}
+          aria-required
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        />
+      </div>
 
-        <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
-          <button
-            type="button"
-            disabled={!canSubmit || loading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={handleSubmit}>
-            {loading ? "กำลังบันทึก..." : "เพิ่มคณะ"}
-          </button>
-        </div>
-      </form>
-
-      {/* Toast */}
-      <Toast
-        open={toastOpen}
-        onOpenChange={setToastOpen}
-        variant={toastVariant}>
-        <ToastTitle>{toastTitle}</ToastTitle>
-        {toastDesc && <ToastDescription>{toastDesc}</ToastDescription>}
-        <ToastClose />
-      </Toast>
-    </>
+      <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
+        <button
+          type="button"
+          disabled={!canSubmit || loading}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={handleSubmit}>
+          {loading ? "กำลังบันทึก..." : "เพิ่มคณะ"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -210,27 +171,6 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
     (faculties ?? []).map(normalizeFaculty)
   );
   const [facLoading, setFacLoading] = useState(false);
-
-  // ---- Toast local states (เหมือน FacultyForm) ----
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastVariant, setToastVariant] = useState<"success" | "destructive">(
-    "success"
-  );
-  const [toastTitle, setToastTitle] = useState("");
-  const [toastDesc, setToastDesc] = useState("");
-
-  const showToast = (
-    variant: "success" | "destructive",
-    title: string,
-    desc?: string
-  ) => {
-    setToastVariant(variant);
-    setToastTitle(title);
-    setToastDesc(desc ?? "");
-    setToastOpen(false);
-    // ทำให้เด้งซ้ำได้แม้ข้อความเดิม
-    requestAnimationFrame(() => setToastOpen(true));
-  };
 
   // ถ้า parent ส่ง faculties มา (ช้าหรือเร็ว) ให้ sync เข้า state
   useEffect(() => {
@@ -267,7 +207,6 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
     };
   }, [faculties]);
 
-  // (คงตรรกะเดิม) ปุ่มใช้ disabled แค่ตอนโหลด ส่วน validate ไปทำใน handleSubmit
   const canSubmit = useMemo(
     () => facultyId.trim().length > 0 && nameTH.trim().length > 0,
     [facultyId, nameTH]
@@ -276,11 +215,11 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
   const handleSubmit = async () => {
     // validate แบบแจ้งเตือนตอนคลิก
     if (!facultyId.trim()) {
-      showToast("destructive", "ข้อมูลไม่ครบ", "กรุณาเลือกคณะ");
+      alert("ข้อมูลไม่ครบ: กรุณาเลือกคณะ");
       return;
     }
     if (!nameTH.trim()) {
-      showToast("destructive", "ข้อมูลไม่ครบ", "กรุณากรอกชื่อภาค/สาขา (ไทย)");
+      alert("ข้อมูลไม่ครบ: กรุณากรอกชื่อภาค/สาขา (ไทย)");
       return;
     }
 
@@ -296,83 +235,70 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
       setFacultyId(""); // reset form
       setNameTH("");
 
-      showToast("success", "บันทึกสำเร็จ", "เพิ่มภาควิชาเรียบร้อยแล้ว");
+      alert("บันทึกสำเร็จ: เพิ่มภาควิชาเรียบร้อยแล้ว");
     } catch (err) {
       console.error("createDepartment error:", err);
-      showToast("destructive", "เกิดข้อผิดพลาด", "ไม่สามารถเพิ่มภาควิชาได้");
+      alert("เกิดข้อผิดพลาด: ไม่สามารถเพิ่มภาควิชาได้");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <form
-        className="grid gap-4 md:grid-cols-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
-        }}>
-        {/* Faculty Select */}
-        <div className="flex flex-col gap-1 md:col-span-1">
-          <label className="text-sm text-gray-600">เลือกคณะ *</label>
-          <Select value={facultyId} onValueChange={setFacultyId}>
-            <SelectTrigger className="rounded-xl" disabled={facLoading}>
-              <SelectValue
-                placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {!facLoading && facOptions.length === 0 && (
-                <SelectItem value="__none__" disabled>
-                  ไม่มีข้อมูลคณะ
-                </SelectItem>
-              )}
-              {facOptions.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.nameTH}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <form
+      className="grid gap-4 md:grid-cols-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}>
+      {/* Faculty Select */}
+      <div className="flex flex-col gap-1 md:col-span-1">
+        <label className="text-sm text-gray-600">เลือกคณะ *</label>
+        <Select value={facultyId} onValueChange={setFacultyId}>
+          <SelectTrigger className="rounded-xl" disabled={facLoading}>
+            <SelectValue
+              placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {!facLoading && facOptions.length === 0 && (
+              <SelectItem value="__none__" disabled>
+                ไม่มีข้อมูลคณะ
+              </SelectItem>
+            )}
+            {facOptions.map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.nameTH}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-        {/* Department Name (TH) */}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-gray-600">ชื่อภาค/สาขา (ไทย) *</label>
-          <input
-            className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="ภาควิชาวิศวกรรมคอมพิวเตอร์"
-            value={nameTH}
-            onChange={(e) => setNameTH(e.target.value)}
-            aria-required="true"
-          />
-        </div>
+      {/* Department Name (TH) */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm text-gray-600">ชื่อภาค/สาขา (ไทย) *</label>
+        <input
+          className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="ภาควิชาวิศวกรรมคอมพิวเตอร์"
+          value={nameTH}
+          onChange={(e) => setNameTH(e.target.value)}
+          aria-required="true"
+        />
+      </div>
 
-        {/* Submit */}
-        <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
-          <button
-            type="submit"
-            // 🔒 ปิดปุ่มไว้จนกว่าจะกรอกครบ + ป้องกันช่วงโหลด
-            disabled={!canSubmit || loading || facLoading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            title={!canSubmit ? "กรุณาเลือกคณะและกรอกชื่อภาค/สาขา" : undefined}
-            aria-disabled={!canSubmit || loading || facLoading}>
-            {loading ? "กำลังบันทึก..." : "เพิ่มภาควิชา"}
-          </button>
-        </div>
-      </form>
-
-      {/* Toast */}
-      <Toast
-        open={toastOpen}
-        onOpenChange={setToastOpen}
-        variant={toastVariant}>
-        <ToastTitle>{toastTitle}</ToastTitle>
-        {toastDesc && <ToastDescription>{toastDesc}</ToastDescription>}
-        <ToastClose />
-      </Toast>
-    </>
+      {/* Submit */}
+      <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={!canSubmit || loading || facLoading}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          title={!canSubmit ? "กรุณาเลือกคณะและกรอกชื่อภาค/สาขา" : undefined}
+          aria-disabled={!canSubmit || loading || facLoading}>
+          {loading ? "กำลังบันทึก..." : "เพิ่มภาควิชา"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -399,7 +325,6 @@ type Department = {
   _id: string;
   title: string; // ชื่อภาควิชา (ไทย)
   active: boolean;
-  // ...ถ้ามีฟิลด์อื่น ๆ ก็ได้ ไม่บังคับ
 };
 
 type DepartmentResponse = {
@@ -413,8 +338,7 @@ type DepartmentResponse = {
   data: Department[];
 };
 
-// ---------- Props ----------
-
+// ---------- Caps Editor ----------
 function CapsEditor() {
   // internal states
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -618,70 +542,6 @@ function CapsEditor() {
 }
 
 /* ===========================
- * Faculty Table (UI only)
- * =========================== */
-// function FacultyTable({ items }: { items?: CreateFacultyDto[] }) {
-//   const rows = items ?? [];
-//   return (
-//     <div className="overflow-x-auto">
-//       <table className="w-full table-auto border-collapse text-sm">
-//         <thead>
-//           <tr className="bg-gray-50 text-left">
-//             <th className="border-b px-3 py-2">ชื่อคณะ (ไทย)</th>
-//             <th className="border-b px-3 py-2">ชื่อคณะ (อังกฤษ)</th>
-//             <th className="border-b px-3 py-2">Slug</th>
-//             <th className="border-b px-3 py-2">สถานะ</th>
-//             <th className="border-b px-3 py-2 text-right">การจัดการ</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {rows.map((f) => (
-//             <tr key={f.id} className="hover:bg-gray-50">
-//               <td className="border-b px-3 py-2">{f.active}</td>
-//               <td className="border-b px-3 py-2">{f.nameEN ?? "-"}</td>
-//               <td className="border-b px-3 py-2 text-gray-600">{f.slug}</td>
-//               <td className="border-b px-3 py-2">
-//                 {f.active === false ? (
-//                   <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">
-//                     inactive
-//                   </span>
-//                 ) : (
-//                   <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-//                     active
-//                   </span>
-//                 )}
-//               </td>
-//               <td className="border-b px-3 py-2 text-right">
-//                 <div className="inline-flex gap-2">
-//                   <button
-//                     type="button"
-//                     className="rounded-xl border px-3 py-1.5 hover:bg-gray-50">
-//                     แก้ไข
-//                   </button>
-//                   <button
-//                     type="button"
-//                     className="rounded-xl border border-red-300 bg-white px-3 py-1.5 text-red-600 hover:bg-red-50">
-//                     ลบ
-//                   </button>
-//                 </div>
-//               </td>
-//             </tr>
-//           ))}
-
-//           {rows.length === 0 && (
-//             <tr>
-//               <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
-//                 ไม่มีข้อมูลคณะ
-//               </td>
-//             </tr>
-//           )}
-//         </tbody>
-//       </table>
-//     </div>
-//   );
-// }
-
-/* ===========================
  * Page Composition (UI only)
  * =========================== */
 export default function FacultyAdminPage() {
@@ -704,19 +564,24 @@ export default function FacultyAdminPage() {
         <a href="/" className="text-sm text-blue-600 hover:underline">
           กลับหน้าแรก
         </a>
-      </header>{" "}
+      </header>
+
       <Section title="ตั้งค่ารอบสัมภาษณ์">
         <RoundsEditor />
       </Section>
+
       <Section title="เพิ่มคณะ">
         <FacultyForm />
       </Section>
+
       <Section title="เพิ่มภาค">
         <DepartmentForm />
       </Section>
+
       <Section title="เพิ่มสาขา">
         <CapsEditor />
       </Section>
+
       <Section title="รายการคณะ">
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-gray-500">ตัวอย่างข้อมูล</span>
