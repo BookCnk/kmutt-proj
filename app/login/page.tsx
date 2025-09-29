@@ -1,6 +1,6 @@
 // src/app/login/page.tsx
 "use client";
-import GoogleLoginButton from "@/components/GoogleLoginButton";
+import GoogleOneTap from "@/components/GoogleOneTap";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -12,7 +12,7 @@ export default function LoginPage() {
         <p className="text-sm opacity-80 mb-6">
           คลิกปุ่มด้านล่างเพื่อดำเนินการต่อ
         </p>
-        <GoogleLoginButton
+        <GoogleOneTap
           onDone={() => router.replace("/dashboard/overview")}
         />
       </div>
