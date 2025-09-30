@@ -242,7 +242,7 @@ export type SurveyRow = {
   submitterEmail: string;
   submitterName: string;
   coordinator: string;
-  phone: string;
+  phone: string[];
   submittedAt: string;
 };
 
