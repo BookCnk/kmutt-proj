@@ -26,7 +26,6 @@ export default function EmailField({ name }: { name: "email" }) {
             <Input
               placeholder="example@mail.kmutt.ac.th"
               type="email"
-              readOnly
               className="bg-gray-50"
               {...field}
             />

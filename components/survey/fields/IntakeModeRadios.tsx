@@ -195,6 +195,32 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     Record<string, "open" | "closed" | "">
   >({});
 
+  // ✅ ตั้งค่า default เป็น "closed" สำหรับทุกรายการ (ครั้งแรก/เมื่อรายการเปลี่ยน)
+  useEffect(() => {
+    if (!roundsList.length) return;
+    setRoundsStatus((prev) => {
+      const next = { ...prev };
+      roundsList.forEach((r) => {
+        const key = r._id ?? `${r.no}-${r.interview_date}`;
+        if (!next[key]) next[key] = "closed";
+      });
+      return next;
+    });
+  }, [roundsList]);
+
+  useEffect(() => {
+    if (!monthlyList.length) return;
+    setMonthlyStatus((prev) => {
+      const next = { ...prev };
+      monthlyList.forEach((m, idx) => {
+        const fallback = `${m.month ?? ""}-${m.interview_date ?? ""}`;
+        const key = m._id ?? (fallback ? fallback : String(idx));
+        if (!next[key]) next[key] = "closed";
+      });
+      return next;
+    });
+  }, [monthlyList]);
+
   // ให้ RHF มีคีย์ array เปล่าไว้ก่อน จะได้ไม่ undefined
   useEffect(() => {
     if (!Array.isArray(getValues("intake_calendar.rounds"))) {
@@ -224,12 +250,12 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
       ? roundsList
           .filter(
             (r) =>
-              (roundsStatus[r._id ?? `${r.no}-${r.interview_date}`] ?? "") ===
-              "open"
+              (roundsStatus[r._id ?? `${r.no}-${r.interview_date}`] ??
+                "closed") === "open"
           )
           .map((r) => ({
             no: Number(r.no),
-            interview_date: r.interview_date, // เก็บ ISO เอาไว้ ตอนไป payload ค่อย .toISOString() อีกทีก็ได้
+            interview_date: r.interview_date,
           }))
       : [];
 
@@ -238,7 +264,9 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
       ? (monthlyList
           .map((m, idx) => {
             const key = m._id ?? `${m.month ?? ""}-${m.interview_date}`;
-            const status = monthlyStatus[key] ?? "";
+            const status = (monthlyStatus[key] ?? "closed") as
+              | "open"
+              | "closed";
             if (status !== "open") return null;
 
             const ordinal = typeof m.month === "number" ? m.month : idx + 1;
@@ -284,7 +312,8 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     <Controller
       control={control as unknown as Control<FormValues>}
       name={name}
-      defaultValue={[]}
+      // ✅ ค่าเริ่มต้นให้ติ๊ก "ไม่เปิดรับสมัคร" ไว้ก่อน
+      defaultValue={["none"]}
       render={({ field }) => {
         const selected = new Set(field.value ?? []);
         const toggle = (key: "none" | "rounds" | "monthly") => {
@@ -332,7 +361,9 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                       </div>
                       {roundsList.map((r) => {
                         const key = r._id ?? `${r.no}-${r.interview_date}`;
-                        const status = roundsStatus[key] ?? "";
+                        const status = (roundsStatus[key] ?? "closed") as
+                          | "open"
+                          | "closed";
                         return (
                           <div key={key} className="px-6 py-4">
                             <div className="font-medium text-primary">
@@ -376,8 +407,9 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                         }`;
                         const key =
                           m._id ?? (fallback ? fallback : String(idx));
-                        String(idx);
-                        const status = monthlyStatus[key] ?? "";
+                        const status = (monthlyStatus[key] ?? "closed") as
+                          | "open"
+                          | "closed";
                         const monthLabel =
                           typeof m.month === "string"
                             ? m.month

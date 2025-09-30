@@ -107,6 +107,42 @@ export default function SurveyDetailsDialog({
                   </p>
                 </div>
 
+                {row.phone && row.phone.length > 0 && (
+                  <div className="sm:col-span-2 group p-4 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/50 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-400 to-orange-500 flex items-center justify-center shadow-sm">
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-bold text-orange-600 uppercase tracking-wide">
+                        เบอร์โทรศัพท์
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {row.phone.map((phoneNumber: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border-2 border-orange-300 hover:border-orange-400 hover:shadow-md transition-all duration-200 group/phone">
+                          <div className="w-2 h-2 rounded-full bg-orange-500 group-hover/phone:animate-pulse"></div>
+                          <span className="font-bold text-orange-600 text-base">
+                            {phoneNumber}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="sm:col-span-2 group p-4 rounded-xl bg-gradient-to-r from-gray-50 to-slate-100/50 border border-gray-200/50 hover:shadow-md transition-all duration-200">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-gray-500"></div>

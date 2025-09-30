@@ -350,6 +350,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     return (s || "").trim().normalize("NFC");
   }
 
+  console.log(viewRow);
   // role
   const storeUser = useAuthStore((s) => s.user);
   const [isAdmin, setIsAdmin] = useState(false);
