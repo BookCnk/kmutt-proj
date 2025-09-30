@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
-
+import { useAdmissionBanner } from "@/hooks/useAdmissionBanner";
 import AnnouncementBanner from "./AnnouncementBanner";
 import WindowStatusAlert from "./WindowStatusAlert";
 import SubmitBar from "./SubmitBar";
@@ -34,6 +34,7 @@ import { useAdmissionOption } from "./hooks/useAdmissionOption";
 
 import type { IntakeConfig } from "./types";
 import type { CreateFormPayloadV2, IntakeCalendar } from "@/types/form";
+import { getAdmissions } from "@/api/admissionService";
 
 /* ------------------------------------------------------------------ */
 /* Config                                                             */
@@ -80,9 +81,6 @@ const emailDomainAllowed = (email: string, domains: string[]) => {
   const domain = email.slice(at + 1).toLowerCase();
   return domains.some((d) => domain === d.toLowerCase());
 };
-
-const phoneLooksValid = (phone: string) =>
-  /^[0-9+()\-.\s]{7,}$/.test(phone || "");
 
 const within = (now: number, startISO?: string, endISO?: string) => {
   if (!startISO || !endISO) return false;
@@ -360,10 +358,10 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* ถ้าต้องการโชว์ banner จาก admissions จริง ให้เปลี่ยน props มาใช้ 'banner' ที่คำนวณไว้ */}
       <AnnouncementBanner
-        term={intakeConfig.term}
-        text={intakeConfig.announcementText}
-        calendarUrl={intakeConfig.calendarUrl}
-        status={intakeConfig.status}
+        term={banner?.term ?? "—"}
+        text={banner?.text ?? "ยังไม่มีประกาศรับสมัคร"}
+        calendarUrl={banner?.calendarUrl ?? "#"}
+        status={banner?.status ?? "unknown"}
       />
 
       <WindowStatusAlert isOpen={isWindowOpen} />

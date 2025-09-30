@@ -553,12 +553,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           </Button>
 
           {/* เฉพาะ admin */}
-          <Button asChild className="w-full sm:w-auto">
-            <Link href="/dashboard/add">
-              <Plus className="mr-2 h-4 w-4" />
-              เพิ่มข้อมูล Master Data
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/dashboard/add">
+                <Plus className="mr-2 h-4 w-4" />
+                เพิ่มข้อมูล Master Data
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
