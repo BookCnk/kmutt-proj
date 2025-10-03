@@ -36,12 +36,18 @@ type TermInfo = {
   label: string;
   sort_key: number;
 };
-type RoundRow = { no: number; interview_date: string; open?: boolean };
-type MonthlyRow = {
-  month?: number;
-  label?: string;
+type RoundRow = {
+  no: number;
   interview_date: string;
   open?: boolean;
+  title?: string;
+};
+type MonthlyRow = {
+  month?: number;
+  label?: string; // ชื่อเดือน (ไทย)
+  interview_date: string;
+  open?: boolean;
+  title?: string;
 };
 type IntakeData = {
   _id: string;
@@ -166,6 +172,7 @@ const monthLabelFromDateLike = (v: string) => {
 };
 
 /* ---------- DatePicker ---------- */
+// แทนที่ฟังก์ชัน DatePickerField เดิมทั้งหมดด้วยอันนี้
 function DatePickerField({
   valueISO,
   onChangeISO,
@@ -178,13 +185,25 @@ function DatePickerField({
   disabledBefore?: string;
 }) {
   const [open, setOpen] = React.useState(false);
-  const date = valueISO ? parseISODateLocal(valueISO) : undefined;
+
+  // ✅ รองรับทั้ง "YYYY-MM-DD" และ "YYYY-MM-DDTHH:mm:ss.sssZ"
+  const toLocalDateOnly = (v?: string) => {
+    if (!v) return undefined;
+    if (v.includes("T")) {
+      const d = new Date(v);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()); // ตัดเวลาออก (local)
+    }
+    return parseISODateLocal(v); // ฟังก์ชันเดิมของคุณ
+  };
+
+  const date = toLocalDateOnly(valueISO);
   const label = date
     ? `${`${date.getMonth() + 1}`.padStart(
         2,
         "0"
       )} / ${`${date.getDate()}`.padStart(2, "0")} / ${date.getFullYear()}`
     : "เลือกวันที่";
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -196,21 +215,28 @@ function DatePickerField({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="p-0">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(d: Date | undefined) => {
-            if (!d) return;
-            onChangeISO(toISODateLocal(d));
-            setOpen(false);
-          }}
-          initialFocus
-          disabled={
-            disabledBefore
-              ? { before: parseISODateLocal(disabledBefore) }
-              : undefined
-          }
-        />
+        {(() => {
+          const minDate = disabledBefore
+            ? toLocalDateOnly(disabledBefore) // -> Date
+            : undefined;
+
+          return (
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(d: Date | undefined) => {
+                if (!d) return;
+                onChangeISO(toISODateLocal(d)); // ส่ง "YYYY-MM-DD"
+                setOpen(false);
+              }}
+              initialFocus
+              // ✅ ใส่ disabled เฉพาะตอนที่มี minDate จริง ๆ
+              disabled={minDate ? { before: minDate } : undefined}
+              // หรือจะใช้ array matcher ก็ได้:
+              // disabled={minDate ? [{ before: minDate }] : undefined}
+            />
+          );
+        })()}
       </PopoverContent>
     </Popover>
   );
@@ -288,6 +314,7 @@ export default function IntakeViewerWithAddModal() {
             label: m.month,
             interview_date: m.interview_date,
             open: true,
+            title: m.title,
           })),
           meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
         });
@@ -317,15 +344,23 @@ export default function IntakeViewerWithAddModal() {
   const openEditModal = () => {
     if (!selected) return;
     setRoundsDraft(
-      selected.rounds.map((r) => ({ ...r, open: r.open ?? true }))
+      selected.rounds.map((r: any) => ({
+        ...r,
+        open: r.open ?? true,
+        title: r.title ?? (r.no ? `รอบที่ ${r.no}` : ""),
+      }))
     );
     setMonthlyDraft(
-      selected.monthly.map((m) => ({ ...m, open: m.open ?? true }))
+      selected.monthly.map((m: any) => ({
+        ...m,
+        open: m.open ?? true,
+        title: m.title ?? "",
+      }))
     );
     setEditModalOpen(true);
   };
 
-  // ✅ ส่ง payload ตาม UpdateAdmissionDto เท่านั้น
+  // ✅ ส่ง payload ตามสเปก: rounds {no,title,interview_date} | monthly {month(title-TH),title,interview_date}
   const saveEditModal = async () => {
     if (!selected) return;
 
@@ -333,10 +368,16 @@ export default function IntakeViewerWithAddModal() {
     const roundsSaved = roundsDraft.map((r) => ({
       ...r,
       open: r.open ?? true,
+      title: (r.title ?? "").trim() || (r.no ? `รอบที่ ${r.no}` : ""),
     }));
     const monthlySaved = fillMonthly(
-      monthlyDraft.map((m) => ({ ...m, open: m.open ?? true }))
+      monthlyDraft.map((m) => ({
+        ...m,
+        open: m.open ?? true,
+        title: (m.title ?? "").trim(),
+      }))
     );
+
     setTerms((prev) =>
       [...prev]
         .map((t) =>
@@ -348,7 +389,7 @@ export default function IntakeViewerWithAddModal() {
     );
     setEditModalOpen(false);
 
-    // --- Build UpdateAdmissionDto payload ---
+    // --- Build payload ---
     const payload: {
       application_window?: {
         open_at: string;
@@ -356,8 +397,8 @@ export default function IntakeViewerWithAddModal() {
         notice?: string;
         calendar_url?: string;
       };
-      rounds?: Array<{ no: number; interview_date: string }>;
-      monthly?: Array<{ month: string; interview_date: string }>;
+      rounds?: Array<{ no: number; title: string; interview_date: string }>;
+      monthly?: Array<{ month: string; title: string; interview_date: string }>;
     } = {
       application_window: {
         open_at: selected.application_window.open_at,
@@ -369,12 +410,14 @@ export default function IntakeViewerWithAddModal() {
         .filter((r) => r.interview_date)
         .map((r) => ({
           no: r.no,
+          title: (r.title ?? "").trim() || (r.no ? `รอบที่ ${r.no}` : ""),
           interview_date: ensureFullISO(r.interview_date),
         })),
       monthly: monthlySaved
         .filter((m) => m.interview_date)
         .map((m) => ({
           month: m.label ?? monthLabelFromDateLike(m.interview_date),
+          title: (m.title ?? "").trim(),
           interview_date: ensureFullISO(m.interview_date),
         })),
     };
@@ -412,6 +455,7 @@ export default function IntakeViewerWithAddModal() {
             label: m.month,
             interview_date: m.interview_date,
             open: true,
+            title: m.title,
           })),
           meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
         });
@@ -498,7 +542,7 @@ export default function IntakeViewerWithAddModal() {
     };
 
     try {
-      // CreateAdmissionDto payload (เหมือนเดิม)
+      // CreateAdmissionDto payload
       const payload = {
         term: normalized.term,
         application_window: {
@@ -514,9 +558,8 @@ export default function IntakeViewerWithAddModal() {
         })),
         monthly: (normalized.monthly ?? []).map((m: any) => {
           let monthName: string | undefined;
-
-          if (typeof (m as any).month === "string" && (m as any).month.trim()) {
-            monthName = (m as any).month.trim();
+          if (typeof (m as any).label === "string" && (m as any).label.trim()) {
+            monthName = (m as any).label.trim();
           } else if (typeof (m as any).month === "number") {
             const num = (m as any).month;
             monthName = num >= 1 && num <= 12 ? MONTHS_TH[num - 1] : undefined;
@@ -524,16 +567,14 @@ export default function IntakeViewerWithAddModal() {
             const d = new Date(toUTCStartISO(m.interview_date));
             monthName = MONTHS_TH[d.getMonth()];
           }
-
           return {
-            month: monthName ?? "", // ✅ field ตามสเปก
-            title: m.title, // ✅ คง title
+            month: monthName ?? "",
+            title: m.title,
             interview_date: toUTCStartISO(m.interview_date),
           };
         }),
       };
 
-  
       const created = await createAdmission(payload as any);
 
       try {
@@ -565,6 +606,7 @@ export default function IntakeViewerWithAddModal() {
             label: m.month,
             interview_date: m.interview_date,
             open: true,
+            title: m.title,
           })),
           meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
         });
@@ -602,6 +644,7 @@ export default function IntakeViewerWithAddModal() {
             label: m.month,
             interview_date: m.interview_date,
             open: true,
+            title: m.title,
           })),
           meta: {
             program_id: created?.meta?.program_id ?? null,
@@ -742,17 +785,21 @@ export default function IntakeViewerWithAddModal() {
             <thead>
               <tr className="text-left text-sm text-gray-600">
                 <th className="px-4 py-2 border-b">รอบที่</th>
+                <th className="px-4 py-2 border-b">หัวข้อ</th>
                 <th className="px-4 py-2 border-b">วันสัมภาษณ์</th>
                 <th className="px-4 py-2 border-b">สถานะ</th>
               </tr>
             </thead>
             <tbody>
               {selected.rounds.length ? (
-                selected.rounds.map((r) => {
+                selected.rounds.map((r, i) => {
                   const isOpen = r.open ?? true;
                   return (
-                    <tr key={r.no} className="text-sm">
+                    <tr key={`${r.no}-${i}`} className="text-sm">
                       <td className="px-4 py-2 border-b">{r.no}</td>
+                      <td className="px-4 py-2 border-b">
+                        {(r as any).title ?? `รอบที่ ${r.no}`}
+                      </td>
                       <td className="px-4 py-2 border-b">
                         {formatDateTH(r.interview_date)}
                       </td>
@@ -779,7 +826,7 @@ export default function IntakeViewerWithAddModal() {
               ) : (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4}
                     className="px-4 py-4 text-center text-gray-500">
                     ไม่มีข้อมูลรอบ
                   </td>
@@ -803,17 +850,19 @@ export default function IntakeViewerWithAddModal() {
             <thead>
               <tr className="text-left text-sm text-gray-600">
                 <th className="px-4 py-2 border-b">เดือน</th>
+                <th className="px-4 py-2 border-b">หัวข้อ</th>
                 <th className="px-4 py-2 border-b">วันสัมภาษณ์</th>
                 <th className="px-4 py-2 border-b">สถานะ</th>
               </tr>
             </thead>
             <tbody>
               {fillMonthly(selected.monthly).length ? (
-                fillMonthly(selected.monthly).map((m) => {
+                fillMonthly(selected.monthly).map((m, i) => {
                   const isOpen = m.open ?? true;
                   return (
-                    <tr key={m.interview_date} className="text-sm">
+                    <tr key={`${m.interview_date}-${i}`} className="text-sm">
                       <td className="px-4 py-2 border-b">{m.label}</td>
+                      <td className="px-4 py-2 border-b">{m.title ?? ""}</td>
                       <td className="px-4 py-2 border-b">
                         {formatDateTH(m.interview_date)}
                       </td>
@@ -840,7 +889,7 @@ export default function IntakeViewerWithAddModal() {
               ) : (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4}
                     className="px-4 py-4 text-center text-gray-500">
                     ไม่มีข้อมูลรายเดือน
                   </td>
@@ -853,7 +902,7 @@ export default function IntakeViewerWithAddModal() {
 
       {/* ---------- Edit Modal ---------- */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader className="border-b pb-3">
             <DialogTitle>จัดการรอบสัมภาษณ์</DialogTitle>
             <DialogDescription>
@@ -892,7 +941,12 @@ export default function IntakeViewerWithAddModal() {
                         : 1;
                       setRoundsDraft((s) => [
                         ...s,
-                        { no: nextNo, interview_date: "", open: true },
+                        {
+                          no: nextNo,
+                          interview_date: "",
+                          open: true,
+                          title: `รอบที่ ${nextNo}`,
+                        },
                       ]);
                     }}
                     className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
@@ -902,51 +956,81 @@ export default function IntakeViewerWithAddModal() {
 
                 {roundsDraft.length ? (
                   roundsDraft.map((r, idx) => (
-                    <div key={idx} className="grid gap-3 md:grid-cols-4">
-                      <input
-                        className="rounded-xl border px-3 py-2"
-                        type="number"
-                        min={1}
-                        value={r.no}
-                        onChange={(e) =>
-                          setRoundsDraft((arr) =>
-                            arr.map((it, i) =>
-                              i === idx
-                                ? { ...it, no: Number(e.target.value || 0) }
-                                : it
-                            )
-                          )
-                        }
-                      />
-                      <DatePickerField
-                        valueISO={r.interview_date}
-                        onChangeISO={(iso) =>
-                          setRoundsDraft((arr) =>
-                            arr.map((it, i) =>
-                              i === idx ? { ...it, interview_date: iso } : it
-                            )
-                          )
-                        }
-                        ariaLabel="เลือกวันสัมภาษณ์"
-                      />
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <div
+                      key={idx}
+                      className="grid gap-3 md:grid-cols-12 rounded-lg border bg-slate-50/40 p-3">
+                      <div className="md:col-span-2">
+                        <label className="text-xs text-gray-600">รอบที่</label>
                         <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={r.open ?? true}
+                          className="w-full rounded-xl border px-3 py-2"
+                          type="number"
+                          min={1}
+                          value={r.no}
                           onChange={(e) =>
                             setRoundsDraft((arr) =>
                               arr.map((it, i) =>
                                 i === idx
-                                  ? { ...it, open: e.target.checked }
+                                  ? { ...it, no: Number(e.target.value || 0) }
                                   : it
                               )
                             )
                           }
                         />
-                        เปิดรับ
-                      </label>
-                      <div className="text-right">
+                      </div>
+                      <div className="md:col-span-4">
+                        <label className="text-xs text-gray-600">หัวข้อ</label>
+                        <input
+                          className="w-full rounded-xl border px-3 py-2"
+                          type="text"
+                          value={r.title ?? ""}
+                          placeholder={`รอบที่ ${r.no || idx + 1}`}
+                          onChange={(e) =>
+                            setRoundsDraft((arr) =>
+                              arr.map((it, i) =>
+                                i === idx
+                                  ? { ...it, title: e.target.value }
+                                  : it
+                              )
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <label className="text-xs text-gray-600">
+                          วันสัมภาษณ์ {r.interview_date}
+                        </label>
+                        <DatePickerField
+                          valueISO={r.interview_date}
+                          onChangeISO={(iso) =>
+                            setRoundsDraft((arr) =>
+                              arr.map((it, i) =>
+                                i === idx ? { ...it, interview_date: iso } : it
+                              )
+                            )
+                          }
+                          ariaLabel="เลือกวันสัมภาษณ์"
+                        />
+                      </div>
+                      <div className="md:col-span-2 flex items-end">
+                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300"
+                            checked={r.open ?? true}
+                            onChange={(e) =>
+                              setRoundsDraft((arr) =>
+                                arr.map((it, i) =>
+                                  i === idx
+                                    ? { ...it, open: e.target.checked }
+                                    : it
+                                )
+                              )
+                            }
+                          />
+                          เปิดรับ
+                        </label>
+                      </div>
+                      <div className="md:col-span-12 text-right">
                         <button
                           onClick={() =>
                             setRoundsDraft((arr) =>
@@ -972,7 +1056,7 @@ export default function IntakeViewerWithAddModal() {
                     onClick={() =>
                       setMonthlyDraft((s) => [
                         ...s,
-                        { interview_date: "", open: true },
+                        { interview_date: "", open: true, title: "" },
                       ])
                     }
                     className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
@@ -986,41 +1070,74 @@ export default function IntakeViewerWithAddModal() {
                       ? parseISODateLocal(m.interview_date)
                       : undefined;
                     const mm = d ? d.getMonth() + 1 : undefined;
-                    const label = mm ? MONTHS_TH[mm - 1] : m.label;
+                    const label =
+                      m.label ?? (mm ? MONTHS_TH[mm - 1] : undefined);
                     return (
-                      <div key={idx} className="grid gap-3 md:grid-cols-4">
-                        <DatePickerField
-                          valueISO={m.interview_date}
-                          onChangeISO={(iso) =>
-                            setMonthlyDraft((arr) =>
-                              arr.map((it, i) =>
-                                i === idx ? { ...it, interview_date: iso } : it
+                      <div
+                        key={idx}
+                        className="grid gap-3 md:grid-cols-12 rounded-lg border bg-slate-50/40 p-3">
+                        <div className="md:col-span-5">
+                          <label className="text-xs text-gray-600">
+                            วันสัมภาษณ์
+                          </label>
+                          <DatePickerField
+                            valueISO={m.interview_date}
+                            onChangeISO={(iso) =>
+                              setMonthlyDraft((arr) =>
+                                arr.map((it, i) =>
+                                  i === idx
+                                    ? { ...it, interview_date: iso }
+                                    : it
+                                )
                               )
-                            )
-                          }
-                          ariaLabel="เลือกวันสัมภาษณ์รายเดือน"
-                        />
-                        <div className="rounded-xl border px-3 py-2 text-sm text-gray-700">
-                          {label ? `${label}${mm ? ` (${mm})` : ""}` : "—"}
+                            }
+                            ariaLabel="เลือกวันสัมภาษณ์รายเดือน"
+                          />
                         </div>
-                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <div className="md:col-span-3">
+                          <label className="text-xs text-gray-600">เดือน</label>
+                          <div className="w-full rounded-xl border bg-white px-3 py-2 text-sm text-gray-700">
+                            {label ? `${label}${mm ? ` (${mm})` : ""}` : "—"}
+                          </div>
+                        </div>
+                        <div className="md:col-span-4">
+                          <label className="text-xs text-gray-600">
+                            หัวข้อ
+                          </label>
                           <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300"
-                            checked={m.open ?? true}
+                            className="w-full rounded-xl border px-3 py-2"
+                            type="text"
+                            value={m.title ?? ""}
+                            placeholder="เช่น รอบมกราคม"
                             onChange={(e) =>
                               setMonthlyDraft((arr) =>
                                 arr.map((it, i) =>
                                   i === idx
-                                    ? { ...it, open: e.target.checked }
+                                    ? { ...it, title: e.target.value }
                                     : it
                                 )
                               )
                             }
                           />
-                          เปิดรับ
-                        </label>
-                        <div className="text-right">
+                        </div>
+                        <div className="md:col-span-12 flex items-center justify-between">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300"
+                              checked={m.open ?? true}
+                              onChange={(e) =>
+                                setMonthlyDraft((arr) =>
+                                  arr.map((it, i) =>
+                                    i === idx
+                                      ? { ...it, open: e.target.checked }
+                                      : it
+                                  )
+                                )
+                              }
+                            />
+                            เปิดรับ
+                          </label>
                           <button
                             onClick={() =>
                               setMonthlyDraft((arr) =>
@@ -1060,7 +1177,7 @@ export default function IntakeViewerWithAddModal() {
         </DialogContent>
       </Dialog>
 
-      {/* ---------- Add New Term From Example (เต็มเหมือนเดิม) ---------- */}
+      {/* ---------- Add New Term From Example ---------- */}
       <AddDepartmentDialog
         open={addOpen}
         onOpenChange={setAddOpen}
