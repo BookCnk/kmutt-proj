@@ -98,15 +98,13 @@ async function fetchDeptCount(
 ): Promise<number | null> {
   try {
     const dres: any = await getDepartmentsByFaculty(fid);
-    console.log(`fetchDeptCount: facultyId=${fid} attempt=${attempt}`, dres);
 
     const count = extractDeptCount(dres);
-    // ถ้ารูปแบบไม่ตรงจนอ่านไม่ได้ ให้ลอง retry อีกนิด
     if (count === null && attempt < 2) {
-      await delay(200 * (attempt + 1));
+      await delay(200 * (attempt + 1)); // 200ms, 400ms
       return fetchDeptCount(fid, attempt + 1);
     }
-    // อาจเป็นศูนย์จริง ๆ ก็ได้ (ไม่มีสาขา)
+    // อาจเป็น 0 จริง ๆ ก็ได้
     return count ?? 0;
   } catch (err) {
     if (attempt < 2) {
@@ -114,7 +112,6 @@ async function fetchDeptCount(
       return fetchDeptCount(fid, attempt + 1);
     }
     console.error("fetchDeptCount error:", err);
-    // ❗ ถ้านับไม่ได้จริง ๆ ให้คืน null แทน 0 เพื่อไม่ให้เข้าใจผิดว่าไม่มี
     return null;
   }
 }
@@ -165,21 +162,26 @@ export default function FacultyTable() {
         const res: any = await getFaculties();
         const arr = Array.isArray(res) ? res : res?.data ?? [];
 
-        const mapped: FacultyRow[] = await Promise.all(
-          arr.map(async (f: any) => {
-            const fid = String(f._id ?? f.id);
-            const deptCount = await fetchDeptCount(fid); // number | null
+        const mapped: FacultyRow[] = [];
+        for (const f of arr) {
+          if (cancelled) break;
 
-            return {
-              id: fid,
-              title: f.title ?? f.nameTH ?? "-",
-              active: f.active !== false,
-              departmentCount: deptCount ?? undefined, // ถ้านับไม่ได้ให้ undefined
-              created_at: f.created_at,
-              updated_at: f.updated_at,
-            } as FacultyRow;
-          })
-        );
+          const fid = String(f._id ?? f.id);
+          const deptCount = await fetchDeptCount(fid); // ยิงทีละเส้น
+
+          mapped.push({
+            id: fid,
+            title: f.title ?? f.nameTH ?? "-",
+            active: f.active !== false,
+            // ถ้านับไม่ได้ ให้ undefined เพื่อไม่สับสนว่า = 0
+            departmentCount: deptCount ?? undefined,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+          });
+
+          // กัน backend overload นิดหน่อย
+          await delay(100);
+        }
 
         if (!cancelled) setRows(mapped);
       } catch (e) {
