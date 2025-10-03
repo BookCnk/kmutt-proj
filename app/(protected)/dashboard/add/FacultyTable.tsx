@@ -73,16 +73,49 @@ type ProgramResponse = {
   data: Program[];
 };
 
-/* ========= Helper: นับจำนวนสาขาของคณะ (เชื่อ totalCount + retry) ========= */
-async function fetchDeptCount(fid: string, attempt = 0): Promise<number> {
+// ช่วยหน่อย
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+function extractDeptCount(payload: any): number | null {
+  // กรณีเป็น array ตรงๆ
+  if (Array.isArray(payload)) return payload.length;
+
+  // กรณีมี data เป็น array
+  if (payload?.data && Array.isArray(payload.data)) return payload.data.length;
+
+  // กรณีมี info.totalCount
+  if (payload?.info && Number.isFinite(payload.info.totalCount)) {
+    return Number(payload.info.totalCount);
+  }
+
+  // ไม่รู้รูปแบบ -> ยังนับไม่ได้
+  return null;
+}
+
+async function fetchDeptCount(
+  fid: string,
+  attempt = 0
+): Promise<number | null> {
   try {
-    // ถ้า backend รองรับ query page/limit ควรใส่ limit=1 เพื่อลดภาระ
-    const dres: DepartmentResponse = await getDepartmentsByFaculty(fid);
-    return dres?.info?.totalCount ?? dres?.data?.length ?? 0;
+    const dres: any = await getDepartmentsByFaculty(fid);
+    console.log(`fetchDeptCount: facultyId=${fid} attempt=${attempt}`, dres);
+
+    const count = extractDeptCount(dres);
+    // ถ้ารูปแบบไม่ตรงจนอ่านไม่ได้ ให้ลอง retry อีกนิด
+    if (count === null && attempt < 2) {
+      await delay(200 * (attempt + 1));
+      return fetchDeptCount(fid, attempt + 1);
+    }
+    // อาจเป็นศูนย์จริง ๆ ก็ได้ (ไม่มีสาขา)
+    return count ?? 0;
   } catch (err) {
-    if (attempt < 2) return fetchDeptCount(fid, attempt + 1); // retry สูงสุด 3 ครั้ง (0,1,2)
+    if (attempt < 2) {
+      await delay(200 * (attempt + 1));
+      return fetchDeptCount(fid, attempt + 1);
+    }
     console.error("fetchDeptCount error:", err);
-    return 0;
+    // ❗ ถ้านับไม่ได้จริง ๆ ให้คืน null แทน 0 เพื่อไม่ให้เข้าใจผิดว่าไม่มี
+    return null;
   }
 }
 
@@ -134,16 +167,17 @@ export default function FacultyTable() {
 
         const mapped: FacultyRow[] = await Promise.all(
           arr.map(async (f: any) => {
-            const fid = String(f.id ?? f._id);
-            const deptCount = await fetchDeptCount(fid); // << สำคัญ: ใช้ totalCount
+            const fid = String(f._id ?? f.id);
+            const deptCount = await fetchDeptCount(fid); // number | null
+
             return {
               id: fid,
               title: f.title ?? f.nameTH ?? "-",
               active: f.active !== false,
-              departmentCount: deptCount,
+              departmentCount: deptCount ?? undefined, // ถ้านับไม่ได้ให้ undefined
               created_at: f.created_at,
               updated_at: f.updated_at,
-            };
+            } as FacultyRow;
           })
         );
 
