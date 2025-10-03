@@ -1,7 +1,7 @@
 // src/components/survey/SurveyTable.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -19,8 +19,8 @@ import {
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 
 import {
-  getForms as getFormsUser, // user โหมด: ดึงทั้งหมด
-  adminListForms, // admin โหมด: ยิงพร้อม query
+  getForms as getFormsUser,
+  adminListForms,
   deleteForm as deleteFormUser,
   adminDeleteForm,
 } from "@/api/formService";
@@ -94,9 +94,36 @@ function formatDateTH(d?: string) {
   }
 }
 
-/** เดิมเรา map เป็น “หมายเลขคอลัมน์” เพื่อ client-sort.
- *  เพิ่มฟังก์ชันใหม่ map ไปเป็น “ชื่อฟิลด์ใน DB” เพื่อส่งให้ backend */
+/** ---------------- types + sort mapping ---------------- */
+type ProgramInForm = {
+  programId: string;
+  title: string;
+  master?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
+  doctoral?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
+  rounds?: Array<{ no?: number; interview_date?: string; active?: boolean }>;
+  monthly?: Array<{
+    month?: string | number;
+    interview_date?: string;
+    active?: boolean;
+  }>;
+  message?: string;
+};
+
+export type SurveyRow = {
+  id: string;
+  faculty: string;
+  department: string;
+  program: string;
+  programs: ProgramInForm[];
+  submitterEmail: string;
+  submitterName: string;
+  coordinator: string;
+  phone: string[];
+  submittedAt: string;
+};
+
 type SurveyCol = keyof SurveyRow;
+
 function mapSortKeyToClientNumber(k: SurveyCol): number | undefined {
   switch (k) {
     case "faculty":
@@ -116,7 +143,6 @@ function mapSortKeyToClientNumber(k: SurveyCol): number | undefined {
   }
 }
 
-/** ฟิลด์จริงฝั่ง DB (ตามโค้ดหลังบ้านที่ให้มา) */
 function mapSortKeyToApiField(k: SurveyCol): string | undefined {
   switch (k) {
     case "submittedAt":
@@ -125,13 +151,10 @@ function mapSortKeyToApiField(k: SurveyCol): string | undefined {
       return "submitter.name";
     case "submitterEmail":
       return "submitter.email";
-    // สองอันล่างขึ้นกับสคีมาของคุณ:
-    // หลังบ้าน filter ใช้ department_id แต่ faculty ใช้ faculty (string)
     case "department":
       return "department_id";
     case "faculty":
-      return "faculty"; // ถ้าใน DB เก็บเป็น faculty_id ให้เปลี่ยนเป็น "faculty_id"
-    // program เป็นข้อมูลใน array ถ้าจะ sort จริง ๆ อาจไม่เหมาะ
+      return "faculty";
     default:
       return undefined;
   }
@@ -143,7 +166,6 @@ function clientFilter(all: any[], p: any) {
 
   if (p.faculty) {
     const q = String(p.faculty).trim().toLowerCase();
-    // ข้อมูลที่ดึงมาฝั่ง user ใช้ faculty_id ที่ populate แล้ว
     arr = arr.filter((d) => textOf(d.faculty_id).toLowerCase().includes(q));
   }
   if (p.department) {
@@ -219,33 +241,7 @@ function clientPage<T>(all: T[], page: number, limit: number) {
   return { items: all.slice(start, end), total, pages };
 }
 
-/* ---------------- types ในตาราง ---------------- */
-type ProgramInForm = {
-  programId: string;
-  title: string;
-  master?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
-  doctoral?: { amount?: number; bachelor_req?: boolean; master_req?: boolean };
-  rounds?: Array<{ no?: number; interview_date?: string; active?: boolean }>;
-  monthly?: Array<{
-    month?: string | number;
-    interview_date?: string;
-    active?: boolean;
-  }>;
-};
-
-export type SurveyRow = {
-  id: string;
-  faculty: string;
-  department: string;
-  program: string; // “ชื่อสาขาแรก +N”
-  programs: ProgramInForm[];
-  submitterEmail: string;
-  submitterName: string;
-  coordinator: string;
-  phone: string[];
-  submittedAt: string;
-};
-
+/* ---------------- mapper ---------------- */
 function mapFormToSurveyRow(doc: any): SurveyRow {
   const id = normalizeId(doc._id);
   const faculty = asText(doc.faculty_id);
@@ -270,9 +266,13 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
               master_req: !!deg.doctoral.master_req,
             }
           : undefined;
-        const rounds = ip?.intake_calendar?.rounds || [];
-        const monthly = ip?.intake_calendar?.monthly || [];
-        return { programId, title, master, doctoral, rounds, monthly };
+
+        const cal = ip?.intake_calendar || {};
+        const rounds = cal?.rounds || [];
+        const monthly = cal?.monthly || [];
+        const message = cal?.message || "";
+
+        return { programId, title, master, doctoral, rounds, monthly, message };
       })
     : [];
 
@@ -286,7 +286,13 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
   const submitterName = doc?.submitter?.name ?? "-";
   const submitterEmail = doc?.submitter?.email ?? "-";
   const coordinator = submitterName;
-  const phone = doc?.submitter?.phone ?? "-";
+
+  const phone: string[] = Array.isArray(doc?.submitter?.phone)
+    ? doc.submitter.phone
+    : doc?.submitter?.phone
+    ? [String(doc.submitter.phone)]
+    : [];
+
   const submittedAt =
     doc?.created_at ?? doc?.updated_at ?? new Date().toISOString();
 
@@ -350,7 +356,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     return (s || "").trim().normalize("NFC");
   }
 
-  console.log(viewRow);
   // role
   const storeUser = useAuthStore((s) => s.user);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -359,14 +364,119 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     setIsAdmin(role === "admin");
   }, [storeUser]);
 
-  // unwrap helper
+  // unwrap helper - support many wrapper shapes (axios/res.data/data, direct array, etc.)
   function unwrapList(res: any): any[] {
+    if (!res) return [];
+    // If res is array itself
     if (Array.isArray(res)) return res;
+    // axios-style: res.data could be array or object
     if (Array.isArray(res?.data)) return res.data;
-    if (Array.isArray(res?.items)) return res.items;
+    // nested common shapes:
     if (Array.isArray(res?.data?.data)) return res.data.data;
+    if (Array.isArray(res?.data?.items)) return res.data.items;
+    if (Array.isArray(res?.items)) return res.items;
+    // sometimes API returns { status, data: { items: [...] } }
+    if (Array.isArray(res?.data?.result)) return res.data.result;
+    // fallback empty
     return [];
   }
+
+  // admin response extractor (อ่าน info.totalCount ถ้ามี)
+  function extractAdminPaging(res: any, fallbackLimit: number) {
+
+    
+    // items could be in res.data or res.data.data etc.
+
+
+    const items = unwrapList(res);
+    const info =
+      res?.info ?? res?.data?.info ?? res?.pagination ?? res?.meta ?? {};
+    const limit = Number(info.limit ?? fallbackLimit ?? 10) || 10;
+
+    // server may return totalCount, total or pages + currentCount
+    const total =
+      Number(
+        info.totalCount ??
+          info.total ??
+          res?.total ??
+          res?.data?.total ??
+          items.length
+      ) || 0;
+
+    // prefer server pages (info.pages) if present, otherwise compute
+    const pagesServer = Number(info.pages) || undefined;
+    const computedPages = Math.max(1, Math.ceil(total / Math.max(1, limit)));
+    const pages = pagesServer ? Math.max(1, pagesServer) : computedPages;
+
+    const currentCount = Number(info.currentCount ?? items.length);
+
+    return { items, total, pages, currentCount, limit };
+  }
+
+  // user response extractor: ถ้ามี info.totalCount ใช้ backend; ถ้าไม่มีก็ fallback client-side
+  function extractUserPaging(res: any, fallbackLimit: number) {
+    const items = unwrapList(res);
+    const info = res?.info ?? res?.data?.info ?? {};
+    const hasTotalCount = typeof info?.totalCount !== "undefined";
+
+    if (!hasTotalCount) {
+      return {
+        items,
+        total: items.length,
+        pages: Math.max(
+          1,
+          Math.ceil(items.length / Math.max(1, fallbackLimit || 10))
+        ),
+        limit: fallbackLimit || 10,
+        hasInfo: false,
+      };
+    }
+
+    const limit = Number(info.limit ?? fallbackLimit ?? 10) || 10;
+    const total = Number(info.totalCount ?? info.total ?? 0) || 0;
+    const pages = Math.max(1, Math.ceil(total / Math.max(1, limit)));
+    return {
+      items,
+      total,
+      pages,
+      limit,
+      currentCount: Number(info.currentCount ?? items.length),
+      hasInfo: true,
+    };
+  }
+
+  /* ---- API params memo ---- */
+  const apiParams: any = useMemo(() => {
+    const sortField = mapSortKeyToApiField(sortColumn);
+    const sortSign: 1 | -1 | undefined = sortField
+      ? sortDirection === "asc"
+        ? 1
+        : -1
+      : undefined;
+
+    return {
+      page: currentPage,
+      limit: pageSize,
+      faculty: normTH(debouncedFilters.faculty) || undefined,
+      department: normTH(debouncedFilters.department) || undefined,
+      program: normTH(debouncedFilters.program) || undefined,
+      submitter_name: normTH(debouncedFilters.submitterName) || undefined,
+      submitter_email: normTH(debouncedFilters.submitterEmail) || undefined,
+      sort: sortSign,
+      sort_option: sortField,
+      clientSortNum: mapSortKeyToClientNumber(sortColumn),
+    };
+  }, [
+    currentPage,
+    pageSize,
+    sortColumn,
+    sortDirection,
+    debouncedFilters.faculty,
+    debouncedFilters.department,
+    debouncedFilters.program,
+    debouncedFilters.submitterName,
+    debouncedFilters.submitterEmail,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -375,59 +485,65 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       setLoadError("");
 
       try {
-        // ⬇️ สำหรับ backend: ใช้ฟิลด์จริง + ทิศทาง 1/-1
-        const sortField = mapSortKeyToApiField(sortColumn);
-        const sortSign: 1 | -1 | undefined = sortField
-          ? sortDirection === "asc"
-            ? 1
-            : -1
-          : undefined;
-
-        // ⬇️ สำหรับ client sort ในโหมด user (ยังใช้แมพเลขเดิม)
-        const clientSortNum = mapSortKeyToClientNumber(sortColumn);
-
-        const params: any = {
-          page: currentPage,
-          limit: pageSize,
-          faculty: normTH(debouncedFilters.faculty) || undefined,
-          department: normTH(debouncedFilters.department) || undefined,
-          program: normTH(debouncedFilters.program) || undefined,
-          submitter_name: normTH(debouncedFilters.submitterName) || undefined,
-          submitter_email: normTH(debouncedFilters.submitterEmail) || undefined,
-          sort: sortSign, // ✅ 1 | -1
-          sort_option: sortField, // ✅ "created_at" | "submitter.name" | ...
-          // date_start / date_end / status / admission_id ถ้ามี UI ให้ใส่เพิ่มที่นี่
-        };
-
         let items: any[] = [];
         let total = 0;
         let pages = 1;
 
+        // === CONDITION: admin vs user ===
         if (isAdmin) {
-          const res = await adminListForms(params);
-          items = res.items;
-          total = res.total;
-          pages = res.pages;
+          // admin -> call adminListForms (server side paging expected)
+          const res = await adminListForms(apiParams);
+          console.log("Admin list forms response:", res);
+          
+          const ext = extractAdminPaging(res, apiParams.limit);
+          items = ext.items;
+          total = ext.total;
+          pages = ext.pages;
         } else {
+          // user -> call getFormsUser
+          // if backend user endpoint sends info.totalCount, use server values
+          // otherwise fallback to client-side filter/sort/paging
           const raw = await getFormsUser();
-          const list = unwrapList(raw);
-          const filtered = clientFilter(list, params);
-          const sorted = clientSort(filtered, clientSortNum, sortDirection);
-          const paged = clientPage(
-            sorted,
-            params.page || 1,
-            params.limit || 10
-          );
-          items = paged.items;
-          total = paged.total;
-          pages = paged.pages;
+          const ext = extractUserPaging(raw, apiParams.limit);
+
+          if (ext.hasInfo) {
+            // server provided totalCount/pages
+            // But we still apply server-side paging: the 'items' here may be current page
+            items = ext.items;
+            total = ext.total;
+            pages = ext.pages;
+          } else {
+            // Client-side fallback
+            const list = unwrapList(raw);
+            const filtered = clientFilter(list, apiParams);
+            const sorted = clientSort(
+              filtered,
+              apiParams.clientSortNum,
+              sortDirection
+            );
+            const paged = clientPage(
+              sorted,
+              apiParams.page || 1,
+              apiParams.limit || 10
+            );
+            items = paged.items;
+            total = paged.total;
+            pages = paged.pages;
+          }
         }
 
-        const mapped = items.map(mapFormToSurveyRow);
+        const mapped = (Array.isArray(items) ? items : []).map(
+          mapFormToSurveyRow
+        );
         if (!cancelled) {
           setRows(mapped);
           setTotal(total);
           setTotalPages(Math.max(1, pages));
+          // If current page is out of range (e.g., after changing pageSize), clamp it.
+          if (currentPage > Math.max(1, pages)) {
+            // setCurrentPage will re-trigger effect - that's intended to fetch the correct page
+            setCurrentPage(1);
+          }
         }
       } catch (e: any) {
         if (!cancelled) {
@@ -443,14 +559,9 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     return () => {
       cancelled = true;
     };
-  }, [
-    currentPage,
-    pageSize,
-    sortColumn,
-    sortDirection,
-    debouncedFilters,
-    isAdmin,
-  ]);
+    // include currentPage so admin paging respects requested page
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiParams, isAdmin, sortDirection, currentPage]);
 
   const handleSort = useCallback(
     (column: SurveyCol) => {
@@ -476,7 +587,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     console.log("Generating PDF for row:", selectedRow);
   }, [selectedRow]);
 
-  const openView = useCallback((row: SurveyRow) => {
+  const openView = useCallback((row: any) => {
     setViewRow(row);
     setSelectedRow(row.id);
     setViewOpen(true);
@@ -500,16 +611,51 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       await del(id);
       toast.success("ลบรายการสำเร็จ");
       if (selectedRow === id) setSelectedRow("");
-      setCurrentPage((p) => p);
+      setCurrentPage((p) => Math.max(1, Math.min(p, totalPages)));
     } catch (e: any) {
       setRows(prev);
       toast.error(e?.message || "ลบรายการไม่สำเร็จ");
     } finally {
       setDeletingId("");
     }
-  }, [deletingId, rows, selectedRow, isAdmin]);
+  }, [deletingId, rows, selectedRow, isAdmin, totalPages]);
 
   const isInitialLoading = loading && rows.length === 0 && !loadError;
+
+  /* ---------- Pagination numbers ---------- */
+  const pageNumbers = useMemo(() => {
+    const pages: (number | "…")[] = [];
+    const tp = totalPages;
+    const cp = currentPage;
+
+    if (tp <= 7) {
+      for (let i = 1; i <= tp; i++) pages.push(i);
+      return pages;
+    }
+
+    const pushUnique = (n: number) => {
+      if (!pages.includes(n)) pages.push(n);
+    };
+
+    pushUnique(1);
+    if (cp > 4) pages.push("…");
+
+    const start = Math.max(2, cp - 2);
+    const end = Math.min(tp - 1, cp + 2);
+    for (let i = start; i <= end; i++) pushUnique(i);
+
+    if (cp < tp - 3) pages.push("…");
+    pushUnique(tp);
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const gotoPage = useCallback(
+    (p: number) => {
+      const next = Math.max(1, Math.min(p, totalPages));
+      if (next !== currentPage) setCurrentPage(next);
+    },
+    [currentPage, totalPages]
+  );
 
   /* ---------------- UI ---------------- */
   return (
@@ -552,7 +698,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             กรอกข้อมูล
           </Button>
 
-          {/* เฉพาะ admin */}
           {isAdmin && (
             <Button asChild className="w-full sm:w-auto">
               <Link href="/dashboard/add">
@@ -735,6 +880,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     <TableCell className="font-medium">{row.faculty}</TableCell>
                     <TableCell>{row.department}</TableCell>
 
+                    {/* Program cell */}
                     <TableCell className="align-top">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -748,31 +894,54 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
                         <DropdownMenuContent
                           align="start"
-                          className="w-[420px] max-w-[90vw] whitespace-normal">
+                          className="w-[480px] max-w-[90vw] whitespace-normal">
                           <DropdownMenuLabel>
                             สาขาทั้งหมดในรายการนี้
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {row.programs.map((p) => (
-                            <DropdownMenuItem
-                              key={p.programId}
-                              className="py-2 whitespace-normal break-words">
-                              <div className="space-y-1">
-                                <div className="font-medium">{p.title}</div>
-                                {(p.master || p.doctoral) && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {p.master
-                                      ? `โท: ${p.master.amount ?? 0} คน`
-                                      : ""}
-                                    {p.master && p.doctoral ? " • " : ""}
-                                    {p.doctoral
-                                      ? `เอก: ${p.doctoral.amount ?? 0} คน`
-                                      : ""}
-                                  </div>
-                                )}
-                              </div>
-                            </DropdownMenuItem>
-                          ))}
+
+                          {row.programs.map((p) => {
+                            const noRound =
+                              !Array.isArray(p.rounds) || p.rounds.length === 0;
+                            const noMonthly =
+                              !Array.isArray(p.monthly) ||
+                              p.monthly.length === 0;
+                            const hasMsg = !!(
+                              p.message && String(p.message).trim()
+                            );
+                            return (
+                              <DropdownMenuItem
+                                key={p.programId}
+                                className="py-2 whitespace-normal break-words">
+                                <div className="space-y-1">
+                                  <div className="font-medium">{p.title}</div>
+
+                                  {(p.master || p.doctoral) && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {p.master
+                                        ? `โท: ${p.master.amount ?? 0} คน`
+                                        : ""}
+                                      {p.master && p.doctoral ? " • " : ""}
+                                      {p.doctoral
+                                        ? `เอก: ${p.doctoral.amount ?? 0} คน`
+                                        : ""}
+                                    </div>
+                                  )}
+
+                                  {noRound && noMonthly && hasMsg && (
+                                    <div className="mt-1">
+                                      <Badge
+                                        variant="secondary"
+                                        className="whitespace-normal">
+                                        {p.message}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              </DropdownMenuItem>
+                            );
+                          })}
+
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={(e) => {
@@ -780,7 +949,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                               openView(row);
                             }}
                             className="cursor-pointer">
-                            <FileText className="mr-2 h-4 w-4" />
+                            <FileText className="mr-2 h-4 w-4" />{" "}
                             ดูรายละเอียดทั้งหมด
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -802,8 +971,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => openView(row)}>
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
+                        <FileText className="h-4 w-4 mr-1" /> View
                       </Button>
                     </TableCell>
 
@@ -813,8 +981,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                         size="sm"
                         onClick={() => confirmDelete(row.id)}
                         className="text-red-600">
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        ลบ
+                        <Trash2 className="h-4 w-4 mr-1" /> ลบ
                       </Button>
                     </TableCell>
 
@@ -842,30 +1009,45 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            หน้า {currentPage} จาก {totalPages} (รวม {total} รายการ)
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium">{currentPage}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-sm text-gray-600">
+          หน้า {currentPage} จาก {totalPages} (รวม {total} รายการ)
         </div>
-      )}
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => gotoPage(currentPage - 1)}
+            disabled={currentPage <= 1}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          {pageNumbers.map((p, i) =>
+            p === "…" ? (
+              <span key={`dots-${i}`} className="px-2 text-gray-500">
+                …
+              </span>
+            ) : (
+              <Button
+                key={`p-${p}`}
+                variant={p === currentPage ? "default" : "outline"}
+                size="sm"
+                onClick={() => gotoPage(p as number)}>
+                {p}
+              </Button>
+            )
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => gotoPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
       {/* View / Delete */}
       <SurveyDetailsDialog
@@ -886,8 +1068,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
               ยกเลิก
             </Button>
             <Button variant="destructive" onClick={doDelete}>
-              <Trash2 className="h-4 w-4 mr-1" />
-              ลบ
+              <Trash2 className="h-4 w-4 mr-1" /> ลบ
             </Button>
           </DialogFooter>
         </DialogContent>

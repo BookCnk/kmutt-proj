@@ -36,6 +36,7 @@ const intakeCalendarSchema = z
   .object({
     rounds: z.array(intakeRoundItemSchema).default([]),
     monthly: z.array(intakeMonthlyItemSchema).default([]),
+    message: z.string().optional(),
   })
   .partial()
   .default({ rounds: [], monthly: [] });
@@ -63,6 +64,9 @@ export const baseSchema = z.object({
 
   // เก็บปฏิทินแบบ optional + default กันโดน strip
   intake_calendar: intakeCalendarSchema.optional(),
+
+  // หมายเหตุเมื่อไม่เปิดรับสมัคร
+  closeNote: z.string().optional(),
 });
 
 export type FormValues = z.infer<typeof baseSchema>;

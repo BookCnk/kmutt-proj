@@ -272,11 +272,6 @@ export default function ProgramSelect({
                       </div>
 
                       {/* หมายเหตุแทน checkbox */}
-                      <p className="text-xs text-muted-foreground">
-                        หมายเหตุ: ระบบจะส่งเงื่อนไข{" "}
-                        <strong>“ต้องสำเร็จปริญญาตรี (bachelor_req)”</strong>{" "}
-                        อัตโนมัติสำหรับหลักสูตรปริญญาโท
-                      </p>
                     </div>
                   )}
 
@@ -306,12 +301,6 @@ export default function ProgramSelect({
                       </div>
 
                       {/* หมายเหตุแทน checkbox */}
-                      <p className="text-xs text-muted-foreground">
-                        หมายเหตุ: ระบบจะส่งเงื่อนไข{" "}
-                        <strong>“ต้องสำเร็จปริญญาตรี (bachelor_req)”</strong>{" "}
-                        และ <strong>“ต้องสำเร็จปริญญาโท (master_req)”</strong>{" "}
-                        อัตโนมัติสำหรับหลักสูตรปริญญาเอก
-                      </p>
                     </div>
                   )}
 

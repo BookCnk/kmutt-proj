@@ -19,8 +19,8 @@ export const updateFaculty = async (
   id: string,
   payload: UpdateFacultyDto
 ): Promise<Faculty> =>
-  api.put<Faculty, Faculty, UpdateFacultyDto>(`${BASE}/${id}`, payload);
+  api.put<Faculty, Faculty, UpdateFacultyDto>(`/admin${BASE}/${id}`, payload);
 
 export const deleteFaculty = async (id: string): Promise<void> => {
-  await api.delete<void, void>(`${BASE}/${id}`);
+  await api.delete<void, void>(`/admin${BASE}/${id}`);
 };

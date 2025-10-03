@@ -67,28 +67,49 @@ function buildQuery(params: FormListParams = {}) {
   return qs.toString();
 }
 
+// ตัวอย่าง implement ใหม่ของ normalizeListResponse
 function normalizeListResponse(
   res: any,
   fallbackPage = 1,
   fallbackLimit = 10
 ): FormListResult {
-  const items: Form[] = Array.isArray(res)
-    ? res
-    : res?.items ?? res?.data ?? [];
-  const total =
-    res?.pagination?.total ??
-    res?.total ??
-    (Array.isArray(res) ? items.length : 0);
-  const page = Number(res?.pagination?.page ?? fallbackPage);
-  const limit = Number(
-    res?.pagination?.limit ??
-      (Array.isArray(res) ? items.length || fallbackLimit : fallbackLimit)
-  );
-  const pages =
-    res?.pagination?.pages ??
-    (limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1);
+  // ให้ payload เป็นกรณีที่มาจาก axios (res.data) หรือ res ตรงๆ
+  const payload = res;
 
-  return { items, total, page, pages, limit };
+  // หา items: รองรับหลายชื่อ (payload เป็น array / payload.items / payload.data)
+  const items: any[] = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload.data)
+    ? payload.data
+    : [];
+
+  // หา info/pagination/meta (หลาย backend ใช้ชื่อไม่เหมือนกัน)
+  const info = payload.info ?? payload.pagination ?? payload.meta ?? {};
+
+  // total: ตรวจสอบชื่อหลายแบบ (info.totalCount, info.total, payload.total)
+  const total =
+    Number(info?.totalCount ?? info?.total ?? payload?.total ?? items.length) ||
+    0;
+
+  // limit/page/pages: อ่านจาก info/payload ถ้ามี ถ้าไม่มีก็กำหนด fallback
+  const limit =
+    Number(info?.limit ?? payload?.limit ?? fallbackLimit) || fallbackLimit;
+  const page =
+    Number(payload?.page ?? info?.page ?? fallbackPage) || fallbackPage;
+
+  const pages =
+    Number(info?.pages ?? payload?.pages) ||
+    (limit > 0 ? Math.max(1, Math.ceil(total / Math.max(1, limit))) : 1);
+
+  return {
+    items,
+    total,
+    page,
+    pages,
+    limit,
+  };
 }
 
 /* ------------------------ Admin List (server-side) --------------- */
@@ -99,6 +120,7 @@ export const adminListForms = async (
   const qs = buildQuery(params);
   const url = qs ? `${ADMIN_BASE}?${qs}` : ADMIN_BASE;
   const res: any = await api.get(url);
+
   return normalizeListResponse(
     res,
     Number(params.page ?? 1),

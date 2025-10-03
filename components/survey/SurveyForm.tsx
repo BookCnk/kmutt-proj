@@ -5,6 +5,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider } from "react-hook-form";
 import { toast } from "sonner";
+import { MONTHS_TH } from "@/lib/date-utils";
 
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
@@ -34,7 +35,6 @@ import { useAdmissionOption } from "./hooks/useAdmissionOption";
 
 import type { IntakeConfig } from "./types";
 import type { CreateFormPayloadV2, IntakeCalendar } from "@/types/form";
-import { getAdmissions } from "@/api/admissionService";
 
 /* ------------------------------------------------------------------ */
 /* Config                                                             */
@@ -50,7 +50,7 @@ const intakeConfig: IntakeConfig = {
     end: "2025-11-25T16:59:59.000Z",
   },
   emailPolicy: {
-    allowedDomains: ["gmail.com", "mail.kmutt.ac.th"],
+    allowedDomains: ["gmail.com", "mail.kmutt.ac.th", "kmutt.ac.th"],
   },
   intakeModes: [
     {
@@ -245,7 +245,6 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     }
     return { showRounds: false, rounds: [] as string[] };
   }, [intakeModeIds]);
-
   const normalizeId = (v: any): string => {
     if (v == null) return "";
     if (typeof v === "string" || typeof v === "number") return String(v);
@@ -253,8 +252,15 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
       return String(v._id ?? v.id ?? v.value ?? v.code ?? "");
     return "";
   };
-
+  function normalizeMonthToTH(monthLike: unknown): string | undefined {
+    if (typeof monthLike === "string" && monthLike.trim())
+      return monthLike.trim();
+    const n = Number(monthLike);
+    if (Number.isFinite(n) && n >= 1 && n <= 12) return MONTHS_TH[n - 1];
+    return undefined;
+  }
   /* -------- Submit -------- */
+  // แทนที่ฟังก์ชัน handleSubmit ทั้งก้อนด้วยอันนี้
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
@@ -267,12 +273,17 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
       const admission = admissions.data[0];
 
-      // ✅ ดึงค่าที่ IntakeModeRadios ซิงก์ไว้แบบ raw (ไม่ผ่าน Zod)
+      // ✅ ดึงค่าที่ IntakeModeRadios ซิงก์ไว้แบบ raw (และเพิ่ม title ลงใน type)
       const calendarRaw = (methods.getValues("intake_calendar") ?? {}) as {
-        rounds?: Array<{ no?: number; interview_date?: string }>;
+        rounds?: Array<{
+          no?: number;
+          interview_date?: string;
+          title?: string;
+        }>;
         monthly?: Array<{
           month?: string | number;
           interview_date?: string;
+          title?: string;
         }>;
       };
 
@@ -283,22 +294,49 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
         ? calendarRaw.monthly
         : [];
 
-      // map -> เหลือฟิลด์ขั้นต่ำ
+      // ===== map -> ส่งฟิลด์ให้ครบ: no, title, interview_date (ISO) =====
       const pickedRounds = pickedRoundsSrc
         .filter((r) => r && r.interview_date)
-        .map((r) => ({
-          no: Number(r.no ?? 0),
-          interview_date: new Date(String(r.interview_date)).toISOString(),
-        }));
+        .map((r, idx) => {
+          const no = Number(r.no ?? 0);
+          const title =
+            typeof r.title === "string" && r.title.trim()
+              ? r.title.trim()
+              : `รอบที่ ${no || idx + 1}`;
+          return {
+            no,
+            title,
+            interview_date: new Date(String(r.interview_date)).toISOString(),
+          };
+        });
 
       const pickedMonthly = pickedMonthlySrc
         .filter((m) => m && m.interview_date)
-        .map((m) => ({
-          ...(m.month !== undefined ? { month: m.month } : {}),
-          interview_date: new Date(String(m.interview_date)).toISOString(),
-        }));
+        .map((m, idx) => {
+          const monthTH =
+            normalizeMonthToTH(m.month) ??
+            // ถ้าไม่ได้เลือก month ให้เดาจาก interview_date (ถ้าทำได้)
+            (() => {
+              try {
+                const d = new Date(String(m.interview_date));
+                if (!isNaN(d.getTime())) return MONTHS_TH[d.getMonth()];
+              } catch {}
+              return undefined;
+            })();
 
-      // 2) map โปรแกรมที่เลือก -> intake_programs[] (เลิก hardcode)
+          const title =
+            typeof m.title === "string" && m.title.trim()
+              ? m.title.trim()
+              : `รอบที่ ${idx + 1}`;
+
+          return {
+            ...(monthTH ? { month: monthTH } : {}),
+            title,
+            interview_date: new Date(String(m.interview_date)).toISOString(),
+          };
+        });
+
+      // 2) map โปรแกรมที่เลือก -> intake_programs[]
       const intake_programs = (values.programs as any[]).map((row) => {
         const program_id = String(normalizeId(row.program));
 
@@ -323,6 +361,9 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
           intake_calendar: {
             rounds: pickedRounds,
             monthly: pickedMonthly,
+            ...(values.intakeModes?.includes("none") && values.closeNote
+              ? { message: values.closeNote }
+              : {}),
           } as IntakeCalendar,
         };
       });
@@ -386,14 +427,12 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
                 options={faculties.data}
                 loading={faculties.loading}
               />
-
               <DepartmentSelect
                 name="department"
                 facultySelected={!!facultyId}
                 options={departments.data}
                 loading={departments.loading}
               />
-
               {/* ใช้ name="programs" ให้ตรงกับ schema */}
               <ProgramSelect
                 name="programs"
@@ -401,20 +440,16 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
                 options={programs.data}
                 loading={programs.loading}
               />
-
               <Separator />
-
               <IntakeModeRadios
                 name="intakeModes" // array field
                 admissions={admissions.data}
               />
 
               <Separator />
-
               <CoordinatorField name="coordinator" />
               <PhonesField name="phone" />
               <EmailField name="email" />
-
               <SubmitBar
                 onBack={onBack}
                 isSubmitting={isSubmitting}

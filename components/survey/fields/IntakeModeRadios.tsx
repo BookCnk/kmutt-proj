@@ -48,6 +48,8 @@ export type Admission = {
 export type FormValuesWithIntakeModes = {
   /** เลือกได้หลายอัน */
   intakeModes: Array<"none" | "rounds" | "monthly">;
+  /** หมายเหตุเมื่อไม่เปิดรับสมัคร */
+  closeNote?: string;
 };
 
 type IntakeCalendarForm = {
@@ -182,6 +184,9 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     () => (active?.monthly ?? []).slice().sort(byDateAsc),
     [active]
   );
+
+  console.log("active", active?.monthly);
+
   const roundsList = useMemo(
     () => (active?.rounds ?? []).slice().sort(byDateAsc),
     [active]
@@ -202,7 +207,7 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
       const next = { ...prev };
       roundsList.forEach((r) => {
         const key = r._id ?? `${r.no}-${r.interview_date}`;
-        if (!next[key]) next[key] = "closed";
+        if (!next[key]) next[key] = "open";
       });
       return next;
     });
@@ -215,7 +220,7 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
       monthlyList.forEach((m, idx) => {
         const fallback = `${m.month ?? ""}-${m.interview_date ?? ""}`;
         const key = m._id ?? (fallback ? fallback : String(idx));
-        if (!next[key]) next[key] = "closed";
+        if (!next[key]) next[key] = "open";
       });
       return next;
     });
@@ -346,8 +351,28 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                 <OptionBlock
                   checked={selected.has("none")}
                   label="ไม่เปิดรับสมัคร"
-                  onToggle={() => toggle("none")}
-                />
+                  onToggle={() => toggle("none")}>
+                  {selected.has("none") && (
+                    <div className="pl-6">
+                      <Controller
+                        control={control as unknown as Control<FormValues>}
+                        name="closeNote"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">หมายเหตุ</FormLabel>
+                            <FormControl>
+                              <textarea
+                                className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                placeholder="ระบุเหตุผลที่ไม่เปิดรับสมัคร..."
+                                {...field}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </OptionBlock>
 
                 {/* 2) สัมภาษณ์เป็นรอบ */}
                 <OptionBlock
@@ -392,6 +417,7 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                 </OptionBlock>
 
                 {/* 3) สัมภาษณ์ทุกเดือน */}
+
                 <OptionBlock
                   checked={selected.has("monthly")}
                   label="สัมภาษณ์ทุกเดือน"
@@ -401,7 +427,8 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                       <div className="px-4 py-3 font-medium text-gray-900">
                         สัมภาษณ์ทุกเดือน
                       </div>
-                      {monthlyList.map((m, idx) => {
+
+                      {monthlyList.map((m: any, idx) => {
                         const fallback = `${m.month ?? ""}-${
                           m.interview_date ?? ""
                         }`;
@@ -412,7 +439,7 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                           | "closed";
                         const monthLabel =
                           typeof m.month === "string"
-                            ? m.month
+                            ? m.title
                             : `เดือนที่ ${m.month}`;
                         return (
                           <div key={key} className="px-6 py-4">

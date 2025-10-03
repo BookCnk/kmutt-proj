@@ -18,6 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
+import AddDepartmentDialog from "@/components/survey/AddDepartmentDialog";
 
 import {
   createAdmission,
@@ -475,6 +476,8 @@ export default function IntakeViewerWithAddModal() {
       `${addDraft.term.semester || ""}/${addDraft.term.academic_year_th || ""}`,
     [addDraft.term.semester, addDraft.term.academic_year_th]
   );
+  const toUTCStartISO = (v: string) =>
+    v && !v.includes("T") ? toISOStartOfDayUTC(parseISODateLocal(v)) : v;
 
   const onAddSave = async () => {
     const normalized: IntakeData = {
@@ -498,21 +501,39 @@ export default function IntakeViewerWithAddModal() {
       // CreateAdmissionDto payload (เหมือนเดิม)
       const payload = {
         term: normalized.term,
-        active: normalized.active,
-        intake_mode: normalized.intake_mode,
-        application_window: normalized.application_window,
-        rounds: normalized.rounds,
-        monthly: (normalized.monthly ?? []).map((m) => ({
-          month:
-            m.label ??
-            (typeof m.month === "number"
-              ? MONTHS_TH[(m.month || 1) - 1]
-              : undefined),
-          interview_date: m.interview_date,
+        application_window: {
+          open_at: toUTCStartISO(normalized.application_window.open_at),
+          close_at: toUTCStartISO(normalized.application_window.close_at),
+          notice: normalized.application_window.notice,
+          calendar_url: normalized.application_window.calendar_url,
+        },
+        rounds: (normalized.rounds ?? []).map((r: any) => ({
+          no: r.no,
+          title: r.title,
+          interview_date: toUTCStartISO(r.interview_date),
         })),
-        meta: normalized.meta,
+        monthly: (normalized.monthly ?? []).map((m: any) => {
+          let monthName: string | undefined;
+
+          if (typeof (m as any).month === "string" && (m as any).month.trim()) {
+            monthName = (m as any).month.trim();
+          } else if (typeof (m as any).month === "number") {
+            const num = (m as any).month;
+            monthName = num >= 1 && num <= 12 ? MONTHS_TH[num - 1] : undefined;
+          } else if (m.interview_date) {
+            const d = new Date(toUTCStartISO(m.interview_date));
+            monthName = MONTHS_TH[d.getMonth()];
+          }
+
+          return {
+            month: monthName ?? "", // ✅ field ตามสเปก
+            title: m.title, // ✅ คง title
+            interview_date: toUTCStartISO(m.interview_date),
+          };
+        }),
       };
 
+  
       const created = await createAdmission(payload as any);
 
       try {
@@ -692,13 +713,10 @@ export default function IntakeViewerWithAddModal() {
               {selected.application_window.notice}
             </p>
           )}
+
           <p className="text-sm text-gray-600">
-            โหมดรับสมัคร:{" "}
-            <span className="font-medium">
-              {intakeModeLabel(selected.intake_mode)}
-            </span>
+            ระยะเวลากรอกข้อมูล: {formatRange}
           </p>
-          <p className="text-sm text-gray-600">ช่วงสมัคร: {formatRange}</p>
           {selected.application_window.calendar_url && (
             <a
               href={selected.application_window.calendar_url}
@@ -1043,526 +1061,13 @@ export default function IntakeViewerWithAddModal() {
       </Dialog>
 
       {/* ---------- Add New Term From Example (เต็มเหมือนเดิม) ---------- */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle>เพิ่มภาคจากตัวอย่าง</DialogTitle>
-            <DialogDescription>
-              แก้ไขข้อมูลให้ถูกต้อง แล้วกดบันทึก
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="max-h-[70vh] overflow-y-auto space-y-6 pt-4">
-            {/* ================= Basic Info ================= */}
-            <section className="rounded-xl border bg-white/60 p-4 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  ข้อมูลหลัก
-                </h3>
-                <span className="text-xs text-slate-500">
-                  กำหนดภาคเรียนและปีการศึกษา
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-4"></div>
-
-              {/* Semester & Year -> auto label/sort_key */}
-              <div className="grid gap-3 md:grid-cols-4">
-                <div>
-                  <label className="text-xs text-gray-600">
-                    ภาคเรียน (semester)
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border px-3 py-2"
-                    value={addDraft.term.semester}
-                    onChange={(e) =>
-                      setAddDraft((s) => ({
-                        ...s,
-                        term: {
-                          ...s.term,
-                          semester: Number(e.target.value || 0),
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600">
-                    ปีการศึกษา (พ.ศ.)
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border px-3 py-2"
-                    value={addDraft.term.academic_year_th}
-                    onChange={(e) =>
-                      setAddDraft((s) => ({
-                        ...s,
-                        term: {
-                          ...s.term,
-                          academic_year_th: Number(e.target.value || 0),
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600">Label (คำนวณ)</label>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed"
-                    value={addDraft.term.label}
-                    disabled
-                    aria-disabled
-                    title="คำนวณอัตโนมัติจาก ภาคเรียน/ปีการศึกษา"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">
-                    Sort Key (คำนวณ)
-                  </label>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed"
-                    value={addDraft.term.sort_key}
-                    disabled
-                    aria-disabled
-                    title="คำนวณอัตโนมัติจาก ภาคเรียน/ปีการศึกษา"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* ================= Application Window + PREVIEW ================= */}
-            <section className="rounded-xl border bg-white/60 p-4 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  ช่วงรับสมัคร (application_window)
-                </h3>
-                <span className="text-xs text-slate-500">
-                  กำหนดวันเปิด/ปิดรับ + ข้อความประกาศ
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-600">open_at</label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <DatePickerField
-                        valueISO={toISODateLocal(
-                          parseUTCDateToLocalDate(
-                            addDraft.application_window.open_at
-                          )
-                        )}
-                        onChangeISO={(iso) => {
-                          const currentTime = getTimeFromISO(
-                            addDraft.application_window.open_at
-                          );
-                          const isoUTC = localDateAndTimeToISOUTC(
-                            iso,
-                            currentTime
-                          );
-                          setAddDraft((s) => ({
-                            ...s,
-                            application_window: {
-                              ...s.application_window,
-                              open_at: isoUTC,
-                            },
-                          }));
-                        }}
-                      />
-                    </div>
-                    <input
-                      type="time"
-                      value={getTimeFromISO(
-                        addDraft.application_window.open_at
-                      )}
-                      onChange={(e) => {
-                        const dateISO = toISODateLocal(
-                          parseUTCDateToLocalDate(
-                            addDraft.application_window.open_at
-                          )
-                        );
-                        const isoUTC = localDateAndTimeToISOUTC(
-                          dateISO,
-                          e.target.value
-                        );
-                        setAddDraft((s) => ({
-                          ...s,
-                          application_window: {
-                            ...s.application_window,
-                            open_at: isoUTC,
-                          },
-                        }));
-                      }}
-                      className="w-28 rounded-md border px-2 py-1"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    เวลาเริ่มบังคับเป็นเวลาที่เลือก (แสดงเป็น local time);
-                    ค่าจะถูกบันทึกเป็น ISO (UTC)
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-600">close_at</label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <DatePickerField
-                        valueISO={toISODateLocal(
-                          parseUTCDateToLocalDate(
-                            addDraft.application_window.close_at
-                          )
-                        )}
-                        disabledBefore={toISODateLocal(
-                          parseUTCDateToLocalDate(
-                            addDraft.application_window.open_at
-                          )
-                        )}
-                        onChangeISO={(iso) => {
-                          const currentTime = getTimeFromISO(
-                            addDraft.application_window.close_at
-                          );
-                          const isoUTC = localDateAndTimeToISOUTC(
-                            iso,
-                            currentTime
-                          );
-                          setAddDraft((s) => ({
-                            ...s,
-                            application_window: {
-                              ...s.application_window,
-                              close_at: isoUTC,
-                            },
-                          }));
-                        }}
-                      />
-                    </div>
-                    <input
-                      type="time"
-                      value={getTimeFromISO(
-                        addDraft.application_window.close_at
-                      )}
-                      onChange={(e) => {
-                        const dateISO = toISODateLocal(
-                          parseUTCDateToLocalDate(
-                            addDraft.application_window.close_at
-                          )
-                        );
-                        const isoUTC = localDateAndTimeToISOUTC(
-                          dateISO,
-                          e.target.value
-                        );
-                        setAddDraft((s) => ({
-                          ...s,
-                          application_window: {
-                            ...s.application_window,
-                            close_at: isoUTC,
-                          },
-                        }));
-                      }}
-                      className="w-28 rounded-md border px-2 py-1"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    เวลาปิดบังคับเป็นเวลาที่เลือก (แสดงเป็น local time);
-                    ค่าจะถูกบันทึกเป็น ISO (UTC)
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="text-xs text-gray-600">notice</label>
-                  <textarea
-                    className="w-full rounded-lg border px-3 py-2 min-h-[108px] resize-y"
-                    value={addDraft.application_window.notice ?? ""}
-                    onChange={(e) =>
-                      setAddDraft((s) => ({
-                        ...s,
-                        application_window: {
-                          ...s.application_window,
-                          notice: e.target.value,
-                        },
-                      }))
-                    }
-                    rows={4}
-                    placeholder="พิมพ์ข้อความประกาศ…"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    แสดงใต้หัวข้อประกาศ ใช้บรรทัดเดียวหรือหลายบรรทัดก็ได้
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">calendar_url</label>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2"
-                    value={addDraft.application_window.calendar_url ?? ""}
-                    onChange={(e) =>
-                      setAddDraft((s) => ({
-                        ...s,
-                        application_window: {
-                          ...s.application_window,
-                          calendar_url: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder="เช่น https://kmutt.me/Calendar-Postgraduate"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    ลิงก์ไปยังปฏิทินภายนอก/หน้าเพจรายละเอียด
-                  </p>
-                </div>
-              </div>
-
-              {/* LIVE PREVIEW */}
-              <Alert className="mt-1">
-                <AlertDescription className="flex items-center justify-between">
-                  <div className="leading-relaxed">
-                    <strong>
-                      ประกาศการรับสมัคร ภาคการศึกษาที่{" "}
-                      {`${addDraft.term.semester}/${addDraft.term.academic_year_th}`}
-                    </strong>
-                    <br />
-                    {addDraft.application_window.notice ||
-                      "ยังไม่ได้กรอกข้อความประกาศ"}
-                  </div>
-                  <Button variant="ghost" size="sm" asChild>
-                    <a
-                      href={addDraft.application_window.calendar_url || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                      <span className="ml-1">ปฏิทิน</span>
-                    </a>
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </section>
-
-            {/* ================= Rounds ================= */}
-            <section className="rounded-xl border bg-white/60 p-4 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">Rounds</h3>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAddDraft((s) => ({
-                      ...s,
-                      rounds: [
-                        ...(s.rounds ?? []),
-                        {
-                          no: (s.rounds?.at(-1)?.no ?? 0) + 1,
-                          interview_date: "",
-                          open: true,
-                        },
-                      ],
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-                  + เพิ่มรอบ
-                </button>
-              </div>
-
-              {(addDraft.rounds ?? []).length ? (
-                addDraft.rounds.map((r, idx) => (
-                  <div
-                    key={idx}
-                    className="grid gap-3 md:grid-cols-12 rounded-lg border bg-slate-50/50 p-3">
-                    <div className="md:col-span-2">
-                      <label className="text-xs text-gray-600">รอบที่</label>
-                      <input
-                        type="number"
-                        min={1}
-                        className="w-full rounded-lg border px-3 py-2"
-                        value={r.no}
-                        onChange={(e) =>
-                          setAddDraft((s) => ({
-                            ...s,
-                            rounds: s.rounds.map((it, i) =>
-                              i === idx
-                                ? { ...it, no: Number(e.target.value || 0) }
-                                : it
-                            ),
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="md:col-span-5">
-                      <label className="text-xs text-gray-600">
-                        วันสัมภาษณ์
-                      </label>
-                      <DatePickerField
-                        valueISO={r.interview_date || ""}
-                        onChangeISO={(iso) =>
-                          setAddDraft((s) => ({
-                            ...s,
-                            rounds: s.rounds.map((it, i) =>
-                              i === idx ? { ...it, interview_date: iso } : it
-                            ),
-                          }))
-                        }
-                        ariaLabel="เลือกวันสัมภาษณ์"
-                      />
-                    </div>
-                    <div className="md:col-span-3 flex items-end">
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={r.open ?? true}
-                          onChange={(e) =>
-                            setAddDraft((s) => ({
-                              ...s,
-                              rounds: s.rounds.map((it, i) =>
-                                i === idx
-                                  ? { ...it, open: e.target.checked }
-                                  : it
-                              ),
-                            }))
-                          }
-                        />
-                        เปิดรับ
-                      </label>
-                    </div>
-                    <div className="md:col-span-2 flex items-end justify-end">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAddDraft((s) => ({
-                            ...s,
-                            rounds: s.rounds.filter((_, i) => i !== idx),
-                          }))
-                        }
-                        className="rounded-lg border px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
-                        ลบ
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded border border-dashed p-4 text-center text-sm text-gray-500">
-                  ยังไม่มีรอบ — กด “เพิ่มรอบ”
-                </div>
-              )}
-            </section>
-
-            {/* ================= Monthly ================= */}
-            <section className="rounded-xl border bg-white/60 p-4 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  Monthly
-                </h3>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAddDraft((s) => ({
-                      ...s,
-                      monthly: [
-                        ...(s.monthly ?? []),
-                        { interview_date: "", open: true },
-                      ],
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-                  + เพิ่มเดือน
-                </button>
-              </div>
-
-              {(addDraft.monthly ?? []).length ? (
-                addDraft.monthly.map((m, idx) => {
-                  const d = m.interview_date
-                    ? parseISODateLocal(m.interview_date)
-                    : undefined;
-                  const mm = d ? d.getMonth() + 1 : undefined;
-                  const label = m.label ?? (mm ? MONTHS_TH[mm - 1] : undefined);
-                  return (
-                    <div
-                      key={idx}
-                      className="grid gap-3 md:grid-cols-12 rounded-lg border bg-slate-50/50 p-3">
-                      <div className="md:col-span-5">
-                        <label className="text-xs text-gray-600">
-                          วันสัมภาษณ์
-                        </label>
-                        <DatePickerField
-                          valueISO={m.interview_date || ""}
-                          onChangeISO={(iso) =>
-                            setAddDraft((s) => ({
-                              ...s,
-                              monthly: s.monthly.map((it, i) =>
-                                i === idx ? { ...it, interview_date: iso } : it
-                              ),
-                            }))
-                          }
-                          ariaLabel="เลือกวันสัมภาษณ์รายเดือน"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="text-xs text-gray-600">เดือน</label>
-                        <div className="w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-700">
-                          {label ? `${label}${mm ? ` (${mm})` : ""}` : "—"}
-                        </div>
-                      </div>
-                      <div className="md:col-span-2 flex items-end">
-                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300"
-                            checked={m.open ?? true}
-                            onChange={(e) =>
-                              setAddDraft((s) => ({
-                                ...s,
-                                monthly: s.monthly.map((it, i) =>
-                                  i === idx
-                                    ? { ...it, open: e.target.checked }
-                                    : it
-                                ),
-                              }))
-                            }
-                          />
-                          เปิดรับ
-                        </label>
-                      </div>
-                      <div className="md:col-span-2 flex items-end justify-end">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAddDraft((s) => ({
-                              ...s,
-                              monthly: s.monthly.filter((_, i) => i !== idx),
-                            }))
-                          }
-                          className="rounded-lg border px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
-                          ลบ
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="rounded border border-dashed p-4 text-center text-sm text-gray-500">
-                  ยังไม่มีเดือน — กด “เพิ่มเดือน”
-                </div>
-              )}
-            </section>
-          </div>
-
-          <DialogFooter className="border-t pt-3">
-            <button
-              onClick={() => setAddOpen(false)}
-              className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
-              type="button">
-              ยกเลิก
-            </button>
-            <button
-              onClick={onAddSave}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              type="button">
-              บันทึก
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddDepartmentDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        draft={addDraft}
+        setDraft={setAddDraft}
+        onSave={onAddSave}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ export type IntakeMonthlyItem = {
 export type IntakeCalendar = {
   rounds: { no: number; interview_date: string; active?: boolean }[];
   monthly: { month: string; interview_date: string; active?: boolean }[];
+  message?: string; // ข้อความประกาศ (ถ้ามี)
 };
 
 export type IntakeDegree = {

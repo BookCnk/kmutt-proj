@@ -14,7 +14,7 @@ import {
 import {
   getProgramsByDepartment,
   deleteProgram,
-  updateProgram, // 👈 เพิ่ม import
+  updateProgram,
 } from "@/api/programService";
 
 import {
@@ -73,6 +73,19 @@ type ProgramResponse = {
   data: Program[];
 };
 
+/* ========= Helper: นับจำนวนสาขาของคณะ (เชื่อ totalCount + retry) ========= */
+async function fetchDeptCount(fid: string, attempt = 0): Promise<number> {
+  try {
+    // ถ้า backend รองรับ query page/limit ควรใส่ limit=1 เพื่อลดภาระ
+    const dres: DepartmentResponse = await getDepartmentsByFaculty(fid);
+    return dres?.info?.totalCount ?? dres?.data?.length ?? 0;
+  } catch (err) {
+    if (attempt < 2) return fetchDeptCount(fid, attempt + 1); // retry สูงสุด 3 ครั้ง (0,1,2)
+    console.error("fetchDeptCount error:", err);
+    return 0;
+  }
+}
+
 export default function FacultyTable() {
   const [rows, setRows] = useState<FacultyRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -109,7 +122,7 @@ export default function FacultyTable() {
   const [savingFacId, setSavingFacId] = useState<string | null>(null);
   const [deletingFacId, setDeletingFacId] = useState<string | null>(null);
 
-  /** ---------- Load faculties & pre-count departments ---------- */
+  /** ---------- Load faculties & reliable department count ---------- */
   useEffect(() => {
     let cancelled = false;
 
@@ -122,15 +135,7 @@ export default function FacultyTable() {
         const mapped: FacultyRow[] = await Promise.all(
           arr.map(async (f: any) => {
             const fid = String(f.id ?? f._id);
-            let deptCount = 0;
-            try {
-              const dres: DepartmentResponse = await getDepartmentsByFaculty(
-                fid
-              );
-              deptCount = dres?.data?.length ?? 0;
-            } catch {
-              deptCount = 0;
-            }
+            const deptCount = await fetchDeptCount(fid); // << สำคัญ: ใช้ totalCount
             return {
               id: fid,
               title: f.title ?? f.nameTH ?? "-",
@@ -346,7 +351,7 @@ export default function FacultyTable() {
     }
     try {
       setSavingProgId(p._id);
-      await updateProgram(p._id, { title: newTitle }); // 👈 แก้ไขชื่อ program
+      await updateProgram(p._id, { title: newTitle });
       setProgRows((prev) =>
         prev.map((x) => (x._id === p._id ? { ...x, title: newTitle } : x))
       );
