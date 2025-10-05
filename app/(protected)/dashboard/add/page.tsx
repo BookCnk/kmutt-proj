@@ -566,6 +566,10 @@ export default function FacultyAdminPage() {
         </a>
       </header>
 
+      <Section title="รายการคณะ">
+        <FacultyTable />
+      </Section>
+
       <Section title="ตั้งค่ารอบสัมภาษณ์">
         <RoundsEditor />
       </Section>
@@ -580,24 +584,6 @@ export default function FacultyAdminPage() {
 
       <Section title="เพิ่มสาขา">
         <CapsEditor />
-      </Section>
-
-      <Section title="รายการคณะ">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-sm text-gray-500">ตัวอย่างข้อมูล</span>
-          <div className="flex gap-2">
-            <input
-              className="rounded-xl border px-3 py-2 text-sm"
-              placeholder="ค้นหาคณะ..."
-            />
-            <button
-              type="button"
-              className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50">
-              ค้นหา
-            </button>
-          </div>
-        </div>
-        <FacultyTable />
       </Section>
     </div>
   );

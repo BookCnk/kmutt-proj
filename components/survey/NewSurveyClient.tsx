@@ -10,7 +10,6 @@ export default function NewSurveyClient() {
   const router = useRouter();
 
   const handleSubmit = (data: FormValues) => {
-    console.log("Form submitted:", data);
     toast.success("ส่งข้อมูลสำเร็จ", {
       description: "ข้อมูลแบบสำรวจได้รับการบันทึกเรียบร้อยแล้ว",
     });

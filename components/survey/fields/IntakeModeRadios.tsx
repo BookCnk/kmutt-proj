@@ -185,7 +185,6 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     [active]
   );
 
-  console.log("active", active?.monthly);
 
   const roundsList = useMemo(
     () => (active?.rounds ?? []).slice().sort(byDateAsc),

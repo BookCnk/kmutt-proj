@@ -383,10 +383,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
   // admin response extractor (อ่าน info.totalCount ถ้ามี)
   function extractAdminPaging(res: any, fallbackLimit: number) {
-
-    
     // items could be in res.data or res.data.data etc.
-
 
     const items = unwrapList(res);
     const info =
@@ -493,8 +490,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         if (isAdmin) {
           // admin -> call adminListForms (server side paging expected)
           const res = await adminListForms(apiParams);
-          console.log("Admin list forms response:", res);
-          
+
           const ext = extractAdminPaging(res, apiParams.limit);
           items = ext.items;
           total = ext.total;
@@ -584,7 +580,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
   const handlePrintPDF = useCallback(() => {
     if (!selectedRow) return;
-    console.log("Generating PDF for row:", selectedRow);
   }, [selectedRow]);
 
   const openView = useCallback((row: any) => {

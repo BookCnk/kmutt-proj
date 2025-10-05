@@ -1,6 +1,7 @@
 // components/survey/AnnouncementBanner.tsx
 "use client";
 
+import { Fragment } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar, ExternalLink } from "lucide-react";
@@ -31,6 +32,7 @@ export default function AnnouncementBanner({
   calendarUrl,
   status = "unknown",
 }: Props) {
+  console.log("Announcement text:", text);
   return (
     <Alert className={getStatusColor(status)}>
       <Calendar className="h-4 w-4" />
@@ -38,7 +40,19 @@ export default function AnnouncementBanner({
         <div>
           <strong>ประกาศการรับสมัคร ภาคการศึกษาที่ {term}</strong>
           <br />
-          {text}
+          {text.split("\n").map((line, i) => (
+            <Fragment key={i}>
+              {line.startsWith("หมายเหตุ") ? (
+                <>
+                  <br />
+                  {line}
+                </>
+              ) : (
+                line
+              )}
+              {i < text.split("\n").length - 1 && <br />}
+            </Fragment>
+          ))}
         </div>
         <Button variant="ghost" size="sm" asChild>
           <a href={calendarUrl} target="_blank" rel="noopener noreferrer">
