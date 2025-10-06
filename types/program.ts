@@ -18,13 +18,15 @@ export type Program = {
 };
 
 export type CreateProgramDto = {
-  faculty_id: string;
-  department_id: string;
-  title: string;
-  degree_level: string;
-  degree_abbr: string;
-  active?: boolean;
+  faculty_id: string; // MongoId ของคณะ (จำเป็น)
+  department_id?: string; // MongoId ของภาควิชา (ไม่จำเป็น)
+  title: string; // ชื่อสาขา
+  degree_level: "master" | "doctoral"; // ระดับปริญญา
+  degree_abbr: string; // ตัวย่อปริญญา (เช่น "วศ.ม.", "ปร.ด.")
+  active?: boolean; // เปิดใช้งานหรือไม่ (ไม่จำเป็น)
+  degree_req?: "bachelor" | "master"; // วุฒิขั้นต่ำที่ต้องจบ (ไม่จำเป็น)
 };
+
 
 export type UpdateProgramDto = Partial<CreateProgramDto>;
 

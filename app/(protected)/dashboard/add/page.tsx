@@ -64,7 +64,8 @@ const MONTHS_TH = [
 ] as const;
 
 const uid = (prefix = "id") =>
-  crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}`;
+  (typeof crypto !== "undefined" && (crypto as any)?.randomUUID?.()) ||
+  `${prefix}-${Date.now()}`;
 const clamp = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
 
@@ -316,15 +317,15 @@ interface RoundsEditorProps {
 type Faculty = {
   id: string; // ถ้า API คืน _id ให้ map เป็น id ด้านล่าง
   title: string; // ชื่อคณะ (ไทย)
-  active: boolean;
-  created_at: string;
-  updated_at: string;
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type Department = {
-  _id: string;
+  id: string;
   title: string; // ชื่อภาควิชา (ไทย)
-  active: boolean;
+  active?: boolean;
 };
 
 type DepartmentResponse = {
@@ -345,12 +346,36 @@ function CapsEditor() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [facultyId, setFacultyId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [noDepartment, setNoDepartment] = useState(false); // ✅ optional department
   const [majorName, setMajorName] = useState("");
+
+  // payload fields per CreateProgramDto
+  const [degreeLevel, setDegreeLevel] = useState<"master" | "doctoral">(
+    "master"
+  );
+  const [degreeAbbr, setDegreeAbbr] = useState("วศ.ม."); // default for master
+  const [degreeReq, setDegreeReq] = useState<"" | "bachelor" | "master">("");
+  const degreeReqSelectValue = degreeReq === "" ? "none" : degreeReq;
+  const [active, setActive] = useState(true);
 
   // loading flags
   const [facLoading, setFacLoading] = useState(false);
   const [deptLoading, setDeptLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // auto switch abbr when level changes (keep user override if they typed)
+  useEffect(() => {
+    setDegreeAbbr((prev) => {
+      const trimmed = prev.trim();
+      const isEmpty = trimmed === "";
+      // Only auto-set when it's empty or looks like the other default.
+      if (degreeLevel === "master") {
+        return isEmpty || trimmed === "ปร.ด." ? "วศ.ม." : prev;
+      } else {
+        return isEmpty || trimmed === "วศ.ม." ? "ปร.ด." : prev;
+      }
+    });
+  }, [degreeLevel]);
 
   // load faculties on mount
   useEffect(() => {
@@ -384,6 +409,7 @@ function CapsEditor() {
     // reset when faculty changes
     setDepartmentId("");
     setDepartments([]);
+    setNoDepartment(false);
 
     if (!facultyId) return;
 
@@ -411,8 +437,26 @@ function CapsEditor() {
     };
   }, [facultyId]);
 
-  const canSave =
-    !!facultyId.trim() && !!departmentId.trim() && !!majorName.trim();
+  const canSave = useMemo(() => {
+    // department เป็น optional: บังคับเฉพาะเมื่อผู้ใช้ไม่ได้เลือก "ไม่มีภาควิชา"
+    const deptOk =
+      noDepartment || !!departmentId.trim() || departments.length === 0;
+    return (
+      !!facultyId.trim() &&
+      deptOk &&
+      !!majorName.trim() &&
+      !!degreeLevel &&
+      !!degreeAbbr.trim()
+    );
+  }, [
+    facultyId,
+    departmentId,
+    noDepartment,
+    departments.length,
+    majorName,
+    degreeLevel,
+    degreeAbbr,
+  ]);
 
   const handleSave = async () => {
     // validate
@@ -420,28 +464,50 @@ function CapsEditor() {
       alert("กรุณาเลือกคณะ");
       return;
     }
-    if (!departmentId) {
-      alert("กรุณาเลือกภาควิชา");
+    if (!noDepartment && departments.length > 0 && !departmentId) {
+      alert("กรุณาเลือกภาควิชา หรือเลือกตัวเลือก 'ไม่มีภาควิชา'");
       return;
     }
     if (!majorName.trim()) {
       alert("กรุณากรอกชื่อสาขา");
       return;
     }
+    if (!degreeAbbr.trim()) {
+      alert("กรอกตัวย่อปริญญา (degree_abbr)");
+      return;
+    }
 
     try {
       setSaving(true);
 
-      await createProgram({
+      // ✅ สร้าง payload ตาม CreateProgramDto
+      const payload: {
+        faculty_id: string;
+        department_id?: string;
+        title: string;
+        degree_level: "master" | "doctoral";
+        degree_abbr: string;
+        active?: boolean;
+        degree_req?: "bachelor" | "master";
+      } = {
         faculty_id: facultyId,
-        department_id: departmentId,
         title: majorName.trim(),
-        degree_level: "master",
-        degree_abbr: "วศ.ม.",
-        active: true,
-      });
+        degree_level: degreeLevel,
+        degree_abbr: degreeAbbr.trim(),
+      };
 
-      // reset หรือจะคงค่าไว้ก็ได้ — ที่นี่ขอ reset ชื่อสาขาให้
+      if (!noDepartment && departmentId) {
+        payload.department_id = departmentId;
+      }
+      // optional fields
+      payload.active = !!active;
+      if (degreeReq === "bachelor" || degreeReq === "master") {
+        payload.degree_req = degreeReq;
+      }
+
+      await createProgram(payload);
+
+      // reset name only (หรือจะรีเซ็ตทั้งหมดก็ได้)
       setMajorName("");
       alert("บันทึกสาขาสำเร็จ");
     } catch (err) {
@@ -483,41 +549,67 @@ function CapsEditor() {
         </Select>
       </div>
 
-      {/* ภาควิชา */}
-      <div>
-        <label className="mb-1 block text-sm text-gray-600">ภาควิชา *</label>
-        <Select
-          value={departmentId}
-          onValueChange={setDepartmentId}
-          disabled={!facultyId || deptLoading || departments.length === 0}>
-          <SelectTrigger className="w-full rounded-xl">
-            <SelectValue
-              placeholder={
-                !facultyId
-                  ? "— โปรดเลือกคณะก่อน —"
-                  : deptLoading
-                  ? "กำลังโหลดภาควิชา..."
-                  : "— เลือกภาควิชา —"
-              }
+      {/* ภาควิชา (optional) */}
+      <div className="grid grid-cols-1 gap-2">
+        <label className="mb-1 block text-sm text-gray-600">
+          ภาควิชา (ถ้ามี)
+        </label>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1">
+            <Select
+              value={departmentId}
+              onValueChange={setDepartmentId}
+              disabled={
+                noDepartment ||
+                !facultyId ||
+                deptLoading ||
+                departments.length === 0
+              }>
+              <SelectTrigger className="w-full rounded-xl">
+                <SelectValue
+                  placeholder={
+                    !facultyId
+                      ? "— โปรดเลือกคณะก่อน —"
+                      : deptLoading
+                      ? "กำลังโหลดภาควิชา..."
+                      : departments.length === 0
+                      ? "ไม่มีข้อมูลภาควิชา"
+                      : "— เลือกภาควิชา —"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {!deptLoading && departments.length === 0 ? (
+                  <SelectItem value="__none__" disabled>
+                    {facultyId ? "ไม่มีข้อมูลภาควิชา" : "โปรดเลือกคณะก่อน"}
+                  </SelectItem>
+                ) : (
+                  departments.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.title}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300"
+              checked={noDepartment}
+              onChange={(e) => {
+                setNoDepartment(e.target.checked);
+                if (e.target.checked) setDepartmentId("");
+              }}
             />
-          </SelectTrigger>
-          <SelectContent>
-            {!deptLoading && departments.length === 0 ? (
-              <SelectItem value="__none__" disabled>
-                {facultyId ? "ไม่มีข้อมูลภาควิชา" : "โปรดเลือกคณะก่อน"}
-              </SelectItem>
-            ) : (
-              departments.map((d: any) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.title}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+            ไม่มีภาควิชา
+          </label>
+        </div>
       </div>
 
-      {/* ชื่อสาขา (custom) */}
+      {/* ชื่อสาขา */}
       <div>
         <label className="mb-1 block text-sm text-gray-600">ชื่อสาขา *</label>
         <input
@@ -528,7 +620,77 @@ function CapsEditor() {
           placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
         />
       </div>
-      <div className="text-right">
+
+      {/* ระดับปริญญา / ตัวย่อ / เงื่อนไขวุฒิ */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* degree_level */}
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">
+            ระดับปริญญา *
+          </label>
+          <Select
+            value={degreeLevel}
+            onValueChange={(v: "master" | "doctoral") => setDegreeLevel(v)}>
+            <SelectTrigger className="w-full rounded-xl">
+              <SelectValue placeholder="เลือกระดับปริญญา" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="master">ปริญญาโท (master)</SelectItem>
+              <SelectItem value="doctoral">ปริญญาเอก (doctoral)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* degree_abbr */}
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">
+            ตัวย่อปริญญา (degree_abbr) *
+          </label>
+          <input
+            type="text"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={degreeAbbr}
+            onChange={(e) => setDegreeAbbr(e.target.value)}
+            placeholder={degreeLevel === "master" ? "เช่น วศ.ม." : "เช่น ปร.ด."}
+          />
+        </div>
+
+        {/* degree_req (optional) */}
+        {/* degree_req (optional) */}
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">
+            วุฒิขั้นต่ำที่ต้องจบ (ไม่บังคับ)
+          </label>
+          <Select
+            value={degreeReqSelectValue}
+            onValueChange={(v: "none" | "bachelor" | "master") =>
+              setDegreeReq(v === "none" ? "" : v)
+            }>
+            <SelectTrigger className="w-full rounded-xl">
+              <SelectValue placeholder="— ไม่ระบุ —" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* ⛔️ ห้ามใช้ value="" */}
+              <SelectItem value="none">— ไม่ระบุ —</SelectItem>
+              <SelectItem value="bachelor">ปริญญาตรี</SelectItem>
+              <SelectItem value="master">ปริญญาโท</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Active toggle */}
+      <div className="flex items-center justify-between">
+        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+          />
+          เปิดใช้งานสาขานี้ (active)
+        </label>
+
         <button
           type="button"
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -566,10 +728,6 @@ export default function FacultyAdminPage() {
         </a>
       </header>
 
-      <Section title="รายการคณะ">
-        <FacultyTable />
-      </Section>
-
       <Section title="ตั้งค่ารอบสัมภาษณ์">
         <RoundsEditor />
       </Section>
@@ -584,6 +742,10 @@ export default function FacultyAdminPage() {
 
       <Section title="เพิ่มสาขา">
         <CapsEditor />
+      </Section>
+
+      <Section title="รายการคณะ">
+        <FacultyTable />
       </Section>
     </div>
   );

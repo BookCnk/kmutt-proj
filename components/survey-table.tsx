@@ -88,7 +88,9 @@ function asText(v: unknown): string {
 function formatDateTH(d?: string) {
   try {
     if (!d) return "-";
-    return format(new Date(d), "dd MMM yyyy", { locale: th });
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return "-";
+    return format(dt, "dd MMM yyyy HH:mm:ss", { locale: th });
   } catch {
     return "-";
   }
