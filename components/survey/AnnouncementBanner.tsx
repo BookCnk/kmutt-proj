@@ -32,7 +32,6 @@ export default function AnnouncementBanner({
   calendarUrl,
   status = "unknown",
 }: Props) {
-  console.log("Announcement text:", text);
   return (
     <Alert className={getStatusColor(status)}>
       <Calendar className="h-4 w-4" />

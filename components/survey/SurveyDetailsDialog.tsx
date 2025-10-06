@@ -19,10 +19,12 @@ type Props = {
   row: SurveyRow | null;
 };
 
-function formatDateTH(dateString?: string) {
+function formatDateTH(d?: string) {
   try {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "dd MMM yyyy", { locale: th });
+    if (!d) return "-";
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return "-";
+    return format(dt, "dd MMM yyyy HH:mm:ss", { locale: th });
   } catch {
     return "-";
   }
