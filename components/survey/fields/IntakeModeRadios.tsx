@@ -46,9 +46,7 @@ export type Admission = {
 };
 
 export type FormValuesWithIntakeModes = {
-  /** เลือกได้หลายอัน */
   intakeModes: Array<"none" | "rounds" | "monthly">;
-  /** หมายเหตุเมื่อไม่เปิดรับสมัคร */
   closeNote?: string;
 };
 
@@ -84,7 +82,6 @@ const dayEnd = (d: Date) =>
     999
   ).getTime();
 
-/** วันนี้อยู่ในช่วงประกาศ (นับทั้งวันตามเวลาท้องถิ่น) */
 const isTodayInWindow = (
   openISO: string,
   closeISO: string,
@@ -134,7 +131,7 @@ function OpenCloseRadios({
   value,
   onChange,
 }: {
-  groupName: string; // กลุ่มเดียวกันต่อ 1 รายการ
+  groupName: string;
   value: "" | "open" | "closed";
   onChange: (v: "open" | "closed") => void;
 }) {
@@ -166,7 +163,6 @@ function OpenCloseRadios({
 export default function IntakeModeRadios({ name, admissions }: Props) {
   const { control, setValue, getValues } = useFormContext<FormValues>();
 
-  // ใช้ประกาศที่เปิดวันนี้ ถ้าไม่มีใช้ตัวแรก
   const active = useMemo(() => {
     if (!admissions?.length) return undefined;
     return (
@@ -179,19 +175,16 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     );
   }, [admissions]);
 
-  // เตรียมลิสต์ตามประกาศ (เรียงวันที่)
   const monthlyList = useMemo(
     () => (active?.monthly ?? []).slice().sort(byDateAsc),
     [active]
   );
-
-
   const roundsList = useMemo(
     () => (active?.rounds ?? []).slice().sort(byDateAsc),
     [active]
   );
 
-  // สถานะเปิด/ปิด (ต่อรายการ) ที่ผู้ใช้เลือก
+  // เริ่มต้นว่าง: ยังไม่เลือกเปิด/ปิดรายตัว
   const [monthlyStatus, setMonthlyStatus] = useState<
     Record<string, "open" | "closed" | "">
   >({});
@@ -199,33 +192,31 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     Record<string, "open" | "closed" | "">
   >({});
 
-  // ✅ ตั้งค่า default เป็น "closed" สำหรับทุกรายการ (ครั้งแรก/เมื่อรายการเปลี่ยน)
+  // เตรียม key (ค่าเริ่มต้นเป็น "" = ไม่เลือก)
   useEffect(() => {
-    if (!roundsList.length) return;
     setRoundsStatus((prev) => {
       const next = { ...prev };
       roundsList.forEach((r) => {
         const key = r._id ?? `${r.no}-${r.interview_date}`;
-        if (!next[key]) next[key] = "open";
+        if (!(key in next)) next[key] = "";
       });
       return next;
     });
   }, [roundsList]);
 
   useEffect(() => {
-    if (!monthlyList.length) return;
     setMonthlyStatus((prev) => {
       const next = { ...prev };
       monthlyList.forEach((m, idx) => {
         const fallback = `${m.month ?? ""}-${m.interview_date ?? ""}`;
         const key = m._id ?? (fallback ? fallback : String(idx));
-        if (!next[key]) next[key] = "open";
+        if (!(key in next)) next[key] = "";
       });
       return next;
     });
   }, [monthlyList]);
 
-  // ให้ RHF มีคีย์ array เปล่าไว้ก่อน จะได้ไม่ undefined
+  // ให้ RHF มีคีย์ array เปล่าไว้ก่อน
   useEffect(() => {
     if (!Array.isArray(getValues("intake_calendar.rounds"))) {
       setValue("intake_calendar.rounds", [], { shouldDirty: false });
@@ -236,43 +227,34 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // เขียนค่าลง RHF ทุกครั้งที่ mode/สถานะเปิดปิด เปลี่ยน
+  // sync ค่าไป RHF เมื่อมีการเปลี่ยน
   useEffect(() => {
     const selected: Array<"none" | "rounds" | "monthly"> =
       getValues(name) ?? [];
     const picked = new Set(selected);
 
-    // none -> เคลียร์ทั้งสอง array
     if (picked.has("none")) {
       setValue("intake_calendar.rounds", [], { shouldDirty: true });
       setValue("intake_calendar.monthly", [], { shouldDirty: true });
       return;
     }
 
-    // ROUNDS: เอาเฉพาะที่ติ๊ก open → map เหลือ { no, interview_date }
     const selectedRounds = picked.has("rounds")
       ? roundsList
           .filter(
             (r) =>
-              (roundsStatus[r._id ?? `${r.no}-${r.interview_date}`] ??
-                "closed") === "open"
+              (roundsStatus[r._id ?? `${r.no}-${r.interview_date}`] ?? "") ===
+              "open"
           )
-          .map((r) => ({
-            no: Number(r.no),
-            interview_date: r.interview_date,
-          }))
+          .map((r) => ({ no: Number(r.no), interview_date: r.interview_date }))
       : [];
 
-    // MONTHLY: เอาเฉพาะที่ติ๊ก open → map เหลือ { no, month, interview_date }
     const selectedMonthly = picked.has("monthly")
       ? (monthlyList
           .map((m, idx) => {
             const key = m._id ?? `${m.month ?? ""}-${m.interview_date}`;
-            const status = (monthlyStatus[key] ?? "closed") as
-              | "open"
-              | "closed";
+            const status = (monthlyStatus[key] ?? "") as "open" | "closed" | "";
             if (status !== "open") return null;
-
             const ordinal = typeof m.month === "number" ? m.month : idx + 1;
             return {
               no: Number(ordinal),
@@ -316,23 +298,45 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     <Controller
       control={control as unknown as Control<FormValues>}
       name={name}
-      // ✅ ค่าเริ่มต้นให้ติ๊ก "ไม่เปิดรับสมัคร" ไว้ก่อน
-      defaultValue={["none"]}
+      defaultValue={[]} // เริ่มต้น: ยังไม่ติ๊กอะไรเลย
       render={({ field }) => {
         const selected = new Set(field.value ?? []);
         const toggle = (key: "none" | "rounds" | "monthly") => {
+          const hadBefore = selected.has(key);
           const next = new Set(selected);
+
           if (key === "none") {
-            // ถ้าเลือก none ให้ล้างตัวอื่นออก
             next.clear();
             next.add("none");
             setValue("intake_calendar.rounds", [], { shouldDirty: true });
             setValue("intake_calendar.monthly", [], { shouldDirty: true });
           } else {
-            // ถ้าเลือกอย่างอื่น ให้เอา none ออก
             next.delete("none");
-            next.has(key) ? next.delete(key) : next.add(key);
+            hadBefore ? next.delete(key) : next.add(key);
+
+            // 👉 เพิ่งเปิดโหมดนี้ครั้งแรก -> set ค่าเริ่มต้น "เปิดรับสมัคร" ให้ทุกแถวของโหมดนั้น
+            if (!hadBefore && key === "rounds") {
+              setRoundsStatus((prev) => {
+                const nextStatus = { ...prev };
+                roundsList.forEach((r) => {
+                  const k = r._id ?? `${r.no}-${r.interview_date}`;
+                  if (nextStatus[k] === "") nextStatus[k] = "open";
+                });
+                return nextStatus;
+              });
+            }
+            if (!hadBefore && key === "monthly") {
+              setMonthlyStatus((prev) => {
+                const nextStatus = { ...prev };
+                monthlyList.forEach((m, idx) => {
+                  const k = m._id ?? `${m.month ?? ""}-${m.interview_date}`;
+                  if (nextStatus[k] === "") nextStatus[k] = "open";
+                });
+                return nextStatus;
+              });
+            }
           }
+
           field.onChange(Array.from(next));
         };
 
@@ -385,9 +389,10 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                       </div>
                       {roundsList.map((r) => {
                         const key = r._id ?? `${r.no}-${r.interview_date}`;
-                        const status = (roundsStatus[key] ?? "closed") as
+                        const status = (roundsStatus[key] ?? "") as
                           | "open"
-                          | "closed";
+                          | "closed"
+                          | "";
                         return (
                           <div key={key} className="px-6 py-4">
                             <div className="font-medium text-primary">
@@ -416,7 +421,6 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                 </OptionBlock>
 
                 {/* 3) สัมภาษณ์ทุกเดือน */}
-
                 <OptionBlock
                   checked={selected.has("monthly")}
                   label="สัมภาษณ์ทุกเดือน"
@@ -426,20 +430,20 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                       <div className="px-4 py-3 font-medium text-gray-900">
                         สัมภาษณ์ทุกเดือน
                       </div>
-
                       {monthlyList.map((m: any, idx) => {
                         const fallback = `${m.month ?? ""}-${
                           m.interview_date ?? ""
                         }`;
                         const key =
                           m._id ?? (fallback ? fallback : String(idx));
-                        const status = (monthlyStatus[key] ?? "closed") as
+                        const status = (monthlyStatus[key] ?? "") as
                           | "open"
-                          | "closed";
+                          | "closed"
+                          | "";
                         const monthLabel =
                           typeof m.month === "string"
-                            ? m.title
-                            : `เดือนที่ ${m.month}`;
+                            ? m.month
+                            : `เดือนที่ ${m.month ?? idx + 1}`;
                         return (
                           <div key={key} className="px-6 py-4">
                             <div className="font-medium text-primary">
