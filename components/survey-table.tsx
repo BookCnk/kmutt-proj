@@ -17,6 +17,11 @@ import {
   Loader2,
 } from "lucide-react";
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
+import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
+
+import * as XLSX from "xlsx";
+// @ts-ignore: no type definitions for 'file-saver' in this project
+import { exportExcelFancy } from "@/lib/exportFancy"; // หรือวางในไฟล์เดียวกัน
 
 import {
   getForms as getFormsUser,
@@ -109,6 +114,7 @@ type ProgramInForm = {
     active?: boolean;
   }>;
   message?: string;
+  degree_abbr?: Record<string, any>;
 };
 
 export type SurveyRow = {
@@ -254,6 +260,7 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
         const title = asText(ip.program_id);
         const programId = normalizeId(ip.program_id);
         const deg = ip?.intake_degree || {};
+        const degree_abbr = ip.degree_abbr || {};
         const master = deg.master
           ? {
               amount: deg.master.amount,
@@ -274,7 +281,16 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
         const monthly = cal?.monthly || [];
         const message = cal?.message || "";
 
-        return { programId, title, master, doctoral, rounds, monthly, message };
+        return {
+          programId,
+          title,
+          master,
+          doctoral,
+          rounds,
+          monthly,
+          message,
+          degree_abbr,
+        };
       })
     : [];
 
@@ -654,6 +670,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     [currentPage, totalPages]
   );
 
+  const handleExportExcel = async () => {
+    if (!rows.length) {
+      toast.error("ไม่มีข้อมูลให้ส่งออก");
+      return;
+    }
+    await exportExcelFancy(rows);
+  };
+
   /* ---------------- UI ---------------- */
   return (
     <div className="space-y-4">
@@ -668,24 +692,25 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         <div className="flex flex-col sm:flex-row gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button
+              {/* <Button
                 variant="outline"
                 className="w-full sm:w-auto"
                 disabled={!selectedRow}>
                 <Printer className="mr-2 h-4 w-4" />
-                ปริ้นแบบฟอร์ม PDF
-              </Button>
+                ส่งออกเป็น Excel
+              </Button> */}
+              <ExportGradIntakeButton />
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>ยืนยันการพิมพ์แบบฟอร์ม</DialogTitle>
                 <DialogDescription>
-                  คุณต้องการพิมพ์แบบฟอร์มสำหรับรายการที่เลือกหรือไม่?
+                  คุณต้องการส่งออกเป็น Excel สำหรับรายการที่เลือกหรือไม่?
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button variant="outline">ยกเลิก</Button>
-                <Button onClick={handlePrintPDF}>ยืนยันการพิมพ์</Button>
+                <Button onClick={handleExportExcel}>ยืนยันการส่งออก</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -846,7 +871,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
                 <TableHead className="w-28 text-center">ดู</TableHead>
                 <TableHead className="w-28 text-center">ลบ</TableHead>
-                <TableHead className="w-16">เลือก</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -980,22 +1004,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                         className="text-red-600">
                         <Trash2 className="h-4 w-4 mr-1" /> ลบ
                       </Button>
-                    </TableCell>
-
-                    <TableCell>
-                      <RadioGroup
-                        value={selectedRow}
-                        onValueChange={setSelectedRow}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem
-                            value={row.id}
-                            id={`pick-${row.id}`}
-                          />
-                          <Label htmlFor={`pick-${row.id}`} className="sr-only">
-                            เลือกรายการ {row.submitterName}
-                          </Label>
-                        </div>
-                      </RadioGroup>
                     </TableCell>
                   </TableRow>
                 ))
