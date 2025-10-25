@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, File } from "lucide-react";
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -130,6 +130,18 @@ export function Header({ onLogout }: HeaderProps) {
                         <Link href="/admin/users" className="w-full">
                           <User className="mr-2 h-4 w-4" />
                           <span>ผู้ใช้งานทั้งหมด</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+
+                  {user.role === "admin" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/export" className="w-full">
+                          <File className="mr-2 h-4 w-4" />
+                          <span>export จาก excel</span>
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

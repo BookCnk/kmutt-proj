@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
+import ExportAdmissionsExcelButton from "@/components/ExportAdmissionsExcelButton";
 
 import * as XLSX from "xlsx";
 // @ts-ignore: no type definitions for 'file-saver' in this project
@@ -701,6 +702,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
               </Button> */}
               <ExportGradIntakeButton />
             </DialogTrigger>
+            <ExportAdmissionsExcelButton />
+
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>ยืนยันการพิมพ์แบบฟอร์ม</DialogTitle>
