@@ -8,7 +8,7 @@ import { saveAs } from "file-saver";
 // ===== Configs you can tweak =====
 const LOGO_NODE_PATH = "D:/project/public/ICON.png"; // พาธโลโก้สำหรับ Node.js
 const LOGO_WEB_URL = "/ICON.png"; // URL โลโก้สำหรับเบราว์เซอร์
-const BRAND_ORANGE = "FFFF4612"; // #FF4612 (ARGB)
+const BRAND_ORANGE = "FFFF4616"; // #FA4616 (ARGB)
 const TITLE_RED = "FFCC0000"; // สีแดงสำหรับหัวบรรทัดแรก
 
 // ===== Helpers =====
@@ -35,7 +35,7 @@ const thaiMonthYearNow = () => {
 const normalizeId = (v: any) => (typeof v === "string" ? v : v?._id ?? "");
 const asText = (v: any) => (typeof v === "string" ? v : v?.title ?? "");
 
-// ดึง "วัน-เวลาเรียน" จากท้ายชื่อ เช่น "... - (วันเสาร์ - อาทิตย์)" หรือ "(...วัน...)"
+// ดึง "วัน-เวลาเรียน" จากท้ายชื่อ
 function parseScheduleFromProgramTitle(title: string): string | undefined {
   if (!title) return undefined;
   const m = title.match(/-\s*\(([^)]+)\)\s*$/);
@@ -198,7 +198,7 @@ function buildFancyRows(data: SurveyRow[]): FancyExportRow[] {
     out.push({
       faculty,
       degreeAbbr: "",
-      programTitle: `คณะ${faculty}`,
+      programTitle: `${faculty}`,
       openFlag: "",
       amount: "",
       isRounds: false,
@@ -304,12 +304,12 @@ async function addLogoIfAny(
 export async function exportExcelFancy(allFormsRaw: any[]) {
   if (!allFormsRaw?.length) return;
 
-  // ✅ แปลง allForms (โครงสร้างใหม่) → โครงสร้างกลาง
+  // 1) แปลง allForms (ใหม่) → โครงสร้างกลาง
   const normalized: SurveyRow[] = (allFormsRaw || []).map(
     mapFormToSurveyRow_New
   );
 
-  // ✅ สร้างแถวสำหรับ Excel
+  // 2) สร้างแถวสำหรับ Excel
   const rows = buildFancyRows(normalized);
 
   const wb = new ExcelJS.Workbook();
@@ -335,7 +335,7 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
     },
   });
 
-  // โลโก้ซ้ายบน (กินพื้นที่ราว A1:B3)
+  // โลโก้ซ้ายบน
   await addLogoIfAny(wb, ws, { width: 220, height: 95 });
 
   // ----- Title zone -----
@@ -371,7 +371,7 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
   ws.addRow([
     "ที่",
     "ปริญญา",
-    "คณะ/สาขา",
+    "คณะ/สาขาวิชา",
     "วัน - เวลาในการดำเนินการเรียนการสอน",
     "การรับนักศึกษา",
     "",
@@ -385,7 +385,7 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
     "",
     "",
     "การเปิดรับ",
-    "จำนวนการรับ",
+    "จำนวนการรับ (คน)",
     "เป็นรอบ",
     "ทุกเดือน",
     "",
@@ -441,6 +441,7 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
 
   // ----- Data -----
   let no = 1;
+  let grandTotal = 0;
   for (const r of rows) {
     if (r.isFacultyHeader) {
       const row = ws.addRow([
@@ -472,65 +473,27 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
           right: { style: "thin", color: { argb: "FFAAAAAA" } },
         };
       });
+      no = 1; // reset running number per faculty
       continue;
     }
 
+    // สร้างแถวข้อมูล
     const row = ws.addRow([
       no,
       r.degreeAbbr,
       r.programTitle,
       r.schedule ?? "",
-      "",
-      r.amount ?? "",
-      "",
-      "",
-      r.phones,
+      "", // E: การเปิดรับ (✓/✗)
+      r.amount ?? "", // F: จำนวนการรับ
+      "", // G: เป็นรอบ (✓/✗)
+      "", // H: ทุกเดือน (✓/✗)
+      r.phones, // I: เบอร์ติดต่อ
     ]);
 
-    const openCell = row.getCell(5);
-    const roundCell = row.getCell(7);
-    const monthCell = row.getCell(8);
-
-    if (r.openFlag === "P") {
-      openCell.value = YES;
-      openCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FF0E7A0D" },
-      };
-    } else if (r.openFlag === "X") {
-      openCell.value = NO;
-      openCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FFCC0000" },
-      };
-    }
-
-    if (r.isRounds) {
-      roundCell.value = YES;
-      roundCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FF0E7A0D" },
-      };
-    }
-    if (r.isMonthly) {
-      monthCell.value = YES;
-      monthCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FF0E7A0D" },
-      };
-    }
-
+    // 1) สไตล์พื้นฐานก่อน (จะไม่ไปทับสีภายหลัง)
     row.height = 22;
     row.eachCell((cell, col) => {
-      cell.font = { name: "TH SarabunPSK", size: 14 };
+      cell.font = { name: "TH SarabunPSK", size: 14 }; // ไม่มี color ที่นี่
       cell.alignment = {
         vertical: "middle",
         horizontal: col === 3 || col === 4 || col === 9 ? "left" : "center",
@@ -544,8 +507,114 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
       };
     });
 
+    // 2) ตั้ง ✓/✗ พร้อม "สี" ทีหลัง (จะไม่โดนทับ)
+    const openCell = row.getCell(5); // การเปิดรับ
+    const roundCell = row.getCell(7); // เป็นรอบ
+    const monthCell = row.getCell(8); // ทุกเดือน
+
+    if (r.openFlag === "P") {
+      openCell.value = YES;
+      openCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FF0E7A0D" },
+      };
+    } else {
+      openCell.value = NO;
+      openCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FFCC0000" },
+      };
+    }
+    openCell.alignment = { vertical: "middle", horizontal: "center" };
+
+    if (r.isRounds) {
+      roundCell.value = YES;
+      roundCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FF0E7A0D" },
+      };
+    } else {
+      roundCell.value = NO;
+      roundCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FFCC0000" },
+      };
+    }
+    roundCell.alignment = { vertical: "middle", horizontal: "center" };
+
+    if (r.isMonthly) {
+      monthCell.value = YES;
+      monthCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FF0E7A0D" },
+      };
+    } else {
+      monthCell.value = NO;
+      monthCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FFCC0000" },
+      };
+    }
+    monthCell.alignment = { vertical: "middle", horizontal: "center" };
+
+    // รวมจำนวนรับทั้งหมด
+    const amtNumeric =
+      typeof r.amount === "number" ? r.amount : Number(r.amount) || 0;
+    grandTotal += amtNumeric;
+
     no++;
   }
+
+  // ----- Grand total row -----
+  const totalRow = ws.addRow([
+    "",
+    "",
+    "รวมทั้งหมด",
+    "",
+    "",
+    grandTotal,
+    "",
+    "",
+    "",
+  ]);
+  totalRow.eachCell((cell, col) => {
+    cell.font = { name: "TH SarabunPSK", size: 14, bold: true };
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: col === 6 ? "right" : "center",
+      wrapText: true,
+    };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE5E5E5" },
+    };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFAAAAAA" } },
+      left: { style: "thin", color: { argb: "FFAAAAAA" } },
+      bottom: { style: "thin", color: { argb: "FFAAAAAA" } },
+      right: { style: "thin", color: { argb: "FFAAAAAA" } },
+    };
+  });
+  const totalAmtCell = totalRow.getCell(6);
+  totalAmtCell.font = {
+    name: "TH SarabunPSK",
+    size: 14,
+    bold: true,
+    underline: true,
+  };
 
   // พื้นที่พิมพ์ + footer
   const lastRow = ws.lastRow?.number ?? 6;
