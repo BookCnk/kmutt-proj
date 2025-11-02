@@ -54,6 +54,7 @@
     "eslint-config-next": "13.5.1",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.23.24",
     "fs": "^0.0.1-security",
     "input-otp": "^1.2.4",
     "jspdf": "^3.0.3",
