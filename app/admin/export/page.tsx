@@ -3,66 +3,38 @@
 import React from "react";
 import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "framer-motion";
+import { DataRow, SheetMatrix, Step, ExportConfig } from "./types";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+  Dropzone,
+  SheetTabs,
+  Toolbar,
+  ExportDialog,
+  DataTable,
+} from "@/components/export";
+import { exportToStyledExcel } from "./exportExcel";
 
 /**
- * Excel → Web Preview (Single File)
- * - Upload/drag Excel
- * - Pick sheet
- * - Auto-detect header row (first non-empty row)
- * - Pretty table with sticky headers, row index, search & pagination
- * - Handle merged cells by expanding values across the merge range
- * - Filter columns to ONLY the 7 required headers
+ * Excel → Web Preview with Export Feature
  *
- * Install:
- *   npm i xlsx framer-motion
+ * Features:
+ * - Upload Excel files (.xlsx/.xls)
+ * - Auto-detect header row
+ * - Filter to show only 7 required columns
+ * - Drag-and-drop row reordering
+ * - Select/deselect rows for export
+ * - Export to styled Excel with KMUTT branding
+ *
+ * @see /lib/exportFancy.ts - Original export implementation reference
  */
 
-type DataRow = {
-  id: string;
-  data: (string | number)[];
-  selected: boolean;
-};
-
-type SheetMatrix = {
-  name: string;
-  headers: string[];
-  rows: DataRow[];
-};
-
-type Step = "idle" | "loaded";
-
-// ---------- Utilities ----------
-function clsx(...parts: Array<string | false | undefined | null>) {
-  return parts.filter(Boolean).join(" ");
-}
-
-/** Convert sheet to 2D matrix (strings), expanding merged ranges. */
+// Utilities for Excel parsing
 function toMatrix(ws: XLSX.WorkSheet): string[][] {
-  // ✅ ถูกต้อง: ส่ง ws เป็นพารามิเตอร์ตัวแรกของ sheet_to_json
   const A = XLSX.utils.sheet_to_json<string[]>(ws, {
     header: 1,
-    raw: false, // ให้ฟอร์แมตวันที่/ตัวเลขเป็นสตริงให้อ่านง่าย
-    defval: "", // ช่องว่างให้เป็น "" ไม่ใช่ undefined
+    raw: false,
+    defval: "",
   }) as unknown as string[][];
 
-  // ✅ ขยายค่าในช่วง merge ให้เห็นครบทุกช่อง (พรีวิวจะเป็น “ตารางจริง”)
   const merges: XLSX.Range[] = (ws["!merges"] || []) as XLSX.Range[];
   merges.forEach((m) => {
     const v = A[m.s.r]?.[m.s.c] ?? "";
@@ -91,423 +63,17 @@ function parseSheet(ws: XLSX.WorkSheet): {
   const A = toMatrix(ws);
   if (!A.length) return { headers: [], rows: [] };
 
-  // หาแถว header แรกที่มีข้อมูลจริง
   const headerIdx = firstNonEmptyRowIndex(A);
   const headers = (A[headerIdx] || []).map(String);
 
-  // ข้ามแถวว่าง และคงลำดับคอลัมน์ตาม headers
   const body = A.slice(headerIdx + 1).filter((r) =>
     r.some((c) => String(c).trim() !== "")
   );
   return { headers, rows: body };
 }
 
-// ---------- UI Pieces ----------
-function Dropzone({ onPick }: { onPick: (f: File) => void }) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = React.useState(false);
-
-  return (
-    <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) onPick(file);
-      }}
-      className={clsx(
-        "border-2 border-dashed rounded-2xl p-8 md:p-12 text-center transition-all cursor-pointer",
-        dragOver
-          ? "border-emerald-500 bg-emerald-50/50"
-          : "border-slate-300 bg-white hover:bg-slate-50"
-      )}
-      onClick={() => inputRef.current?.click()}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onPick(f);
-        }}
-      />
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-3">
-        <div className="mx-auto w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-          <svg
-            className="w-7 h-7 text-emerald-700"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor">
-            <path
-              strokeWidth="2"
-              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5 5 5M12 5v11"
-            />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-lg md:text-xl font-bold text-slate-800">
-            อัปโหลด/วางไฟล์ Excel
-          </h3>
-          <p className="text-slate-500 text-sm">
-            รองรับ .xlsx / .xls — ลากไฟล์มาวาง หรือคลิกเพื่อเลือก
-          </p>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-function SheetTabs({
-  sheets,
-  current,
-  onChange,
-}: {
-  sheets: string[];
-  current: string;
-  onChange: (name: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {sheets.map((name) => (
-        <button
-          key={name}
-          onClick={() => onChange(name)}
-          className={clsx(
-            "px-3 py-1.5 rounded-xl border text-sm font-medium transition",
-            current === name
-              ? "bg-emerald-600 border-emerald-600 text-white shadow"
-              : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-          )}>
-          {name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Toolbar({
-  search,
-  setSearch,
-  perPage,
-  setPerPage,
-  onReset,
-  fileName,
-}: {
-  search: string;
-  setSearch: (v: string) => void;
-  perPage: number;
-  setPerPage: (n: number) => void;
-  onReset: () => void;
-  fileName: string | null;
-}) {
-  return (
-    <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาในตาราง..."
-            className="pl-10 pr-3 py-2 w-72 border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-          <svg
-            className="w-5 h-5 absolute left-3 top-2.5 text-slate-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor">
-            <circle cx="11" cy="11" r="7" strokeWidth="2" />
-            <path d="M21 21l-3.5-3.5" strokeWidth="2" />
-          </svg>
-        </div>
-        <select
-          value={perPage}
-          onChange={(e) => setPerPage(Number(e.target.value))}
-          className="px-3 py-2 border rounded-xl bg-white">
-          {[10, 20, 50, 100].map((n) => (
-            <option key={n} value={n}>
-              {n} แถว/หน้า
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="text-xs text-slate-500">ไฟล์: {fileName || "—"}</div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onReset}
-          className="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50">
-          เริ่มใหม่
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Sortable Row Component
-function SortableRow({
-  row,
-  index,
-  headers,
-  colWidths,
-  onToggleSelect,
-}: {
-  row: DataRow;
-  index: number;
-  headers: string[];
-  colWidths: number[];
-  onToggleSelect: (id: string) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: row.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <tr
-      ref={setNodeRef}
-      style={style}
-      className={index % 2 ? "bg-slate-50" : "bg-white"}>
-      {/* Drag Handle */}
-      <td className="px-2 py-2 border-t border-slate-200 sticky left-0 bg-inherit z-10">
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600">
-          <svg
-            className="w-5 h-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8h16M4 16h16"
-            />
-          </svg>
-        </div>
-      </td>
-      {/* Row Number */}
-      <td className="px-3 py-2 border-t border-slate-200 bg-inherit z-10 text-slate-500">
-        {index + 1}
-      </td>
-      {/* Data Cells */}
-      {headers.map((_, ci) => (
-        <td
-          key={ci}
-          className="px-3 py-2 border-t border-slate-200 text-slate-800 whitespace-pre-wrap"
-          style={{ minWidth: colWidths[ci] + "ch" }}>
-          {row.data[ci] ?? ""}
-        </td>
-      ))}
-      {/* Actions Column - Checkbox */}
-      <td className="px-3 py-2 border-t border-slate-200 text-center">
-        <input
-          type="checkbox"
-          checked={row.selected}
-          onChange={() => onToggleSelect(row.id)}
-          className="w-4 h-4 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-        />
-      </td>
-    </tr>
-  );
-}
-
-function DataTable({
-  headers,
-  rows,
-  page,
-  setPage,
-  perPage,
-  onReorder,
-  onToggleSelect,
-  onToggleAll,
-}: {
-  headers: string[];
-  rows: DataRow[];
-  page: number;
-  setPage: (p: number) => void;
-  perPage: number;
-  onReorder: (newRows: DataRow[]) => void;
-  onToggleSelect: (id: string) => void;
-  onToggleAll: () => void;
-}) {
-  const pageCount = Math.max(1, Math.ceil(rows.length / perPage));
-  const start = (page - 1) * perPage;
-  const slice = rows.slice(start, start + perPage);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Estimate min-width per column from samples (for nicer layout)
-  const colWidths = React.useMemo(() => {
-    const widths = headers.map((h) => Math.max(10, h?.length || 0));
-    const sample = rows.slice(0, 200);
-    sample.forEach((r) =>
-      r.data.forEach(
-        (v, i) => (widths[i] = Math.max(widths[i], String(v ?? "").length))
-      )
-    );
-    return widths.map((ch) => Math.min(36, Math.max(8, Math.round(ch * 0.75))));
-  }, [headers, rows]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = rows.findIndex((r) => r.id === active.id);
-      const newIndex = rows.findIndex((r) => r.id === over.id);
-      const newRows = arrayMove(rows, oldIndex, newIndex);
-      onReorder(newRows);
-    }
-  };
-
-  const allSelected = rows.length > 0 && rows.every((r) => r.selected);
-  const someSelected = rows.some((r) => r.selected) && !allSelected;
-
-  return (
-    <div className="rounded-2xl border overflow-hidden bg-white">
-      <div className="max-w-full overflow-auto">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}>
-          <table className="w-full text-sm border-separate border-spacing-0">
-            <thead className="bg-slate-100 sticky top-0 z-10">
-              <tr>
-                {/* Drag Handle Header */}
-                <th className="px-2 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 sticky left-0 z-20 bg-slate-100">
-                  <svg
-                    className="w-5 h-5 text-slate-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 8h16M4 16h16"
-                    />
-                  </svg>
-                </th>
-                {/* Row index sticky left */}
-                <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 bg-slate-100">
-                  #
-                </th>
-                {headers.map((h, i) => (
-                  <th
-                    key={i}
-                    className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200"
-                    style={{ minWidth: colWidths[i] + "ch" }}>
-                    {h || `(คอลัมน์ ${i + 1})`}
-                  </th>
-                ))}
-                {/* Actions Header with Select All */}
-                <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b border-slate-200">
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Export</span>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someSelected;
-                      }}
-                      onChange={onToggleAll}
-                      className="w-4 h-4 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                      title="Select/Deselect All"
-                    />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <SortableContext
-              items={slice.map((r) => r.id)}
-              strategy={verticalListSortingStrategy}>
-              <tbody>
-                {slice.map((row, ri) => (
-                  <SortableRow
-                    key={row.id}
-                    row={row}
-                    index={start + ri}
-                    headers={headers}
-                    colWidths={colWidths}
-                    onToggleSelect={onToggleSelect}
-                  />
-                ))}
-                {slice.length === 0 && (
-                  <tr>
-                    <td
-                      className="px-3 py-8 text-center text-slate-500 border-t border-slate-200"
-                      colSpan={headers.length + 3}>
-                      ไม่พบข้อมูลในหน้านี้
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </SortableContext>
-          </table>
-        </DndContext>
-      </div>
-      {/* Pagination */}
-      <div className="flex items-center justify-between p-3 bg-slate-50 border-t text-sm">
-        <div className="text-slate-600">
-          รวม {rows.length} แถว • หน้า {page} / {pageCount} •{" "}
-          {rows.filter((r) => r.selected).length} แถวถูกเลือกสำหรับ Export
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPage(1)}
-            disabled={page === 1}
-            className="px-3 py-1 rounded-lg border bg-white disabled:opacity-50">
-            « หน้าแรก
-          </button>
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-            className="px-3 py-1 rounded-lg border bg-white disabled:opacity-50">
-            ‹ ก่อนหน้า
-          </button>
-          <button
-            onClick={() => setPage(Math.min(pageCount, page + 1))}
-            disabled={page === pageCount}
-            className="px-3 py-1 rounded-lg border bg-white disabled:opacity-50">
-            ถัดไป ›
-          </button>
-          <button
-            onClick={() => setPage(pageCount)}
-            disabled={page === pageCount}
-            className="px-3 py-1 rounded-lg border bg-white disabled:opacity-50">
-            หน้าสุดท้าย »
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminExportPage() {
+  // File state
   const [step, setStep] = React.useState<Step>("idle");
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [sheets, setSheets] = React.useState<SheetMatrix[]>([]);
@@ -517,6 +83,7 @@ export default function AdminExportPage() {
   const [search, setSearch] = React.useState("");
   const [perPage, setPerPage] = React.useState(20);
   const [page, setPage] = React.useState(1);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
 
   const currentSheet = sheets.find((s) => s.name === current) || sheets[0];
 
@@ -572,6 +139,24 @@ export default function AdminExportPage() {
     );
   };
 
+  // Handler to open export dialog
+  const handleExportClick = () => {
+    if (!currentSheet) return;
+    const selectedCount = currentSheet.rows.filter((r) => r.selected).length;
+    if (selectedCount === 0) {
+      alert("กรุณาเลือกอย่างน้อย 1 แถวเพื่อ Export");
+      return;
+    }
+    setShowExportDialog(true);
+  };
+
+  // Handler to confirm export
+  const handleExportConfirm = (config: ExportConfig) => {
+    if (!currentSheet) return;
+    exportToStyledExcel(currentSheet.rows, currentSheet.headers, config);
+    setShowExportDialog(false);
+  };
+
   const handlePick = async (file: File) => {
     setFileName(file.name);
     const buf = await file.arrayBuffer();
@@ -581,7 +166,7 @@ export default function AdminExportPage() {
       const ws = wb.Sheets[name];
       const { headers, rows } = parseSheet(ws);
 
-      // ✅ ดึงเฉพาะ 7 คอลัมน์ตามชื่อที่ต้องการ
+      // Filter to show only 7 required columns
       const wanted = [
         "Sequence",
         "Label on Web (TH)",
@@ -592,19 +177,18 @@ export default function AdminExportPage() {
         "Current Stage",
       ];
 
-      // เผื่อ header สะกดต่าง/มีช่องว่างเกิน
       const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
       const idx = wanted.map((col) => {
         const i = headers.findIndex((h) => norm(h) === norm(col));
         return i >= 0
           ? i
-          : headers.findIndex((h) => norm(h).includes(norm(col))); // fallback contains
+          : headers.findIndex((h) => norm(h).includes(norm(col)));
       });
 
       // Create DataRow objects with unique IDs and selected state
       const filteredRows: DataRow[] = rows.map((r, rowIndex) => ({
-        id: `${name}-row-${rowIndex}`, // Unique ID for each row
+        id: `${name}-row-${rowIndex}`,
         data: idx.map((i) => (i >= 0 ? r[i] : "")),
         selected: true, // Default: all rows selected for export
       }));
@@ -634,14 +218,14 @@ export default function AdminExportPage() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl md:text-4xl font-extrabold tracking-tight">
-          Excel → Preview
+          Excel → Preview & Export
         </motion.h1>
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-slate-600 mt-1">
-          อัปโหลด Excel แล้วพรีวิวเฉพาะ 7 คอลัมน์สำคัญ พร้อมค้นหาและแบ่งหน้า —
-          ไม่มีขั้นตอนสร้าง PDF
+          อัปโหลด Excel แล้วพรีวิวเฉพาะ 7 คอลัมน์สำคัญ พร้อมค้นหาและแบ่งหน้า
+          — Export เป็น Excel ที่ Format สวยงาม
         </motion.p>
       </header>
 
@@ -686,6 +270,10 @@ export default function AdminExportPage() {
                   setPerPage={setPerPage}
                   onReset={onReset}
                   fileName={fileName}
+                  onExport={handleExportClick}
+                  selectedCount={
+                    currentSheet?.rows.filter((r) => r.selected).length || 0
+                  }
                 />
               </div>
             </div>
@@ -701,6 +289,20 @@ export default function AdminExportPage() {
               onToggleAll={handleToggleAll}
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Dialog */}
+      <AnimatePresence>
+        {showExportDialog && (
+          <ExportDialog
+            isOpen={showExportDialog}
+            onClose={() => setShowExportDialog(false)}
+            onConfirm={handleExportConfirm}
+            selectedCount={
+              currentSheet?.rows.filter((r) => r.selected).length || 0
+            }
+          />
         )}
       </AnimatePresence>
     </div>
