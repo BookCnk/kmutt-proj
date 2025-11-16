@@ -1,154 +1,207 @@
 import { DataRow, ExportConfig } from "./types";
 
 /**
- * Export selected rows to a styled Excel file with KMUTT branding
- * Uses ExcelJS for full styling support including logo, fonts, and colors
+ * Export selected rows to a styled Excel file with KMUTT branding (true A4 setup)
  */
 export async function exportToStyledExcel(
   rows: DataRow[],
   headers: string[],
   config: ExportConfig
 ) {
-  // Filter only selected rows
   const selectedRows = rows.filter((r) => r.selected);
-
   if (selectedRows.length === 0) {
     alert("กรุณาเลือกอย่างน้อย 1 แถวเพื่อ Export");
     return;
   }
 
-  // Dynamically import ExcelJS and file-saver
   const ExcelJS = (await import("exceljs")).default;
   const fileSaver = await import("file-saver");
   const saveAs = fileSaver.default || fileSaver.saveAs;
 
-  // Create workbook
   const wb = new ExcelJS.Workbook();
   wb.creator = "KMUTT";
   wb.created = new Date();
 
+  // 🧾 A4 Page Setup: 21.0 × 29.7 cm = 8.27 × 11.69 inch
   const ws = wb.addWorksheet("Round " + config.roundNumber, {
-    views: [{ state: "frozen", ySplit: 4 }],
     pageSetup: {
-      paperSize: 9,
-      orientation: "portrait",
+      paperSize: 9, // A4
+      orientation: "portrait", // แนวตั้ง
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
+      horizontalCentered: true,
+      verticalCentered: false,
+      printArea: "A1:C100",
+      // ขอบกระดาษมาตรฐาน A4 (เซนติเมตร → นิ้ว)
       margins: {
-        left: 0.3,
-        right: 0.3,
-        top: 0.5,
-        bottom: 0.5,
-        header: 0.3,
-        footer: 0.3,
+        left: 1.27 / 2.54,   // 1.27 cm = 0.5"
+        right: 1.27 / 2.54,
+        top: 1.91 / 2.54,    // 1.91 cm = 0.75"
+        bottom: 1.91 / 2.54,
+        header: 0.76 / 2.54, // 0.3"
+        footer: 0.76 / 2.54,
       },
     },
   });
 
-  // Set column widths
+  // === Columns ===
   ws.columns = [
-    { width: 70 },
-    { width: 35 },
+    { width: 3 },   // A
+    { width: 90 },  // B
+    { width: 35 },  // C
   ];
 
-  // Add KMUTT logo
+  // === Row heights ===
+  ws.getRow(1).height = 30;
+  ws.getRow(2).height = 18;
+  ws.getRow(3).height = 18;
+  ws.getRow(4).height = 10;
+
+  // ===== Logo =====
   try {
     const response = await fetch("/ICON_White.jpg");
     const arrayBuffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    const logoId = wb.addImage({
-      buffer: uint8Array,
-      extension: "jpeg",
-    });
+    const logoId = wb.addImage({ buffer: uint8Array, extension: "jpeg" });
+
     ws.addImage(logoId, {
       tl: { col: 0, row: 0 },
-      ext: { width: 200, height: 85 },
+      ext: { width: 190, height: 100 }, // สูงประมาณ 4 แถว
     });
   } catch (e) {
     console.warn("Could not load logo:", e);
   }
 
-  // Title rows (merged)
-  ws.mergeCells("A1:B1");
-  ws.mergeCells("A2:B2");
-  ws.mergeCells("A3:B3");
+  // ===== Header Section =====
+  ws.mergeCells("B1:B4");
+  ws.mergeCells("C2:C4");
 
-  const titleCell1 = ws.getCell("A1");
-  titleCell1.value = "กำหนดการรับสมัครนักศึกษา";
-  titleCell1.font = {
-    name: "TH SarabunPSK",
-    size: 18,
-    bold: true,
-    color: { argb: "FFCC0000" },
+  const titleCell = ws.getCell("B1");
+  titleCell.value = {
+    richText: [
+      {
+        font: { name: "TH SarabunPSK", size: 18, bold: true },
+        text: "กำหนดการรับสมัครนักศึกษา\n",
+      },
+      {
+        font: { name: "TH SarabunPSK", size: 16, bold: true },
+        text: "โครงการ KMUTT International Admission ปีการศึกษา 2569",
+      },
+    ],
   };
-  titleCell1.alignment = {
+  titleCell.alignment = {
     vertical: "middle",
     horizontal: "center",
     wrapText: true,
   };
-  ws.getRow(1).height = 32;
+  titleCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE0E0E0" },
+  };
+  ["B1", "B2", "B3", "B4"].forEach((addr) => {
+    const c = ws.getCell(addr);
+    c.fill = titleCell.fill;
+    c.border = {
+      top: { style: "thin", color: { argb: "FF2F3235" } },
+      left: { style: "thin", color: { argb: "FF2F3235" } },
+      bottom: { style: "thin", color: { argb: "FF2F3235" } },
+      right: { style: "thin", color: { argb: "FF2F3235" } },
+    };
+  });
 
-  const titleCell2 = ws.getCell("A2");
-  titleCell2.value = "โครงการ KMUTT International Admission ปีการศึกษา 2569";
-  titleCell2.font = {
+  // รอบที่
+  const roundCell = ws.getCell("C1");
+  roundCell.value = "รอบที่ " + config.roundNumber;
+  roundCell.font = {
     name: "TH SarabunPSK",
     size: 16,
     bold: true,
+    color: { argb: "FFFFFFFF" },
   };
-  titleCell2.alignment = {
+  roundCell.alignment = {
     vertical: "middle",
     horizontal: "center",
     wrapText: true,
   };
-  ws.getRow(2).height = 28;
+  roundCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF2F3235" },
+  };
+  roundCell.border = {
+    top: { style: "thin", color: { argb: "FF2F3235" } },
+    left: { style: "thin", color: { argb: "FF2F3235" } },
+    bottom: { style: "thin", color: { argb: "FF2F3235" } },
+    right: { style: "thin", color: { argb: "FF2F3235" } },
+  };
 
-  const titleCell3 = ws.getCell("A3");
-  titleCell3.value = "รอบที่ " + config.roundNumber + " - " + config.roundTitle + " " + config.roundSubtitle;
-  titleCell3.font = {
+  // สำนักงานคัดเลือก
+  const officeCell = ws.getCell("C2");
+  officeCell.value = "สำนักงานคัดเลือก\nและสรรหานักศึกษา";
+  officeCell.font = {
     name: "TH SarabunPSK",
     size: 14,
     bold: true,
+    color: { argb: "FFFFFFFF" },
   };
-  titleCell3.alignment = {
+  officeCell.alignment = {
     vertical: "middle",
     horizontal: "center",
     wrapText: true,
   };
-  ws.getRow(3).height = 24;
-
-  // Empty row
-  ws.addRow([]);
-
-  // Column headers
-  const headerRow = ws.addRow(["การดำเนินการ", "วันที่"]);
-  headerRow.height = 24;
-  headerRow.eachCell((cell) => {
-    cell.font = {
-      name: "TH SarabunPSK",
-      size: 14,
-      bold: true,
-      color: { argb: "FFFFFFFF" },
+  officeCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFFF4616" },
+  };
+  ["C2", "C3", "C4"].forEach((addr) => {
+    const c = ws.getCell(addr);
+    c.fill = officeCell.fill;
+    c.border = {
+      top: { style: "thin", color: { argb: "FF2F3235" } },
+      left: { style: "thin", color: { argb: "FF2F3235" } },
+      bottom: { style: "thin", color: { argb: "FF2F3235" } },
+      right: { style: "thin", color: { argb: "FF2F3235" } },
     };
+  });
+
+  // ===== Header Row (แถว 5) =====
+  ws.getRow(5).height = 22;
+  const headerA = ws.getCell("A5");
+  const headerB = ws.getCell("B5");
+  const headerC = ws.getCell("C5");
+
+  headerA.value = "";
+  headerB.value = "การดำเนินการ";
+  headerC.value = "วันที่";
+
+  const yellowFill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFFFC72C" },
+  };
+
+  [headerA, headerB, headerC].forEach((cell) => {
+    cell.font = { name: "TH SarabunPSK", size: 14, bold: true };
     cell.alignment = {
       vertical: "middle",
       horizontal: "center",
       wrapText: true,
     };
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFF4616" },
-    };
     cell.border = {
-      top: { style: "thin", color: { argb: "FF666666" } },
-      left: { style: "thin", color: { argb: "FF666666" } },
-      bottom: { style: "thin", color: { argb: "FF666666" } },
-      right: { style: "thin", color: { argb: "FF666666" } },
+      top: { style: "thin", color: { argb: "FF2F3235" } },
+      left: { style: "thin", color: { argb: "FF2F3235" } },
+      bottom: { style: "thin", color: { argb: "FF2F3235" } },
+      right: { style: "thin", color: { argb: "FF2F3235" } },
     };
   });
 
-  // Data rows - Map to left column (Label TH) and right column (Date Range)
+  headerB.fill = yellowFill;
+  headerC.fill = yellowFill;
+
+  // ===== DATA ROWS =====
   const labelThIndex = headers.indexOf("Label on Web (TH)");
   const startDateIndex = headers.indexOf("Start Date");
   const endDateIndex = headers.indexOf("End Date");
@@ -159,23 +212,17 @@ export async function exportToStyledExcel(
     const endDate = String(row.data[endDateIndex] || "");
     const dateRange =
       startDate && endDate
-        ? "วันที่ " + startDate + " - " + endDate
+        ? `วันที่ ${startDate} - ${endDate}`
         : startDate || endDate || "";
 
-    const dataRow = ws.addRow([
-      (index + 1) + ". " + labelTh,
-      dateRange,
-    ]);
-    dataRow.height = 28;
+    const dataRow = ws.addRow([`${index + 1}.`, labelTh, dateRange]);
+    dataRow.height = 26;
 
     dataRow.eachCell((cell, colNumber) => {
-      cell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-      };
+      cell.font = { name: "TH SarabunPSK", size: 14 };
       cell.alignment = {
         vertical: "top",
-        horizontal: colNumber === 1 ? "left" : "center",
+        horizontal: colNumber === 2 ? "left" : "center",
         wrapText: true,
       };
       cell.border = {
@@ -187,11 +234,10 @@ export async function exportToStyledExcel(
     });
   });
 
-  // Generate filename with safer characters
+  // ===== Save file =====
   const dateStr = new Date().toISOString().split("T")[0];
-  const filename = "KMUTT_Admission_Round_" + config.roundNumber + "_" + dateStr + ".xlsx";
+  const filename = `KMUTT_Admission_Round_${config.roundNumber}_${dateStr}.xlsx`;
 
-  // Export file
   try {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], {

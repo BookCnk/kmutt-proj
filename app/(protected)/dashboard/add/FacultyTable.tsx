@@ -60,6 +60,8 @@ type Program = {
   degree_level: string; // "master" | "doctoral" | ...
   degree_abbr: string; // "วศ.ม." | ...
   active?: boolean;
+
+  teaching_time?: string; // เช่น "จ.-พ. 09:00–12:00 (ห้อง B201)"
 };
 
 type ProgramResponse = {
@@ -143,6 +145,9 @@ export default function FacultyTable() {
   // inline edit program
   const [editingProgId, setEditingProgId] = useState<string | null>(null);
   const [editingProgTitle, setEditingProgTitle] = useState<string>("");
+  const [editingProgTeachingTime, setEditingProgTeachingTime] =
+    useState<string>("");
+
   const [savingProgId, setSavingProgId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
 
@@ -373,14 +378,17 @@ export default function FacultyTable() {
   const startEditProgram = (p: Program) => {
     setEditingProgId(p._id);
     setEditingProgTitle(p.title ?? "");
+    setEditingProgTeachingTime(p.teaching_time ?? ""); // ⬅️ เพิ่มบรรทัดนี้
   };
   const cancelEditProgram = () => {
     setEditingProgId(null);
     setEditingProgTitle("");
+    setEditingProgTeachingTime("");
   };
   const saveEditProgram = async (p: Program) => {
     if (!editingProgId || editingProgId !== p._id) return;
     const newTitle = editingProgTitle.trim();
+    const newTeachingTime = editingProgTeachingTime.trim();
     if (!newTitle) {
       alert("กรุณากรอกชื่อหลักสูตร/สาขา");
       return;
@@ -393,6 +401,7 @@ export default function FacultyTable() {
       );
       setEditingProgId(null);
       setEditingProgTitle("");
+      setEditingProgTeachingTime(""); // ⬅️ clear
     } catch (err) {
       console.error("updateProgram error:", err);
       alert("บันทึกชื่อหลักสูตรไม่สำเร็จ");
@@ -677,7 +686,7 @@ export default function FacultyTable() {
 
       {/* ====== Programs Modal (nested) ====== */}
       <Dialog open={progModalOpen} onOpenChange={setProgModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="w-fit max-w-[90vw]">
           <DialogHeader>
             <DialogTitle>รายการหลักสูตร/สาขา (Program)</DialogTitle>
             <DialogDescription>
@@ -707,20 +716,50 @@ export default function FacultyTable() {
                       className="rounded-lg border px-3 py-2 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         {isEditing ? (
-                          <input
-                            className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={editingProgTitle}
-                            onChange={(e) =>
-                              setEditingProgTitle(e.target.value)
-                            }
-                            disabled={isSaving || isDeleting}
-                            placeholder="ชื่อหลักสูตร/สาขา"
-                          />
+                          <>
+                            {/* ชื่อหลักสูตร */}
+                            <input
+                              className="mb-2 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingProgTitle}
+                              onChange={(e) =>
+                                setEditingProgTitle(e.target.value)
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="ชื่อหลักสูตร/สาขา"
+                            />
+
+                            {/* ⬇️ วัน-เวลาในการดำเนินการเรียนการสอน */}
+                            <input
+                              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingProgTeachingTime}
+                              onChange={(e) =>
+                                setEditingProgTeachingTime(e.target.value)
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="วัน-เวลาในการดำเนินการเรียนการสอน (เช่น จ.-พ. 09:00–12:00 ห้อง B201)"
+                            />
+                          </>
                         ) : (
-                          <p className="font-medium truncate">{p.title}</p>
+                          <>
+                            {/* ชื่อหลักสูตร (คงเดิม) */}
+                            <p className="font-medium break-words whitespace-normal">
+                              {p.title}
+                            </p>
+
+                            {/* ⬇️ แสดงวัน-เวลา ถ้ามี */}
+                            {p.teaching_time ? (
+                              <p className="text-sm text-gray-600 mt-0.5">
+                                วัน-เวลา: {p.teaching_time}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400 mt-0.5">
+                                วัน-เวลา: —
+                              </p>
+                            )}
+                          </>
                         )}
 
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
                           <span>ระดับ: {p.degree_level || "-"}</span>
                           <span>•</span>
                           <span>วุฒิ: {p.degree_abbr || "-"}</span>
@@ -737,6 +776,7 @@ export default function FacultyTable() {
                         </div>
                       </div>
 
+                      {/* ปุ่มแก้ไข/ลบ คงเดิม */}
                       <div className="flex items-center gap-2">
                         {isEditing ? (
                           <>
