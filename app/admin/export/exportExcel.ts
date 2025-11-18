@@ -1,3 +1,4 @@
+import { Fill } from "exceljs";
 import { DataRow, ExportConfig } from "./types";
 
 /**
@@ -177,7 +178,7 @@ export async function exportToStyledExcel(
   headerB.value = "การดำเนินการ";
   headerC.value = "วันที่";
 
-  const yellowFill = {
+  const yellowFill: Fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "FFFFC72C" },
