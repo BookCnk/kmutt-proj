@@ -14,6 +14,6 @@ export type Step = "idle" | "loaded";
 
 export type ExportConfig = {
   roundNumber: string;
+  sheetTitle: string;
   roundTitle: string;
-  roundSubtitle: string;
 };

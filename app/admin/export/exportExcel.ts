@@ -7,7 +7,7 @@ import { DataRow, ExportConfig } from "./types";
 export async function exportToStyledExcel(
   rows: DataRow[],
   headers: string[],
-  config: ExportConfig
+  config: ExportConfig,
 ) {
   const selectedRows = rows.filter((r) => r.selected);
   if (selectedRows.length === 0) {
@@ -36,9 +36,9 @@ export async function exportToStyledExcel(
       printArea: "A1:C100",
       // ขอบกระดาษมาตรฐาน A4 (เซนติเมตร → นิ้ว)
       margins: {
-        left: 1.27 / 2.54,   // 1.27 cm = 0.5"
+        left: 1.27 / 2.54, // 1.27 cm = 0.5"
         right: 1.27 / 2.54,
-        top: 1.91 / 2.54,    // 1.91 cm = 0.75"
+        top: 1.91 / 2.54, // 1.91 cm = 0.75"
         bottom: 1.91 / 2.54,
         header: 0.76 / 2.54, // 0.3"
         footer: 0.76 / 2.54,
@@ -48,9 +48,9 @@ export async function exportToStyledExcel(
 
   // === Columns ===
   ws.columns = [
-    { width: 3 },   // A
-    { width: 90 },  // B
-    { width: 35 },  // C
+    { width: 23.13 }, // A - Adjusted to fit logo (190px width)
+    { width: 90 }, // B
+    { width: 35 }, // C
   ];
 
   // === Row heights ===
@@ -83,11 +83,7 @@ export async function exportToStyledExcel(
     richText: [
       {
         font: { name: "TH SarabunPSK", size: 18, bold: true },
-        text: "กำหนดการรับสมัครนักศึกษา\n",
-      },
-      {
-        font: { name: "TH SarabunPSK", size: 16, bold: true },
-        text: "โครงการ KMUTT International Admission ปีการศึกษา 2569",
+        text: config.sheetTitle || "",
       },
     ],
   };
@@ -104,12 +100,6 @@ export async function exportToStyledExcel(
   ["B1", "B2", "B3", "B4"].forEach((addr) => {
     const c = ws.getCell(addr);
     c.fill = titleCell.fill;
-    c.border = {
-      top: { style: "thin", color: { argb: "FF2F3235" } },
-      left: { style: "thin", color: { argb: "FF2F3235" } },
-      bottom: { style: "thin", color: { argb: "FF2F3235" } },
-      right: { style: "thin", color: { argb: "FF2F3235" } },
-    };
   });
 
   // รอบที่
@@ -131,16 +121,10 @@ export async function exportToStyledExcel(
     pattern: "solid",
     fgColor: { argb: "FF2F3235" },
   };
-  roundCell.border = {
-    top: { style: "thin", color: { argb: "FF2F3235" } },
-    left: { style: "thin", color: { argb: "FF2F3235" } },
-    bottom: { style: "thin", color: { argb: "FF2F3235" } },
-    right: { style: "thin", color: { argb: "FF2F3235" } },
-  };
 
   // สำนักงานคัดเลือก
   const officeCell = ws.getCell("C2");
-  officeCell.value = "สำนักงานคัดเลือก\nและสรรหานักศึกษา";
+  officeCell.value = config.roundTitle || "";
   officeCell.font = {
     name: "TH SarabunPSK",
     size: 14,
@@ -160,22 +144,18 @@ export async function exportToStyledExcel(
   ["C2", "C3", "C4"].forEach((addr) => {
     const c = ws.getCell(addr);
     c.fill = officeCell.fill;
-    c.border = {
-      top: { style: "thin", color: { argb: "FF2F3235" } },
-      left: { style: "thin", color: { argb: "FF2F3235" } },
-      bottom: { style: "thin", color: { argb: "FF2F3235" } },
-      right: { style: "thin", color: { argb: "FF2F3235" } },
-    };
   });
 
   // ===== Header Row (แถว 5) =====
   ws.getRow(5).height = 22;
-  const headerA = ws.getCell("A5");
-  const headerB = ws.getCell("B5");
+
+  // Merge columns A and B in header row
+  ws.mergeCells("A5:B5");
+
+  const headerAB = ws.getCell("A5");
   const headerC = ws.getCell("C5");
 
-  headerA.value = "";
-  headerB.value = "การดำเนินการ";
+  headerAB.value = "การดำเนินการ";
   headerC.value = "วันที่";
 
   const yellowFill: Fill = {
@@ -184,13 +164,14 @@ export async function exportToStyledExcel(
     fgColor: { argb: "FFFFC72C" },
   };
 
-  [headerA, headerB, headerC].forEach((cell) => {
+  [headerAB, headerC].forEach((cell) => {
     cell.font = { name: "TH SarabunPSK", size: 14, bold: true };
     cell.alignment = {
       vertical: "middle",
       horizontal: "center",
       wrapText: true,
     };
+    cell.fill = yellowFill;
     cell.border = {
       top: { style: "thin", color: { argb: "FF2F3235" } },
       left: { style: "thin", color: { argb: "FF2F3235" } },
@@ -199,8 +180,66 @@ export async function exportToStyledExcel(
     };
   });
 
-  headerB.fill = yellowFill;
-  headerC.fill = yellowFill;
+  // ===== Helper function to format Thai dates =====
+  const thaiMonths = [
+    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+  ];
+
+  function parseDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    // Try parsing various date formats
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  function formatThaiDateRange(startDateStr: string, endDateStr: string): string {
+    const startDate = parseDate(startDateStr);
+    const endDate = parseDate(endDateStr);
+
+    if (!startDate && !endDate) return "";
+
+    const formatThaiDate = (date: Date) => {
+      const day = date.getDate();
+      const month = thaiMonths[date.getMonth()];
+      const year = date.getFullYear() + 543; // Convert to Buddhist Era
+      return { day, month, year };
+    };
+
+    if (!startDate && endDate) {
+      const { day, month, year } = formatThaiDate(endDate);
+      return `วันที่ ${day} ${month} ${year}`;
+    }
+
+    if (startDate && !endDate) {
+      const { day, month, year } = formatThaiDate(startDate);
+      return `วันที่ ${day} ${month} ${year}`;
+    }
+
+    if (startDate && endDate) {
+      const start = formatThaiDate(startDate);
+      const end = formatThaiDate(endDate);
+
+      // Check if both dates are exactly the same
+      if (start.day === end.day && start.month === end.month && start.year === end.year) {
+        return `วันที่ ${start.day} ${start.month} ${start.year}`;
+      }
+      // Same year and same month
+      else if (start.year === end.year && start.month === end.month) {
+        return `วันที่ ${start.day} - ${end.day} ${start.month} ${start.year}`;
+      }
+      // Same year, different month
+      else if (start.year === end.year) {
+        return `วันที่ ${start.day} ${start.month} - ${end.day} ${end.month} ${start.year}`;
+      }
+      // Different year
+      else {
+        return `วันที่ ${start.day} ${start.month} ${start.year} - ${end.day} ${end.month} ${end.year}`;
+      }
+    }
+
+    return "";
+  }
 
   // ===== DATA ROWS =====
   const labelThIndex = headers.indexOf("Label on Web (TH)");
@@ -211,26 +250,31 @@ export async function exportToStyledExcel(
     const labelTh = String(row.data[labelThIndex] || "");
     const startDate = String(row.data[startDateIndex] || "");
     const endDate = String(row.data[endDateIndex] || "");
-    const dateRange =
-      startDate && endDate
-        ? `วันที่ ${startDate} - ${endDate}`
-        : startDate || endDate || "";
+    const dateRange = formatThaiDateRange(startDate, endDate);
 
+    const rowNumber = 6 + index; // Starting from row 6 (after header row 5)
     const dataRow = ws.addRow([`${index + 1}.`, labelTh, dateRange]);
     dataRow.height = 26;
+
+    // Merge columns A and B for this row
+    ws.mergeCells(`A${rowNumber}:B${rowNumber}`);
+
+    // Get the merged cell (A) and set the combined content
+    const mergedCell = ws.getCell(`A${rowNumber}`);
+    mergedCell.value = `${index + 1}. ${labelTh}`;
 
     dataRow.eachCell((cell, colNumber) => {
       cell.font = { name: "TH SarabunPSK", size: 14 };
       cell.alignment = {
-        vertical: "top",
+        vertical: colNumber === 2 ? "top" : "middle",
         horizontal: colNumber === 2 ? "left" : "center",
         wrapText: true,
       };
       cell.border = {
-        top: { style: "thin", color: { argb: "FFCCCCCC" } },
-        left: { style: "thin", color: { argb: "FFCCCCCC" } },
-        bottom: { style: "thin", color: { argb: "FFCCCCCC" } },
-        right: { style: "thin", color: { argb: "FFCCCCCC" } },
+        top: { style: "thin", color: { argb: "FF2F3235" } },
+        left: { style: "thin", color: { argb: "FF2F3235" } },
+        bottom: { style: "thin", color: { argb: "FF2F3235" } },
+        right: { style: "thin", color: { argb: "FF2F3235" } },
       };
     });
   });

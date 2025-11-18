@@ -18,18 +18,16 @@ export function ExportDialog({
   selectedCount,
 }: ExportDialogProps) {
   const [roundNumber, setRoundNumber] = React.useState("1");
-  const [roundTitle, setRoundTitle] = React.useState("สำนักงานคัดเลือก");
-  const [roundSubtitle, setRoundSubtitle] = React.useState(
-    "และรวบรวมนักศึกษา"
-  );
+  const [sheetTitle, setSheetTitle] = React.useState("กำหนดการรับสมัครนักศึกษา\nโครงการคัดเลือกตรงความสามารถพิเศษและทุนเพชรพระจอมเกล้่า ปีการศึกษา 2569");
+  const [roundTitle, setRoundTitle] = React.useState("สำนักงานคัดเลือก\nและสรรหานักศึกษา");
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
     onConfirm({
       roundNumber,
+      sheetTitle,
       roundTitle,
-      roundSubtitle,
     });
   };
 
@@ -63,26 +61,24 @@ export function ExportDialog({
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              หัวข้อรอบ (บรรทัดที่ 1)
+              หัวข้อโครงการ
             </label>
-            <input
-              type="text"
-              value={roundTitle}
-              onChange={(e) => setRoundTitle(e.target.value)}
-              placeholder="สำนักงานคัดเลือก"
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            <textarea
+              value={sheetTitle}
+              onChange={(e) => setSheetTitle(e.target.value)}
+              placeholder="หัวข้อโครงการ"
+              className="w-full h-28 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              หัวข้อรอบ (บรรทัดที่ 2)
+              สำนักงาน
             </label>
-            <input
-              type="text"
-              value={roundSubtitle}
-              onChange={(e) => setRoundSubtitle(e.target.value)}
-              placeholder="และรวบรวมนักศึกษา"
+            <textarea
+              value={roundTitle}
+              onChange={(e) => setRoundTitle(e.target.value)}
+              placeholder="สำนักงาน"
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
           </div>
