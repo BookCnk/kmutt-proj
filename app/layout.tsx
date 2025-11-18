@@ -1,5 +1,6 @@
 // app/layout.tsx
 import "./globals.css";
+import "../styles/print.css";
 import type { Metadata } from "next";
 import { Kanit } from "next/font/google";
 

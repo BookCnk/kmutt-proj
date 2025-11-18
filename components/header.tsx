@@ -91,7 +91,8 @@ export function Header({ onLogout }: HeaderProps) {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-10 space-x-2 px-3">
+                    className="relative h-10 space-x-2 px-3"
+                  >
                     <Avatar className="h-8 w-8">
                       <AvatarImage
                         src={user.picture}
@@ -136,17 +137,21 @@ export function Header({ onLogout }: HeaderProps) {
                     </>
                   )}
 
-                  {user.role === "admin" && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin/export" className="w-full">
-                          <File className="mr-2 h-4 w-4" />
-                          <span>export จาก excel</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/export" className="w-full">
+                      <File className="mr-2 h-4 w-4" />
+                      <span>export จาก excel</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/export/report" className="w-full">
+                      <File className="mr-2 h-4 w-4" />
+                      <span>export report จาก excel</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
 
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />

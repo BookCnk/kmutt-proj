@@ -12,6 +12,7 @@ import {
   DataTable,
 } from "@/components/export";
 import { exportToStyledExcel } from "./exportExcel";
+import Link from "next/link";
 
 /**
  * Excel → Web Preview with Export Feature
@@ -212,14 +213,16 @@ export default function AdminExportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 p-6 md:p-8">
+    <div className="container mx-auto min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 p-6 md:p-8">
       <header className="mb-6">
-        <motion.h1
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-3xl md:text-4xl font-extrabold tracking-tight">
-          Excel → Preview & Export
-        </motion.h1>
+        <Link href="/" className="w-full">
+          <motion.h1
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            Excel → Preview & Export
+          </motion.h1>
+        </Link>
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -237,7 +240,7 @@ export default function AdminExportPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
-            className="max-w-4xl mx-auto">
+            className="mx-auto">
             <Dropzone onPick={handlePick} />
             <div className="mt-4 text-xs text-slate-500">
               เคล็ดลับ: แนะนำให้มีแถวหัวคอลัมน์ชัดเจน ระบบจะจับเป็น header

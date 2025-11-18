@@ -1,0 +1,120 @@
+/* Print Stylesheet for Admissions Report Generator */
+
+/* When printing... */
+@media print {
+  /* Hide all UI elements (sidebar, header, uploader, editor, buttons) */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show *only* the report preview and its contents */
+  #report-preview,
+  #report-preview * {
+    visibility: visible;
+  }
+
+  /* Position the report to fill the printed page */
+  #report-preview {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Force a new page after each major's section */
+  .report-major-section {
+    page-break-after: always;
+  }
+
+  /* Prevent the last section from creating an extra blank page */
+  .report-major-section:last-child {
+    page-break-after: auto;
+  }
+
+  /* Prevent tables from breaking across pages awkwardly */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* Avoid breaking inside these elements */
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure proper margins for printing */
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+
+  /* Remove box shadows for print */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure colors are printed */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Hide interactive elements */
+  button,
+  input,
+  textarea,
+  select {
+    display: none !important;
+  }
+
+  /* Optimize link printing */
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+
+  /* Ensure proper font rendering */
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  h1 {
+    font-size: 18pt;
+  }
+
+  h2 {
+    font-size: 16pt;
+  }
+
+  h3 {
+    font-size: 14pt;
+  }
+
+  h4 {
+    font-size: 13pt;
+  }
+
+  h5,
+  h6 {
+    font-size: 12pt;
+  }
+}
