@@ -12,9 +12,22 @@ const BASE = "/admission";
 export const getAdmissions = async (): Promise<AdmissionResponse> =>
   api.get<AdmissionResponse, AdmissionResponse>(`${BASE}/active`);
 
+export const getAdmissionYears = async (): Promise<
+  { _id: string; label: string }[]
+> => {
+  const res = await api.get<any, any>(`/admin${BASE}`);
+  console.log(res);
+
+  const data: any = Object.values(res).filter(
+    (v: any) => v && typeof v === "object" && "label" in v
+  );
+
+  return data;
+};
+
 // GET /admission/{id}
 export const getAdmissionById = async (id: string): Promise<Admission> =>
-  api.get<Admission, Admission>(`${BASE}/${id}`);
+  api.get<Admission, Admission>(`admin${BASE}/${id}`);
 
 // POST /admission
 export const createAdmission = async (

@@ -65,6 +65,7 @@ type ProgramInForm = {
   title: string;
   schedule?: string;
   degree_abbr?: string;
+  degree_level?: string; // "master" | "doctoral" | etc.
   master?: { amount: number; bachelor_req: boolean; master_req: boolean };
   doctoral?: { amount: number; bachelor_req: boolean; master_req: boolean };
   rounds: any[];
@@ -132,12 +133,14 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
         const rounds = Array.isArray(cal.rounds) ? cal.rounds : [];
         const monthly = Array.isArray(cal.monthly) ? cal.monthly : [];
         const degree_abbr: string | undefined = pid?.degree_abbr || undefined;
+        const degree_level: string | undefined = pid?.degree_level || undefined;
 
         return {
           programId: normalizeId(pid),
           title: cleanTitle,
           schedule,
           degree_abbr,
+          degree_level,
           master,
           doctoral,
           rounds,
@@ -180,8 +183,11 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
   };
 }
 
-// ===== รวมข้อมูลจาก SurveyRow[] -> FancyExportRow[] =====
-function buildFancyRows(data: SurveyRow[]): FancyExportRow[] {
+// ===== รวมข้อมูลจาก SurveyRow[] -> FancyExportRow[] แยกตาม degree =====
+function buildFancyRowsByDegree(
+  data: SurveyRow[],
+  degreeLevel: "master" | "doctoral"
+): FancyExportRow[] {
   const grouped = new Map<string, SurveyRow[]>();
   data.forEach((r) => {
     const arr = grouped.get(r.faculty) ?? [];
@@ -193,35 +199,39 @@ function buildFancyRows(data: SurveyRow[]): FancyExportRow[] {
 
   grouped.forEach((rows, faculty) => {
     let sum = 0;
-
-    // แถวหัวคณะ
-    out.push({
-      faculty,
-      degreeAbbr: "",
-      programTitle: `${faculty}`,
-      openFlag: "",
-      amount: "",
-      isRounds: false,
-      isMonthly: false,
-      phones: "",
-      isFacultyHeader: true,
-      facultyTotal: 0,
-    });
+    const facultyRows: FancyExportRow[] = [];
 
     for (const r of rows) {
-      for (const p of r.programs) {
-        const mAmt = p.master?.amount ?? 0;
-        const dAmt = p.doctoral?.amount ?? 0;
-        const subtotal =
-          (Number.isFinite(mAmt) ? mAmt : 0) +
-          (Number.isFinite(dAmt) ? dAmt : 0);
+      // เลือกเฉพาะโปรแกรมของระดับนี้
+      const programsOfLevel = r.programs.filter((p) => {
+        const lvl = (p.degree_level || "").toLowerCase();
+        if (lvl === degreeLevel) return true;
+
+        // fallback: เดาถ้าไม่ได้ระบุ degree_level
+        const hasMaster = !!p.master;
+        const hasDoctoral = !!p.doctoral;
+        if (degreeLevel === "master" && hasMaster && !hasDoctoral) return true;
+        if (degreeLevel === "doctoral" && hasDoctoral && !hasMaster)
+          return true;
+
+        return false;
+      });
+
+      for (const p of programsOfLevel) {
+        // จำนวนรับเฉพาะระดับนี้
+        let amtRaw =
+          degreeLevel === "master"
+            ? p.master?.amount ?? 0
+            : p.doctoral?.amount ?? 0;
+
+        const subtotal = Number.isFinite(amtRaw) ? Number(amtRaw) : 0;
         sum += subtotal;
 
         const hasRounds = Array.isArray(p.rounds) && p.rounds.length > 0;
         const hasMonthly = Array.isArray(p.monthly) && p.monthly.length > 0;
         const isOpen = subtotal > 0 || hasRounds || hasMonthly;
 
-        out.push({
+        facultyRows.push({
           faculty,
           degreeAbbr: p.degree_abbr || guessDegreeAbbrFromProgramTitle(p.title),
           programTitle: p.title,
@@ -235,10 +245,23 @@ function buildFancyRows(data: SurveyRow[]): FancyExportRow[] {
       }
     }
 
-    const idx = out.findLastIndex(
-      (x) => x.isFacultyHeader && x.faculty === faculty
-    );
-    if (idx >= 0) out[idx].facultyTotal = sum;
+    if (facultyRows.length > 0) {
+      // แถวหัวคณะ (มีเฉพาะถ้ามีโปรแกรมของระดับนี้จริง ๆ)
+      out.push({
+        faculty,
+        degreeAbbr: "",
+        programTitle: `${faculty}`,
+        openFlag: "",
+        amount: "",
+        isRounds: false,
+        isMonthly: false,
+        phones: "",
+        isFacultyHeader: true,
+        facultyTotal: sum,
+      });
+
+      out.push(...facultyRows);
+    }
   });
 
   return out;
@@ -300,23 +323,13 @@ async function addLogoIfAny(
   }
 }
 
-// ===== Main exporter =====
-export async function exportExcelFancy(allFormsRaw: any[]) {
-  if (!allFormsRaw?.length) return;
-
-  // 1) แปลง allForms (ใหม่) → โครงสร้างกลาง
-  const normalized: SurveyRow[] = (allFormsRaw || []).map(
-    mapFormToSurveyRow_New
-  );
-
-  // 2) สร้างแถวสำหรับ Excel
-  const rows = buildFancyRows(normalized);
-
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KMUTT";
-  wb.created = new Date();
-
-  const ws = wb.addWorksheet("จำนวนประกาศรับ", {
+// ===== Sheet builder (ใช้ซ้ำได้ทั้งโท/เอก) =====
+async function buildSheetForRows(
+  wb: ExcelJS.Workbook,
+  sheetName: string,
+  rows: FancyExportRow[]
+) {
+  const ws = wb.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 4 }],
     pageSetup: {
       paperSize: 9, // A4
@@ -512,6 +525,7 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
     const roundCell = row.getCell(7); // เป็นรอบ
     const monthCell = row.getCell(8); // ทุกเดือน
 
+    // ----- การเปิดรับ -----
     if (r.openFlag === "P") {
       openCell.value = YES;
       openCell.font = {
@@ -531,43 +545,52 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
     }
     openCell.alignment = { vertical: "middle", horizontal: "center" };
 
-    if (r.isRounds) {
-      roundCell.value = YES;
-      roundCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FF0E7A0D" },
-      };
+    // ----- เป็นรอบ / ทุกเดือน -----
+    if (r.openFlag !== "P") {
+      // ถ้าการเปิดรับเป็นกากบาท → ช่อง G/H ว่าง
+      roundCell.value = "";
+      monthCell.value = "";
+      roundCell.alignment = { vertical: "middle", horizontal: "center" };
+      monthCell.alignment = { vertical: "middle", horizontal: "center" };
     } else {
-      roundCell.value = NO;
-      roundCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FFCC0000" },
-      };
-    }
-    roundCell.alignment = { vertical: "middle", horizontal: "center" };
+      if (r.isRounds) {
+        roundCell.value = YES;
+        roundCell.font = {
+          name: "TH SarabunPSK",
+          size: 14,
+          bold: true,
+          color: { argb: "FF0E7A0D" },
+        };
+      } else {
+        roundCell.value = NO;
+        roundCell.font = {
+          name: "TH SarabunPSK",
+          size: 14,
+          bold: true,
+          color: { argb: "FFCC0000" },
+        };
+      }
+      roundCell.alignment = { vertical: "middle", horizontal: "center" };
 
-    if (r.isMonthly) {
-      monthCell.value = YES;
-      monthCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FF0E7A0D" },
-      };
-    } else {
-      monthCell.value = NO;
-      monthCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FFCC0000" },
-      };
+      if (r.isMonthly) {
+        monthCell.value = YES;
+        monthCell.font = {
+          name: "TH SarabunPSK",
+          size: 14,
+          bold: true,
+          color: { argb: "FF0E7A0D" },
+        };
+      } else {
+        monthCell.value = NO;
+        monthCell.font = {
+          name: "TH SarabunPSK",
+          size: 14,
+          bold: true,
+          color: { argb: "FFCC0000" },
+        };
+      }
+      monthCell.alignment = { vertical: "middle", horizontal: "center" };
     }
-    monthCell.alignment = { vertical: "middle", horizontal: "center" };
 
     // รวมจำนวนรับทั้งหมด
     const amtNumeric =
@@ -620,6 +643,35 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
   const lastRow = ws.lastRow?.number ?? 6;
   ws.pageSetup.printArea = `A1:I${lastRow}`;
   ws.headerFooter.oddFooter = "&Cหน้า &P / &N";
+}
+
+// ===== Main exporter =====
+export async function exportExcelFancy(allFormsRaw: any[]) {
+  if (!allFormsRaw?.length) return;
+
+  // 1) แปลง allForms (ใหม่) → โครงสร้างกลาง
+  const normalized: SurveyRow[] = (allFormsRaw || []).map(
+    mapFormToSurveyRow_New
+  );
+
+  // 2) แยกแถวตามระดับการศึกษา
+  const masterRows = buildFancyRowsByDegree(normalized, "master");
+  const doctoralRows = buildFancyRowsByDegree(normalized, "doctoral");
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "KMUTT";
+  wb.created = new Date();
+
+  // 3) สร้างชีตแยกตามระดับ
+  if (masterRows.length) {
+    await buildSheetForRows(wb, "จำนวนประกาศรับ_ปริญญาโท", masterRows);
+  }
+  if (doctoralRows.length) {
+    await buildSheetForRows(wb, "จำนวนประกาศรับ_ปริญญาเอก", doctoralRows);
+  }
+
+  // ถ้าไม่มีข้อมูลเลยก็ไม่ต้องสร้างไฟล์
+  if (!masterRows.length && !doctoralRows.length) return;
 
   // ดาวน์โหลดไฟล์ (เบราว์เซอร์) หรือเขียนไฟล์ (Node)
   const buf = await wb.xlsx.writeBuffer();

@@ -19,7 +19,7 @@ import {
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
 import ExportAdmissionsExcelButton from "@/components/ExportAdmissionsExcelButton";
-
+import { getAdmissionYears } from "@/api/admissionService";
 import * as XLSX from "xlsx";
 // @ts-ignore: no type definitions for 'file-saver' in this project
 import { exportExcelFancy } from "@/lib/exportFancy"; // หรือวางในไฟล์เดียวกัน
@@ -460,6 +460,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       hasInfo: true,
     };
   }
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>("ทั้งหมด");
 
   /* ---- API params memo ---- */
   const apiParams: any = useMemo(() => {
@@ -481,6 +483,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       sort: sortSign,
       sort_option: sortField,
       clientSortNum: mapSortKeyToClientNumber(sortColumn),
+
+      admission_id: selectedYear === "ทั้งหมด" ? undefined : selectedYear,
     };
   }, [
     currentPage,
@@ -492,8 +496,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     debouncedFilters.program,
     debouncedFilters.submitterName,
     debouncedFilters.submitterEmail,
+    selectedYear,
   ]);
 
+  useEffect(() => {
+    const fetchYears = async () => {
+      try {
+        const data: any = await getAdmissionYears();
+        console.log(data);
+
+        setYears(data);
+      } catch (error) {
+        console.error("Failed to getAllAdmissions", error);
+      }
+    };
+
+    fetchYears();
+  }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -735,6 +754,29 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
           <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
+
+          {/* 📍 DDL เลือกปี */}
+          <Select
+            value={selectedYear}
+            onValueChange={(v) => {
+              setSelectedYear(v);
+              setCurrentPage(1);
+            }}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="เลือกปี" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ทั้งหมด">ทั้งหมด</SelectItem>
+
+              {years.map((y) => (
+                <SelectItem key={y._id} value={y._id}>
+                  {y.label} {/* แสดง 1/2569 แต่ส่งค่าเป็น _id */}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 📍 DDL pageSize */}
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
@@ -752,7 +794,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           </Select>
         </div>
       </div>
-
       {/* Table */}
       <div className="border rounded-lg overflow-hidden bg-white relative">
         {loading && rows.length > 0 && (

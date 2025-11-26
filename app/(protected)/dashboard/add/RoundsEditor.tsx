@@ -10,22 +10,29 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getAdmissionYears,
+  toggleAdmissionActive,
+  createAdmission,
+  deleteAdmission,
+  getAdmissions,
+  updateAdmission,
+  getAdmissionById,
+} from "@/api/admissionService";
+
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
 import AddDepartmentDialog from "@/components/survey/AddDepartmentDialog";
-
-import {
-  createAdmission,
-  deleteAdmission,
-  getAdmissions,
-  updateAdmission,
-} from "@/api/admissionService";
 import { toast } from "sonner";
 
 /* ---------- Types ---------- */
@@ -91,13 +98,6 @@ const formatDateTH = (iso: string) =>
     new Date(iso)
   );
 
-const intakeModeLabel = (m: IntakeMode) =>
-  m === "none"
-    ? "ไม่กำหนด"
-    : m === "rounds"
-    ? "สัมภาษณ์เป็นรอบ"
-    : "สัมภาษณ์รายเดือน";
-
 const computeLabel = (semester: number, yearTH: number) =>
   `${semester}/${yearTH}`;
 const computeSortKey = (semester: number, yearTH: number) =>
@@ -122,40 +122,6 @@ const toISODateLocal = (d: Date) =>
     "0"
   )}-${`${d.getDate()}`.padStart(2, "0")}`;
 
-// Convert full ISO UTC -> local Date (keep calendar day)
-const parseUTCDateToLocalDate = (iso: string) => {
-  const d = new Date(iso);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-};
-
-// Extract "HH:MM" from ISO
-const getTimeFromISO = (iso: string) => {
-  try {
-    const d = new Date(iso);
-    const hh = `${d.getHours()}`.padStart(2, "0");
-    const mm = `${d.getMinutes()}`.padStart(2, "0");
-    return `${hh}:${mm}`;
-  } catch {
-    return "00:00";
-  }
-};
-
-// Combine local date "YYYY-MM-DD" + "HH:MM" -> ISO(UTC)
-const localDateAndTimeToISOUTC = (dateISO: string, timeHHMM: string) => {
-  const [y, m, d] = dateISO.split("-").map(Number);
-  const [hh, mm] = timeHHMM.split(":").map((v) => Number(v || 0));
-  const local = new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0);
-  return local.toISOString();
-};
-
-const fillMonthly = (rows: MonthlyRow[]) =>
-  rows.map((m) => {
-    const d = parseISODateLocal(m.interview_date);
-    const month = m.month ?? d.getMonth() + 1;
-    const label = m.label ?? MONTHS_TH[month - 1];
-    return { ...m, month, label };
-  });
-
 /* ✅ helpers สำหรับ update payload */
 const toUTCStartISOFromLocalDate = (dateISO: string) => {
   // "YYYY-MM-DD" -> ISO(UTC) 00:00
@@ -171,8 +137,18 @@ const monthLabelFromDateLike = (v: string) => {
   return MONTHS_TH[dd.getMonth()];
 };
 
+// 🔧 FIX: รองรับทั้ง "YYYY-MM-DD" และ ISO เต็ม "YYYY-MM-DDTHH:mm:ss.sssZ"
+const fillMonthly = (rows: MonthlyRow[]) =>
+  rows.map((m) => {
+    const d = m.interview_date.includes("T")
+      ? new Date(m.interview_date)
+      : parseISODateLocal(m.interview_date);
+    const month = m.month ?? d.getMonth() + 1;
+    const label = m.label ?? MONTHS_TH[month - 1];
+    return { ...m, month, label };
+  });
+
 /* ---------- DatePicker ---------- */
-// แทนที่ฟังก์ชัน DatePickerField เดิมทั้งหมดด้วยอันนี้
 function DatePickerField({
   valueISO,
   onChangeISO,
@@ -186,14 +162,13 @@ function DatePickerField({
 }) {
   const [open, setOpen] = React.useState(false);
 
-  // ✅ รองรับทั้ง "YYYY-MM-DD" และ "YYYY-MM-DDTHH:mm:ss.sssZ"
   const toLocalDateOnly = (v?: string) => {
     if (!v) return undefined;
     if (v.includes("T")) {
       const d = new Date(v);
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate()); // ตัดเวลาออก (local)
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }
-    return parseISODateLocal(v); // ฟังก์ชันเดิมของคุณ
+    return parseISODateLocal(v);
   };
 
   const date = toLocalDateOnly(valueISO);
@@ -217,7 +192,7 @@ function DatePickerField({
       <PopoverContent align="start" className="p-0">
         {(() => {
           const minDate = disabledBefore
-            ? toLocalDateOnly(disabledBefore) // -> Date
+            ? toLocalDateOnly(disabledBefore)
             : undefined;
 
           return (
@@ -230,10 +205,7 @@ function DatePickerField({
                 setOpen(false);
               }}
               initialFocus
-              // ✅ ใส่ disabled เฉพาะตอนที่มี minDate จริง ๆ
               disabled={minDate ? { before: minDate } : undefined}
-              // หรือจะใช้ array matcher ก็ได้:
-              // disabled={minDate ? [{ before: minDate }] : undefined}
             />
           );
         })()}
@@ -270,6 +242,34 @@ const makeBlankIntake = (): IntakeData => {
   };
 };
 
+/* ---------- helper แปลงข้อมูลจาก backend ---------- */
+const adaptAdmission = (a: any): IntakeData => ({
+  _id: a._id ?? "",
+  term: a.term ?? {
+    semester: 1,
+    academic_year_th: new Date().getFullYear() + 543,
+    label: "-",
+    sort_key: 0,
+  },
+  active: a.active ?? true,
+  intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
+  application_window: a.application_window ?? {
+    open_at: toISOStartOfDayUTC(new Date()),
+    close_at: toISOEndOfDayUTC(new Date()),
+    notice: "",
+    calendar_url: "",
+  },
+  rounds: a.rounds ?? [],
+  monthly: (a.monthly ?? []).map((m: any) => ({
+    month: undefined,
+    label: m.month,
+    interview_date: m.interview_date,
+    open: m.open ?? true,
+    title: m.title,
+  })),
+  meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
+});
+
 /* =========================================================
    Main Component
    ========================================================= */
@@ -282,7 +282,7 @@ export default function IntakeViewerWithAddModal() {
     [terms, selectedId]
   );
 
-  // initial fetch
+  // initial fetch (โหลดทั้งหมด + เลือกล่าสุดเป็น default)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -292,40 +292,16 @@ export default function IntakeViewerWithAddModal() {
         if (Array.isArray(res)) items = res;
         else if (Array.isArray((res as any)?.items)) items = (res as any).items;
         else if (Array.isArray((res as any)?.data)) items = (res as any).data;
-        const adapt = (a: any): IntakeData => ({
-          _id: a._id ?? "",
-          term: a.term ?? {
-            semester: 1,
-            academic_year_th: new Date().getFullYear() + 543,
-            label: "-",
-            sort_key: 0,
-          },
-          active: a.active ?? true,
-          intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
-          application_window: a.application_window ?? {
-            open_at: toISOStartOfDayUTC(new Date()),
-            close_at: toISOEndOfDayUTC(new Date()),
-            notice: "",
-            calendar_url: "",
-          },
-          rounds: a.rounds ?? [],
-          monthly: (a.monthly ?? []).map((m: any) => ({
-            month: undefined,
-            label: m.month,
-            interview_date: m.interview_date,
-            open: true,
-            title: m.title,
-          })),
-          meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
-        });
-        const adapted = items.map(adapt);
+
+        const adapted = items.map(adaptAdmission);
         adapted.sort(
           (a: IntakeData, b: IntakeData) =>
             (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
         );
+
         if (!mounted) return;
         setTerms(adapted);
-        setSelectedId(adapted[0]?._id ?? null);
+        setSelectedId(adapted[0]?._id ?? null); // default ใช้ล่าสุด
       } catch (err) {
         console.error("Failed to load admissions", err);
       }
@@ -337,9 +313,10 @@ export default function IntakeViewerWithAddModal() {
 
   /* ======== Edit rounds/monthly ======== */
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [tab, setTab] = useState<"fixed" | "monthly">("fixed");
+  const [tab, setTab] = useState<"fixed" | "monthly" | "details">("fixed");
   const [roundsDraft, setRoundsDraft] = useState<RoundRow[]>([]);
   const [monthlyDraft, setMonthlyDraft] = useState<MonthlyRow[]>([]);
+  const [noticeDraft, setNoticeDraft] = useState<string>("");
 
   const openEditModal = () => {
     if (!selected) return;
@@ -357,14 +334,13 @@ export default function IntakeViewerWithAddModal() {
         title: m.title ?? "",
       }))
     );
+    setNoticeDraft(selected.application_window.notice ?? "");
     setEditModalOpen(true);
   };
 
-  // ✅ ส่ง payload ตามสเปก: rounds {no,title,interview_date} | monthly {month(title-TH),title,interview_date}
   const saveEditModal = async () => {
     if (!selected) return;
 
-    // อัปเดต state (optimistic UI)
     const roundsSaved = roundsDraft.map((r) => ({
       ...r,
       open: r.open ?? true,
@@ -382,14 +358,21 @@ export default function IntakeViewerWithAddModal() {
       [...prev]
         .map((t) =>
           t._id === selected._id
-            ? { ...t, rounds: roundsSaved, monthly: monthlySaved }
+            ? {
+                ...t,
+                rounds: roundsSaved,
+                monthly: monthlySaved,
+                application_window: {
+                  ...t.application_window,
+                  notice: noticeDraft,
+                },
+              }
             : t
         )
         .sort((a, b) => b.term.sort_key - a.term.sort_key)
     );
     setEditModalOpen(false);
 
-    // --- Build payload ---
     const payload: {
       application_window?: {
         open_at: string;
@@ -403,7 +386,7 @@ export default function IntakeViewerWithAddModal() {
       application_window: {
         open_at: selected.application_window.open_at,
         close_at: selected.application_window.close_at,
-        notice: selected.application_window.notice ?? "",
+        notice: noticeDraft,
         calendar_url: selected.application_window.calendar_url ?? "",
       },
       rounds: roundsSaved
@@ -426,40 +409,15 @@ export default function IntakeViewerWithAddModal() {
       await updateAdmission(selected._id, payload as any);
       toast.success("อัปเดตข้อมูลรอบสัมภาษณ์เรียบร้อยแล้ว");
 
-      // (optional) refetch
+      // optional refetch
       try {
         const res = await getAdmissions();
         let items: any[] = [];
         if (Array.isArray(res)) items = res;
         else if (Array.isArray((res as any)?.items)) items = (res as any).items;
         else if (Array.isArray((res as any)?.data)) items = (res as any).data;
-        const adapt = (a: any): IntakeData => ({
-          _id: a._id ?? "",
-          term: a.term ?? {
-            semester: 1,
-            academic_year_th: new Date().getFullYear() + 543,
-            label: "-",
-            sort_key: 0,
-          },
-          active: a.active ?? true,
-          intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
-          application_window: a.application_window ?? {
-            open_at: toISOStartOfDayUTC(new Date()),
-            close_at: toISOEndOfDayUTC(new Date()),
-            notice: "",
-            calendar_url: "",
-          },
-          rounds: a.rounds ?? [],
-          monthly: (a.monthly ?? []).map((m: any) => ({
-            month: undefined,
-            label: m.month,
-            interview_date: m.interview_date,
-            open: true,
-            title: m.title,
-          })),
-          meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
-        });
-        const adapted = items.map(adapt);
+
+        const adapted = items.map(adaptAdmission);
         adapted.sort(
           (a: IntakeData, b: IntakeData) =>
             (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
@@ -475,7 +433,7 @@ export default function IntakeViewerWithAddModal() {
     }
   };
 
-  /* ======== Add (เหมือนเดิม) ======== */
+  /* ======== Add ======== */
   const [addOpen, setAddOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<IntakeData>(makeBlankIntake());
 
@@ -496,6 +454,38 @@ export default function IntakeViewerWithAddModal() {
     } catch (err) {
       console.error(err);
       toast.error("ไม่สามารถลบภาคการศึกษาได้");
+    }
+  };
+
+  // ✅ ใช้ toggleAdmissionActive เพื่อเปิด/ปิด ภาคการศึกษา
+  const onToggleActive = async () => {
+    if (!selected) return;
+    const currentId = selected._id;
+    const currentActive = selected.active;
+
+    // optimistic update
+    setTerms((prev) =>
+      prev.map((t) =>
+        t._id === currentId ? { ...t, active: !currentActive } : t
+      )
+    );
+
+    try {
+      await toggleAdmissionActive(currentId);
+      toast.success(
+        !currentActive
+          ? "เปิดใช้งานภาคการศึกษานี้แล้ว"
+          : "ปิดการใช้งานภาคการศึกษานี้แล้ว"
+      );
+    } catch (err) {
+      console.error(err);
+      // revert
+      setTerms((prev) =>
+        prev.map((t) =>
+          t._id === currentId ? { ...t, active: currentActive } : t
+        )
+      );
+      toast.error("ไม่สามารถสลับสถานะภาคการศึกษาได้");
     }
   };
 
@@ -542,13 +532,12 @@ export default function IntakeViewerWithAddModal() {
     };
 
     try {
-      // CreateAdmissionDto payload
       const payload = {
         term: normalized.term,
         application_window: {
           open_at: toUTCStartISO(normalized.application_window.open_at),
           close_at: toUTCStartISO(normalized.application_window.close_at),
-          notice: normalized.application_window.notice,
+          notice: noticeDraft,
           calendar_url: normalized.application_window.calendar_url,
         },
         rounds: (normalized.rounds ?? []).map((r: any) => ({
@@ -584,34 +573,7 @@ export default function IntakeViewerWithAddModal() {
         else if (Array.isArray((res as any)?.items)) items = (res as any).items;
         else if (Array.isArray((res as any)?.data)) items = (res as any).data;
 
-        const adapt = (a: any): IntakeData => ({
-          _id: a._id ?? "",
-          term: a.term ?? {
-            semester: 1,
-            academic_year_th: new Date().getFullYear() + 543,
-            label: "-",
-            sort_key: 0,
-          },
-          active: a.active ?? true,
-          intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
-          application_window: a.application_window ?? {
-            open_at: toISOStartOfDayUTC(new Date()),
-            close_at: toISOEndOfDayUTC(new Date()),
-            notice: "",
-            calendar_url: "",
-          },
-          rounds: a.rounds ?? [],
-          monthly: (a.monthly ?? []).map((m: any) => ({
-            month: undefined,
-            label: m.month,
-            interview_date: m.interview_date,
-            open: true,
-            title: m.title,
-          })),
-          meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
-        });
-
-        const adapted = items.map(adapt);
+        const adapted = items.map(adaptAdmission);
         adapted.sort(
           (a: IntakeData, b: IntakeData) =>
             (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
@@ -622,37 +584,7 @@ export default function IntakeViewerWithAddModal() {
         toast.success("สร้างภาคการศึกษาเรียบร้อยแล้ว");
       } catch (err) {
         console.error("Refetch after create failed", err);
-        const fallback: IntakeData = {
-          _id: created._id ?? "",
-          term: created.term ?? {
-            semester: 1,
-            academic_year_th: new Date().getFullYear() + 543,
-            label: "-",
-            sort_key: 0,
-          },
-          active: created.active ?? true,
-          intake_mode: (created.intake_mode as IntakeMode) ?? "monthly",
-          application_window: created.application_window ?? {
-            open_at: toISOStartOfDayUTC(new Date()),
-            close_at: toISOEndOfDayUTC(new Date()),
-            notice: "",
-            calendar_url: "",
-          },
-          rounds: created.rounds ?? [],
-          monthly: (created.monthly ?? []).map((m: any) => ({
-            month: undefined,
-            label: m.month,
-            interview_date: m.interview_date,
-            open: true,
-            title: m.title,
-          })),
-          meta: {
-            program_id: created?.meta?.program_id ?? null,
-            created_at: created?.meta?.created_at,
-            updated_at: created?.meta?.updated_at,
-            created_by: created?.meta?.created_by,
-          },
-        };
+        const fallback = adaptAdmission(created);
         setTerms((prev) => {
           const exists = prev.some((t) => t._id === fallback._id);
           const next = exists
@@ -673,12 +605,64 @@ export default function IntakeViewerWithAddModal() {
     }
   };
 
-  /* ======== Display ======== */
+  /* ======== Display & DDL ปี ======== */
   const formatRange = selected
     ? `${formatDateTH(selected.application_window.open_at)} — ${formatDateTH(
         selected.application_window.close_at
       )}`
     : "";
+
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>("ทั้งหมด");
+
+  useEffect(() => {
+    const fetchYears = async () => {
+      try {
+        const data: any = await getAdmissionYears();
+        setYears(data);
+      } catch (error) {
+        console.error("Failed to getAdmissionYears", error);
+      }
+    };
+    fetchYears();
+  }, []);
+
+  // ✅ เวลาเปลี่ยนปี: "ทั้งหมด" = ใช้ terms เดิม (ล่าสุด), ถ้าเลือกปี → call getAdmissionById(id)
+  const handleYearChange = async (value: string) => {
+    setSelectedYear(value);
+
+    if (value === "ทั้งหมด") {
+      // ถ้ามีภาคที่ active = true → ใช้อันนั้นเป็น "ล่าสุด"
+      // ถ้าไม่มี → fallback ไปตัว sort_key สูงสุด (ตัวแรกใน terms)
+      setSelectedId(() => {
+        if (!terms.length) return null;
+
+        const activeTerm = terms.find((t) => t.active);
+        if (activeTerm) return activeTerm._id;
+
+        return terms[0]._id;
+      });
+      return;
+    }
+
+    try {
+      const data = await getAdmissionById(value); // value = _id จาก DDL
+      console.log("Fetched admission by id:", data);
+      const adapted = adaptAdmission(data);
+
+      setTerms((prev) => {
+        const others = prev.filter((t) => t._id !== adapted._id);
+        const next = [...others, adapted];
+        next.sort((a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0));
+        return next;
+      });
+
+      setSelectedId(adapted._id);
+    } catch (error) {
+      console.error("Failed to load admission by id", error);
+      toast.error("ไม่สามารถโหลดข้อมูลภาคการศึกษาที่เลือกได้");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -687,21 +671,19 @@ export default function IntakeViewerWithAddModal() {
         <label className="text-sm font-medium text-gray-700">
           เลือกภาคการศึกษา:
         </label>
-
-        {terms.length ? (
-          <select
-            className="rounded-lg border px-3 py-2"
-            value={selectedId ?? ""}
-            onChange={(e) => setSelectedId(e.target.value)}>
-            {terms.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.term.label}
-              </option>
+        <Select value={selectedYear} onValueChange={handleYearChange}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="เลือกปี" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ทั้งหมด">ล่าสุด</SelectItem>
+            {years.map((y) => (
+              <SelectItem key={y._id} value={y._id}>
+                {y.label}
+              </SelectItem>
             ))}
-          </select>
-        ) : (
-          <span className="text-sm text-gray-500">ยังไม่มีข้อมูล</span>
-        )}
+          </SelectContent>
+        </Select>
 
         {selected && (
           <span
@@ -734,6 +716,13 @@ export default function IntakeViewerWithAddModal() {
             className="rounded-lg border px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
             type="button">
             ลบ
+          </button>
+          <button
+            onClick={onToggleActive}
+            disabled={!selected}
+            className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button">
+            {selected?.active ? "ปิดภาคนี้" : "เปิดใช้งานภาคนี้"}
           </button>
           <button
             onClick={openEditModal}
@@ -912,7 +901,7 @@ export default function IntakeViewerWithAddModal() {
           </DialogHeader>
 
           <div className="mt-3 flex items-center gap-2">
-            {(["fixed", "monthly"] as const).map((k) => {
+            {(["fixed", "monthly", "details"] as const).map((k) => {
               const is = tab === k;
               return (
                 <button
@@ -924,7 +913,11 @@ export default function IntakeViewerWithAddModal() {
                       ? "border-blue-600 bg-blue-50 text-blue-700"
                       : "border-gray-300 hover:bg-gray-50")
                   }>
-                  {k === "fixed" ? "Rounds (เป็นรอบ)" : "Monthly (รายเดือน)"}
+                  {k === "fixed"
+                    ? "Rounds (เป็นรอบ)"
+                    : k === "monthly"
+                    ? "Monthly (รายเดือน)"
+                    : "รายละเอียด"}
                 </button>
               );
             })}
@@ -1049,7 +1042,7 @@ export default function IntakeViewerWithAddModal() {
                   </div>
                 )}
               </>
-            ) : (
+            ) : tab === "monthly" ? (
               <>
                 <div className="flex justify-end">
                   <button
@@ -1067,11 +1060,14 @@ export default function IntakeViewerWithAddModal() {
                 {monthlyDraft.length ? (
                   monthlyDraft.map((m, idx) => {
                     const d = m.interview_date
-                      ? parseISODateLocal(m.interview_date)
+                      ? m.interview_date.includes("T")
+                        ? new Date(m.interview_date)
+                        : parseISODateLocal(m.interview_date)
                       : undefined;
                     const mm = d ? d.getMonth() + 1 : undefined;
                     const label =
                       m.label ?? (mm ? MONTHS_TH[mm - 1] : undefined);
+
                     return (
                       <div
                         key={idx}
@@ -1157,6 +1153,19 @@ export default function IntakeViewerWithAddModal() {
                   </div>
                 )}
               </>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-700">รายละเอียด</label>
+                <textarea
+                  className="w-full min-h-[140px] rounded-xl border px-3 py-2 text-sm"
+                  value={noticeDraft}
+                  onChange={(e) => setNoticeDraft(e.target.value)}
+                  placeholder="เช่น ข้อกำหนดเพิ่มเติมสำหรับรอบสัมภาษณ์ หรือคำอธิบายภาคการศึกษา"
+                />
+                <p className="text-xs text-gray-500">
+                  ข้อความนี้จะถูกบันทึกเป็นรายละเอียด (notice) ของภาคการศึกษานี้
+                </p>
+              </div>
             )}
           </div>
 

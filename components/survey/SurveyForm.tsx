@@ -225,6 +225,8 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     [admissions.data]
   );
 
+  console.log(banner);
+
   /* -------- Rounds visibility (รองรับ array) -------- */
   const { showRounds, rounds } = useMemo(() => {
     const selected = new Set(intakeModeIds ?? []);
