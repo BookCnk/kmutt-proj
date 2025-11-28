@@ -124,7 +124,7 @@ const toISODateLocal = (d: Date) =>
 
 /* ✅ helpers สำหรับ update payload */
 const toUTCStartISOFromLocalDate = (dateISO: string) => {
-  // "YYYY-MM-DD" -> ISO(UTC) 00:00
+  // "YYYY-MM-DD" -> ISO(UTC) 00:00 (โดยอาศัย Local timezone)
   const [y, m, d] = dateISO.split("-").map(Number);
   if (!y || !m || !d) return new Date(dateISO).toISOString();
   const local = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0);
@@ -242,33 +242,46 @@ const makeBlankIntake = (): IntakeData => {
   };
 };
 
-/* ---------- helper แปลงข้อมูลจาก backend ---------- */
-const adaptAdmission = (a: any): IntakeData => ({
-  _id: a._id ?? "",
-  term: a.term ?? {
-    semester: 1,
-    academic_year_th: new Date().getFullYear() + 543,
-    label: "-",
-    sort_key: 0,
-  },
-  active: a.active ?? true,
-  intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
-  application_window: a.application_window ?? {
-    open_at: toISOStartOfDayUTC(new Date()),
-    close_at: toISOEndOfDayUTC(new Date()),
-    notice: "",
-    calendar_url: "",
-  },
-  rounds: a.rounds ?? [],
-  monthly: (a.monthly ?? []).map((m: any) => ({
-    month: undefined,
-    label: m.month,
-    interview_date: m.interview_date,
-    open: m.open ?? true,
-    title: m.title,
-  })),
-  meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
-});
+/* ---------- helper แปลงข้อมูลจาก backend (FIX notice) ---------- */
+const adaptAdmission = (a: any): IntakeData => {
+  const appWin = a.application_window ?? {};
+  const open_at = appWin.open_at ?? toISOStartOfDayUTC(new Date());
+  const close_at = appWin.close_at ?? toISOEndOfDayUTC(new Date());
+
+  // ✅ ดึง notice แบบกันเหนียว: ใน application_window ก่อน ถ้าไม่มีก็ลองที่ root
+  const notice =
+    (typeof appWin.notice === "string" ? appWin.notice : undefined) ??
+    (typeof a.notice === "string" ? a.notice : "") ??
+    "";
+
+  return {
+    _id: a._id ?? "",
+    term: a.term ?? {
+      semester: 1,
+      academic_year_th: new Date().getFullYear() + 543,
+      label: "-",
+      sort_key: 0,
+    },
+    active: a.active ?? true,
+    intake_mode: (a.intake_mode as IntakeMode) ?? "monthly",
+    application_window: {
+      open_at,
+      close_at,
+      notice, // ✅ ensure มีค่าเสมอ (อย่างน้อยเป็น "")
+      calendar_url:
+        typeof appWin.calendar_url === "string" ? appWin.calendar_url : "",
+    },
+    rounds: a.rounds ?? [],
+    monthly: (a.monthly ?? []).map((m: any) => ({
+      month: undefined,
+      label: m.month,
+      interview_date: m.interview_date,
+      open: m.open ?? true,
+      title: m.title,
+    })),
+    meta: a.meta ?? { program_id: a?.meta?.program_id ?? null },
+  };
+};
 
 /* =========================================================
    Main Component
@@ -301,7 +314,10 @@ export default function IntakeViewerWithAddModal() {
 
         if (!mounted) return;
         setTerms(adapted);
-        setSelectedId(adapted[0]?._id ?? null); // default ใช้ล่าสุด
+
+        // default: ใช้ตัวที่ active ก่อน ถ้าไม่มีใช้ตัว sort_key สูงสุด
+        const activeTerm = adapted.find((t) => t.active);
+        setSelectedId((activeTerm ?? adapted[0])?._id ?? null);
       } catch (err) {
         console.error("Failed to load admissions", err);
       }
@@ -334,7 +350,7 @@ export default function IntakeViewerWithAddModal() {
         title: m.title ?? "",
       }))
     );
-    setNoticeDraft(selected.application_window.notice ?? "");
+    setNoticeDraft(selected.application_window.notice ?? ""); // ✅ FIX: ensure string
     setEditModalOpen(true);
   };
 
@@ -354,6 +370,7 @@ export default function IntakeViewerWithAddModal() {
       }))
     );
 
+    // ✅ Optimistic update (รวม notice)
     setTerms((prev) =>
       [...prev]
         .map((t) =>
@@ -364,7 +381,7 @@ export default function IntakeViewerWithAddModal() {
                 monthly: monthlySaved,
                 application_window: {
                   ...t.application_window,
-                  notice: noticeDraft,
+                  notice: noticeDraft, // ✅ สำคัญ
                 },
               }
             : t
@@ -386,7 +403,7 @@ export default function IntakeViewerWithAddModal() {
       application_window: {
         open_at: selected.application_window.open_at,
         close_at: selected.application_window.close_at,
-        notice: noticeDraft,
+        notice: noticeDraft, // ✅ ส่งไปแบ็กเอนด์
         calendar_url: selected.application_window.calendar_url ?? "",
       },
       rounds: roundsSaved
@@ -409,7 +426,7 @@ export default function IntakeViewerWithAddModal() {
       await updateAdmission(selected._id, payload as any);
       toast.success("อัปเดตข้อมูลรอบสัมภาษณ์เรียบร้อยแล้ว");
 
-      // optional refetch
+      // optional refetch เพื่อ sync (adaptAdmission ใหม่จะดึง notice กลับมาให้แน่ๆ)
       try {
         const res = await getAdmissions();
         let items: any[] = [];
@@ -429,6 +446,20 @@ export default function IntakeViewerWithAddModal() {
       }
     } catch (err) {
       console.error(err);
+      // revert notice ถ้าอัปเดตพัง
+      setTerms((prev) =>
+        prev.map((t) =>
+          t._id === selected._id
+            ? {
+                ...t,
+                application_window: {
+                  ...t.application_window,
+                  notice: selected.application_window.notice,
+                },
+              }
+            : t
+        )
+      );
       toast.error("อัปเดตไม่สำเร็จ");
     }
   };
@@ -503,6 +534,7 @@ export default function IntakeViewerWithAddModal() {
       if (s.term.label === newLabel && s.term.sort_key === newKey) return s;
       return { ...s, term: { ...s.term, label: newLabel, sort_key: newKey } };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addDraft.term.semester, addDraft.term.academic_year_th]);
 
   const termPreview = useMemo(
@@ -537,7 +569,7 @@ export default function IntakeViewerWithAddModal() {
         application_window: {
           open_at: toUTCStartISO(normalized.application_window.open_at),
           close_at: toUTCStartISO(normalized.application_window.close_at),
-          notice: noticeDraft,
+          notice: normalized.application_window.notice ?? "", // ✅ keep notice
           calendar_url: normalized.application_window.calendar_url,
         },
         rounds: (normalized.rounds ?? []).map((r: any) => ({
@@ -612,16 +644,38 @@ export default function IntakeViewerWithAddModal() {
       )}`
     : "";
 
-  const [years, setYears] = useState<any[]>([]);
+  // ✅ Normalize years ให้เป็น {_id: string, label: string}
+  const [years, setYears] = useState<Array<{ _id: string; label: string }>>([]);
   const [selectedYear, setSelectedYear] = useState<string>("ทั้งหมด");
 
   useEffect(() => {
     const fetchYears = async () => {
       try {
-        const data: any = await getAdmissionYears();
-        setYears(data);
+        const res: any = await getAdmissionYears();
+
+        let raw: any[] = [];
+        if (Array.isArray(res)) raw = res;
+        else if (Array.isArray(res?.data)) raw = res.data;
+        else if (Array.isArray(res?.items)) raw = res.items;
+        else if (res?.status && Array.isArray(res?.data)) raw = res.data;
+
+        const normalized = raw
+          .map((x: any) => {
+            const id = x._id ?? x.id ?? x.value ?? x?.term?._id;
+            const label =
+              x.label ??
+              x?.term?.label ??
+              (x?.term
+                ? `${x.term.semester}/${x.term.academic_year_th}`
+                : x?.name ?? "");
+            return { _id: String(id), label };
+          })
+          .filter((x: any) => x._id && x.label);
+
+        setYears(normalized);
       } catch (error) {
         console.error("Failed to getAdmissionYears", error);
+        setYears([]);
       }
     };
     fetchYears();
@@ -632,28 +686,29 @@ export default function IntakeViewerWithAddModal() {
     setSelectedYear(value);
 
     if (value === "ทั้งหมด") {
-      // ถ้ามีภาคที่ active = true → ใช้อันนั้นเป็น "ล่าสุด"
-      // ถ้าไม่มี → fallback ไปตัว sort_key สูงสุด (ตัวแรกใน terms)
       setSelectedId(() => {
         if (!terms.length) return null;
-
         const activeTerm = terms.find((t) => t.active);
-        if (activeTerm) return activeTerm._id;
-
-        return terms[0]._id;
+        return (activeTerm ?? terms[0])._id;
       });
       return;
     }
 
     try {
-      const data = await getAdmissionById(value); // value = _id จาก DDL
-      console.log("Fetched admission by id:", data);
-      const adapted = adaptAdmission(data);
+      const res: any = await getAdmissionById(value); // value = _id จาก DDL
+      const obj = res?.data ?? res; // รองรับ {status,data} และ object ตรง
+
+      if (!obj || (!obj._id && !obj?.data?._id)) {
+        throw new Error("Invalid admission object returned");
+      }
+
+      const adapted = adaptAdmission(obj);
 
       setTerms((prev) => {
         const others = prev.filter((t) => t._id !== adapted._id);
-        const next = [...others, adapted];
-        next.sort((a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0));
+        const next = [...others, adapted].sort(
+          (a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
+        );
         return next;
       });
 
@@ -678,7 +733,7 @@ export default function IntakeViewerWithAddModal() {
           <SelectContent>
             <SelectItem value="ทั้งหมด">ล่าสุด</SelectItem>
             {years.map((y) => (
-              <SelectItem key={y._id} value={y._id}>
+              <SelectItem key={y._id} value={String(y._id)}>
                 {y.label}
               </SelectItem>
             ))}
