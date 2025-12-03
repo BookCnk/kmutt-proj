@@ -32,6 +32,29 @@ const thaiMonthYearNow = () => {
   return `${thMonths[d.getMonth()]} ${thYear}`;
 };
 
+function formatThaiDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const months = [
+    "มกราคม",
+    "กุมภาพันธ์",
+    "มีนาคม",
+    "เมษายน",
+    "พฤษภาคม",
+    "มิถุนายน",
+    "กรกฎาคม",
+    "สิงหาคม",
+    "กันยายน",
+    "ตุลาคม",
+    "พฤศจิกายน",
+    "ธันวาคม",
+  ];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear() + 543;
+  return `${day} ${month} ${year}`;
+}
+
 const normalizeId = (v: any) => (typeof v === "string" ? v : v?._id ?? "");
 const asText = (v: any) => (typeof v === "string" ? v : v?.title ?? "");
 
@@ -323,11 +346,26 @@ async function addLogoIfAny(
   }
 }
 
+export type AdmissionMeta = {
+  term?: { label?: string; semester?: number; academic_year_th?: number };
+  application_window?: {
+    open_at?: string;
+    close_at?: string;
+    notice?: string;
+    calendar_url?: string;
+  };
+  rounds?: { no?: number; title?: string; interview_date?: string }[];
+  monthly?: { month?: string; title?: string; interview_date?: string }[];
+  _id?: string;
+};
+
 // ===== Sheet builder (ใช้ซ้ำได้ทั้งโท/เอก) =====
 async function buildSheetForRows(
   wb: ExcelJS.Workbook,
   sheetName: string,
-  rows: FancyExportRow[]
+  rows: FancyExportRow[],
+  admission?: AdmissionMeta,
+  degreeLabel?: string
 ) {
   const ws = wb.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 4 }],
@@ -351,16 +389,42 @@ async function buildSheetForRows(
   // โลโก้ซ้ายบน
   await addLogoIfAny(wb, ws, { width: 220, height: 95 });
 
+  // ====== ใช้ข้อมูลจาก admission เพื่อสร้างหัวกระดาษแบบ dynamic ======
+  const term = admission?.term;
+  const aw = admission?.application_window;
+  const noticeLines = (aw?.notice || "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // A1: คงเดิม
+  const a1Base = "จำนวนประกาศรับนักศึกษา ระดับบัณฑิตศึกษา";
+  const a1 = degreeLabel ? `${a1Base} — (${degreeLabel})` : a1Base;
+
+  // A2: ใช้บรรทัดแรกของ notice (ตัด "การรับสมัครระดับบัณฑิตศึกษา " ออก) หรือ fallback จาก term
+  const a2 =
+    noticeLines[0]?.replace(/^การรับสมัครระดับบัณฑิตศึกษา\s*/, "") ||
+    (term
+      ? `ภาคการศึกษาที่ ${term.label} ปีการศึกษา ${term.academic_year_th}`
+      : "");
+
+  // A3: ใช้บรรทัดที่สองของ notice หรือ fallback จาก open_at/close_at
+  const a3 =
+    noticeLines[1] ||
+    (aw?.open_at && aw?.close_at
+      ? `สมัครเข้าศึกษา ตั้งแต่วันที่ ${formatThaiDate(
+          aw.open_at
+        )} ถึง วันที่ ${formatThaiDate(aw.close_at)}`
+      : "");
+
   // ----- Title zone -----
   ws.mergeCells("A1:I1");
   ws.mergeCells("A2:I2");
   ws.mergeCells("A3:I3");
 
-  ws.getCell("A1").value = "จำนวนประกาศรับนักศึกษา ระดับบัณฑิตศึกษา";
-  ws.getCell("A2").value =
-    "ภาคการศึกษาที่ 2 ปีการศึกษา 2568 (เริ่มการศึกษา มกราคม 2569)";
-  ws.getCell("A3").value =
-    "สมัครเข้าศึกษา ตั้งแต่วันที่ 1 กรกฎาคม 2568 ถึง วันที่ 25 พฤศจิกายน 2568";
+  ws.getCell("A1").value = a1;
+  ws.getCell("A2").value = a2 || "";
+  ws.getCell("A3").value = a3 || "";
 
   [1, 2, 3].forEach((r) => {
     const c = ws.getCell(`A${r}`);
@@ -460,7 +524,7 @@ async function buildSheetForRows(
       const row = ws.addRow([
         "",
         "",
-        "คณะ" + r.faculty,
+        r.faculty,
         "",
         "",
         r.facultyTotal ?? "",
@@ -646,7 +710,13 @@ async function buildSheetForRows(
 }
 
 // ===== Main exporter =====
-export async function exportExcelFancy(allFormsRaw: any[]) {
+export async function exportExcelFancy(
+  allFormsRaw: any[],
+  meta?: { admission?: AdmissionMeta }
+) {
+  const admission = meta?.admission;
+  console.log("Admission meta:", admission);
+  console.log("Exporting with allFormsRaw:", allFormsRaw);
   if (!allFormsRaw?.length) return;
 
   // 1) แปลง allForms (ใหม่) → โครงสร้างกลาง
@@ -662,12 +732,24 @@ export async function exportExcelFancy(allFormsRaw: any[]) {
   wb.creator = "KMUTT";
   wb.created = new Date();
 
-  // 3) สร้างชีตแยกตามระดับ
+  // 3) สร้างชีตแยกตามระดับ (ส่ง admission เข้าไปใช้ตั้งหัว A2/A3)
   if (masterRows.length) {
-    await buildSheetForRows(wb, "จำนวนประกาศรับ_ปริญญาโท", masterRows);
+    await buildSheetForRows(
+      wb,
+      "จำนวนประกาศรับ_ปริญญาโท",
+      masterRows,
+      admission,
+      "ปริญญาโท"
+    );
   }
   if (doctoralRows.length) {
-    await buildSheetForRows(wb, "จำนวนประกาศรับ_ปริญญาเอก", doctoralRows);
+    await buildSheetForRows(
+      wb,
+      "จำนวนประกาศรับ_ปริญญาเอก",
+      doctoralRows,
+      admission,
+      "ปริญญาเอก"
+    );
   }
 
   // ถ้าไม่มีข้อมูลเลยก็ไม่ต้องสร้างไฟล์

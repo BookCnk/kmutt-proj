@@ -58,12 +58,12 @@ type DepartmentResponse = {
 type Program = {
   _id: string;
   title: string;
-  time: string;
-  degree_level: string; // "master" | "doctoral" | ...
-  degree_abbr: string; // "วศ.ม." | ...
+  time?: string; // ✅ ใช้เป็น source หลักที่ backend รองรับ
+  degree_level: string;
+  degree_abbr: string;
   active?: boolean;
 
-  teaching_time?: string; // เช่น "จ.-พ. 09:00–12:00 (ห้อง B201)"
+  teaching_time?: string; // ข้อมูลเดิม/สำรองจากบางเรคคอร์ด
 };
 
 type ProgramResponse = {
@@ -81,18 +81,11 @@ type ProgramResponse = {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 function extractDeptCount(payload: any): number | null {
-  // กรณีเป็น array ตรงๆ
   if (Array.isArray(payload)) return payload.length;
-
-  // กรณีมี data เป็น array
   if (payload?.data && Array.isArray(payload.data)) return payload.data.length;
-
-  // กรณีมี info.totalCount
   if (payload?.info && Number.isFinite(payload.info.totalCount)) {
     return Number(payload.info.totalCount);
   }
-
-  // ไม่รู้รูปแบบ -> ยังนับไม่ได้
   return null;
 }
 
@@ -102,13 +95,11 @@ async function fetchDeptCount(
 ): Promise<number | null> {
   try {
     const dres: any = await getDepartmentsByFaculty(fid);
-
     const count = extractDeptCount(dres);
     if (count === null && attempt < 2) {
-      await delay(200 * (attempt + 1)); // 200ms, 400ms
+      await delay(200 * (attempt + 1));
       return fetchDeptCount(fid, attempt + 1);
     }
-    // อาจเป็น 0 จริง ๆ ก็ได้
     return count ?? 0;
   } catch (err) {
     if (attempt < 2) {
@@ -152,7 +143,6 @@ export default function FacultyTable() {
 
   const [savingProgId, setSavingProgId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
-  // toggling active state for program (to avoid needing to close modal)
   const [togglingProgId, setTogglingProgId] = useState<string | null>(null);
 
   /** ---------- Faculty inline edit (table) ---------- */
@@ -176,19 +166,17 @@ export default function FacultyTable() {
           if (cancelled) break;
 
           const fid = String(f._id ?? f.id);
-          const deptCount = await fetchDeptCount(fid); // ยิงทีละเส้น
+          const deptCount = await fetchDeptCount(fid);
 
           mapped.push({
             id: fid,
             title: f.title ?? f.nameTH ?? "-",
             active: f.active !== false,
-            // ถ้านับไม่ได้ ให้ undefined เพื่อไม่สับสนว่า = 0
             departmentCount: deptCount ?? undefined,
             created_at: f.created_at,
             updated_at: f.updated_at,
           });
 
-          // กัน backend overload นิดหน่อย
           await delay(100);
         }
 
@@ -220,7 +208,6 @@ export default function FacultyTable() {
     setSavingDeptId(null);
     setDeletingDeptId(null);
 
-    // close program modal if any
     setProgModalOpen(false);
 
     try {
@@ -359,7 +346,6 @@ export default function FacultyTable() {
     setProgLoading(true);
     setProgModalOpen(true);
 
-    // reset program edit states
     setEditingProgId(null);
     setEditingProgTitle("");
     setSavingProgId(null);
@@ -380,8 +366,8 @@ export default function FacultyTable() {
   const startEditProgram = (p: Program) => {
     setEditingProgId(p._id);
     setEditingProgTitle(p.title ?? "");
-    // prefer `teaching_time` but fall back to `time` (some data uses `time`)
-    setEditingProgTeachingTime(p.teaching_time ?? p.time ?? ""); // ⬅️ เพิ่มบรรทัดนี้
+    // ✅ ใช้ค่าเริ่มต้นจาก p.time ก่อน (เพราะ backend อ่านฟิลด์นี้)
+    setEditingProgTeachingTime(p.time ?? p.teaching_time ?? "");
   };
   const cancelEditProgram = () => {
     setEditingProgId(null);
@@ -398,30 +384,33 @@ export default function FacultyTable() {
     }
     try {
       setSavingProgId(p._id);
-      // send both title and teaching_time to backend
-      // cast to any because UpdateProgramDto in types may not include teaching_time
+      // ✅ ส่ง 'time' ให้ backend (และจะพ่วง teaching_time ไปด้วยก็ได้ เผื่อใช้ในอนาคต)
       await updateProgram(p._id, {
         title: newTitle,
-        teaching_time: newTeachingTime,
+        time: newTeachingTime,
+        teaching_time: newTeachingTime, // optional: เผื่อมีที่อื่นอ่านฟิลด์นี้
       } as any);
+
+      // ✅ optimistic update ให้ state มีทั้ง time และ teaching_time เป็นค่าใหม่
       setProgRows((prev) =>
         prev.map((x) =>
           x._id === p._id
             ? {
                 ...x,
                 title: newTitle,
-                teaching_time: newTeachingTime,
                 time: newTeachingTime,
+                teaching_time: newTeachingTime,
               }
             : x
         )
       );
+
       setEditingProgId(null);
       setEditingProgTitle("");
-      setEditingProgTeachingTime(""); // ⬅️ clear
+      setEditingProgTeachingTime("");
     } catch (err) {
       console.error("updateProgram error:", err);
-      alert("บันทึกชื่อหลักสูตรไม่สำเร็จ");
+      alert("บันทึกชื่อ/เวลาเรียน ไม่สำเร็จ");
     } finally {
       setSavingProgId(null);
     }
@@ -440,8 +429,6 @@ export default function FacultyTable() {
       setDeletingProgId(null);
     }
   };
-
-  console.log("progRows:", progRows);
 
   return (
     <>
@@ -631,7 +618,6 @@ export default function FacultyTable() {
                             </span>
                           )}
 
-                          {/* เปิด Program Modal */}
                           <Button
                             type="button"
                             size="sm"
@@ -737,7 +723,6 @@ export default function FacultyTable() {
                       <div className="min-w-0 flex-1">
                         {isEditing ? (
                           <>
-                            {/* ชื่อหลักสูตร */}
                             <input
                               className="mb-2 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               value={editingProgTitle}
@@ -748,7 +733,6 @@ export default function FacultyTable() {
                               placeholder="ชื่อหลักสูตร/สาขา"
                             />
 
-                            {/* ⬇️ วัน-เวลาในการดำเนินการเรียนการสอน */}
                             <input
                               className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               value={editingProgTeachingTime}
@@ -761,15 +745,18 @@ export default function FacultyTable() {
                           </>
                         ) : (
                           <>
-                            {/* ชื่อหลักสูตร (คงเดิม) */}
                             <p className="font-medium break-words whitespace-normal">
                               {p.title}
                             </p>
 
-                            {/* ⬇️ แสดงวัน-เวลา ถ้ามี */}
+                            {/* ✅ แสดงจาก p.time เป็นหลัก */}
                             {p.time ? (
                               <p className="text-sm text-gray-600 mt-0.5">
                                 วัน-เวลา: {p.time}
+                              </p>
+                            ) : p.teaching_time ? (
+                              <p className="text-sm text-gray-600 mt-0.5">
+                                วัน-เวลา: {p.teaching_time}
                               </p>
                             ) : (
                               <p className="text-sm text-gray-400 mt-0.5">
@@ -796,7 +783,6 @@ export default function FacultyTable() {
                         </div>
                       </div>
 
-                      {/* ปุ่มแก้ไข/ลบ คงเดิม */}
                       <div className="flex items-center gap-2">
                         {isEditing ? (
                           <>
@@ -848,7 +834,6 @@ export default function FacultyTable() {
                                 togglingProgId === p._id
                               }
                               onClick={async () => {
-                                // optimistic update: toggle in UI immediately
                                 const prevActive = p.active;
                                 setTogglingProgId(p._id);
                                 setProgRows((prev) =>
@@ -862,12 +847,9 @@ export default function FacultyTable() {
                                 try {
                                   const updatedProgram =
                                     await toggleProgramActive(p._id);
-
-                                  // server might return the program directly or wrapped; prefer returned value if present
                                   const newActive =
                                     (updatedProgram as any)?.active ??
                                     !prevActive;
-
                                   setProgRows((prev) =>
                                     prev.map((x) =>
                                       x._id === p._id
@@ -880,7 +862,6 @@ export default function FacultyTable() {
                                     "toggleProgramActive error:",
                                     err
                                   );
-                                  // revert optimistic change
                                   setProgRows((prev) =>
                                     prev.map((x) =>
                                       x._id === p._id

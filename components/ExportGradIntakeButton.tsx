@@ -2,17 +2,20 @@
 
 import React from "react";
 import { adminListForms } from "@/api/formService";
-import { exportExcelFancy } from "@/lib/exportFancy"; // <- ชี้ไปยังไฟล์ exporter ของคุณ
+import { getAdmissionById } from "@/api/admissionService";
+import { exportExcelFancy } from "@/lib/exportFancy"; // ⬅️ exporter รองรับ meta ตัวที่สอง
 import { Loader2 } from "lucide-react";
 
 type Props = {
   className?: string;
   label?: string;
+  admissionId?: string; // _id ของรอบรับ หรือ "ทั้งหมด"
 };
 
 export default function ExportGradIntakeButton({
   className,
   label = "Export Excel จำนวนรับนักศึกษา",
+  admissionId,
 }: Props) {
   const [loading, setLoading] = React.useState(false);
 
@@ -20,14 +23,35 @@ export default function ExportGradIntakeButton({
     if (loading) return;
     setLoading(true);
     try {
-      // ดึงทั้งหมด (limit 99999 ถูกตั้ง default ใน service แล้ว)
-      const list = await adminListForms({ page: 1, limit: 99999 });
+      // 1) ดึงรายการฟอร์มทั้งหมด (หรือกรองตาม admission ที่เลือก)
+      const params: any = { page: 1, limit: 99999 };
+      if (admissionId && admissionId !== "ทั้งหมด") {
+        params.admission_id = admissionId;
+      }
 
-      // ปรับให้ตรงกับ structure ที่ normalizeListResponse คืน (เดาว่า .items)
-      const items = (list as any)?.items ?? (list as any)?.data ?? list ?? [];
+      // 2) โหลด data พร้อมกัน (forms + admission meta [ถ้ามี id จริง])
+      const [list, admissionResp] = await Promise.all([
+        adminListForms(params),
+        admissionId && admissionId !== "ทั้งหมด"
+          ? getAdmissionById(admissionId)
+          : Promise.resolve(undefined),
+      ]);
 
-      // เรียก exporter ของคุณ
-      await exportExcelFancy(items);
+      // 3) แกะรายการฟอร์มให้เป็น array
+      const items =
+        (list as any)?.items ??
+        (list as any)?.data ??
+        (Array.isArray(list) ? list : []) ??
+        [];
+
+      // 4) แกะ admission object ให้เป็นก้อนเดียว (รองรับหลายรูปแบบ response)
+      const admission =
+        (admissionResp as any)?.data?.[0] ??
+        (admissionResp as any)?.data ??
+        admissionResp;
+
+      // 5) ส่งเข้าฟังก์ชัน export พร้อม meta
+      await exportExcelFancy(items, { admission });
     } catch (err) {
       console.error("Export failed:", err);
       alert("ไม่สามารถ export ได้ กรุณาลองใหม่อีกครั้ง");

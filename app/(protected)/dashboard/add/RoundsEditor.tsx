@@ -747,8 +747,9 @@ export default function IntakeViewerWithAddModal() {
           <h2 className="text-lg font-semibold">
             ภาคการศึกษา {selected.term.label}
           </h2>
+
           {selected.application_window.notice && (
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-700 whitespace-pre-line">
               {selected.application_window.notice}
             </p>
           )}
@@ -756,6 +757,7 @@ export default function IntakeViewerWithAddModal() {
           <p className="text-sm text-gray-600">
             ระยะเวลากรอกข้อมูล: {formatRange}
           </p>
+
           {selected.application_window.calendar_url && (
             <a
               href={selected.application_window.calendar_url}
@@ -1165,7 +1167,7 @@ export default function IntakeViewerWithAddModal() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
                     <label className="text-sm text-gray-700">
-                      วันที่เปิดรับ (open_at)
+                      เริ่มต้นการกรอกข้อมูล
                     </label>
                     <DatePickerField
                       valueISO={openAtDraft}
@@ -1176,7 +1178,7 @@ export default function IntakeViewerWithAddModal() {
 
                   <div>
                     <label className="text-sm text-gray-700">
-                      วันที่ปิดรับ (close_at)
+                      สิ้นสุดการกรอกข้อมูล
                     </label>
                     <DatePickerField
                       valueISO={closeAtDraft}

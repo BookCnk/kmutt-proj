@@ -719,7 +719,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                 <Printer className="mr-2 h-4 w-4" />
                 ส่งออกเป็น Excel
               </Button> */}
-              <ExportGradIntakeButton />
+              <ExportGradIntakeButton admissionId={selectedYear} />
             </DialogTrigger>
             <ExportAdmissionsExcelButton />
 
@@ -772,7 +772,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
               {years.map((y) => (
                 <SelectItem key={y._id} value={y._id}>
-                  {y.label} {/* แสดง 1/2569 แต่ส่งค่าเป็น _id */}
+                  {(() => {
+                    const [semester, year] = (y.label || "").split("/");
+                    return `ปีการศึกษา ${year} ภาคเรียนที่ ${semester}`;
+                  })()}
                 </SelectItem>
               ))}
             </SelectContent>
