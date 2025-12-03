@@ -179,6 +179,8 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
     () => (active?.monthly ?? []).slice().sort(byDateAsc),
     [active]
   );
+
+  console.log("monthlyList=", monthlyList);
   const roundsList = useMemo(
     () => (active?.rounds ?? []).slice().sort(byDateAsc),
     [active]
@@ -442,8 +444,8 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                           | "";
                         const monthLabel =
                           typeof m.month === "string"
-                            ? m.month
-                            : `เดือนที่ ${m.month ?? idx + 1}`;
+                            ? m.title
+                            : `เดือนที่ ${m.title ?? idx + 1}`;
                         return (
                           <div key={key} className="px-6 py-4">
                             <div className="font-medium text-primary">

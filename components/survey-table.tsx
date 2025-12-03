@@ -753,7 +753,9 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
+          <span className="text-sm text-gray-600">
+            เลือก ปีการศึกษา และภาคการศึกษา
+          </span>
 
           {/* 📍 DDL เลือกปี */}
           <Select
@@ -775,6 +777,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
               ))}
             </SelectContent>
           </Select>
+          <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
 
           {/* 📍 DDL pageSize */}
           <Select

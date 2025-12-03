@@ -30,6 +30,10 @@ export const deleteProgram = async (id: string): Promise<void> => {
   await api.delete<void, void>(`/admin${BASE}/${id}`);
 };
 
+export const toggleProgramActive = async (id: string): Promise<Program> => {
+  return api.put<Program, Program>(`/admin${BASE}/${id}/toggle-active`);
+};
+
 // --- Filters ---
 export const getProgramsByFaculty = async (
   facultyId: string
@@ -40,7 +44,7 @@ export const getProgramsByDepartment = async (
   departmentId: string
 ): Promise<ProgramResponse> =>
   api.get<ProgramResponse, ProgramResponse>(
-    `${BASE}/department/${departmentId}`
+    `/admin${BASE}/department/${departmentId}`
   );
 
 export const getProgramsByDegree = async (

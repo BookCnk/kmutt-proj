@@ -91,6 +91,8 @@ const within = (now: number, startISO?: string, endISO?: string) => {
 };
 
 const computeBannerFromAdmissions = (list: any[]) => {
+  console.log("This is list", list);
+
   if (!list?.length) {
     return {
       term: "—",
@@ -208,6 +210,8 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     intakeConfig.applyWindow.start,
     intakeConfig.applyWindow.end
   );
+
+  console.log("isWindowOpen:", isWindowOpen);
 
   /* -------- Watch (cascading selects) -------- */
   const facultyId = methods.watch("faculty");

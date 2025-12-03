@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import DatePickerField from "@/components/ui/DatePickerField";
 
 // ✅ ใช้ util ตามที่ให้มา
 import {
@@ -31,55 +32,6 @@ import {
 } from "@/lib/date-utils";
 
 // ---------- Date Picker Field ----------
-function DatePickerField({
-  valueISO,
-  onChangeISO,
-  ariaLabel,
-  disabledBefore,
-}: {
-  valueISO: string;
-  onChangeISO: (nextISO: string) => void;
-  ariaLabel?: string;
-  disabledBefore?: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const date = valueISO ? parseISODateLocal(valueISO) : undefined;
-  const label = date
-    ? `${`${date.getMonth() + 1}`.padStart(
-        2,
-        "0"
-      )} / ${`${date.getDate()}`.padStart(2, "0")} / ${date.getFullYear()}`
-    : "เลือกวันที่";
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="w-full rounded-xl border px-3 py-2 text-left hover:bg-gray-50"
-          aria-label={ariaLabel ?? "เลือกวันที่"}>
-          {label}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="p-0">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(d: Date | undefined) => {
-            if (!d) return;
-            onChangeISO(toISODateLocal(d));
-            setOpen(false);
-          }}
-          initialFocus
-          disabled={
-            disabledBefore
-              ? { before: parseISODateLocal(disabledBefore) }
-              : undefined
-          }
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /* ================= Types ================= */
 export type RoundDraft = {

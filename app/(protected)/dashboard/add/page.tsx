@@ -349,6 +349,9 @@ function CapsEditor() {
   const [noDepartment, setNoDepartment] = useState(false); // ✅ optional department
   const [majorName, setMajorName] = useState("");
 
+  // ✅ state ใหม่สำหรับเก็บเวลา (เช่น "sunday")
+  const [programTime, setProgramTime] = useState("");
+
   // payload fields per CreateProgramDto
   const [degreeLevel, setDegreeLevel] = useState<"master" | "doctoral">(
     "master"
@@ -445,6 +448,7 @@ function CapsEditor() {
       !!facultyId.trim() &&
       deptOk &&
       !!majorName.trim() &&
+      !!programTime.trim() && // ✅ ต้องมีเวลา
       !!degreeLevel &&
       !!degreeAbbr.trim()
     );
@@ -454,6 +458,7 @@ function CapsEditor() {
     noDepartment,
     departments.length,
     majorName,
+    programTime,
     degreeLevel,
     degreeAbbr,
   ]);
@@ -472,6 +477,10 @@ function CapsEditor() {
       alert("กรุณากรอกชื่อสาขา");
       return;
     }
+    if (!programTime.trim()) {
+      alert("กรุณากรอกเวลา (time)");
+      return;
+    }
     if (!degreeAbbr.trim()) {
       alert("กรอกตัวย่อปริญญา (degree_abbr)");
       return;
@@ -480,11 +489,12 @@ function CapsEditor() {
     try {
       setSaving(true);
 
-      // ✅ สร้าง payload ตาม CreateProgramDto
+      // ✅ สร้าง payload ตาม CreateProgramDto + time
       const payload: {
         faculty_id: string;
         department_id?: string;
         title: string;
+        time: string; // 👈 เพิ่มใน type ด้วย
         degree_level: "master" | "doctoral";
         degree_abbr: string;
         active?: boolean;
@@ -492,6 +502,7 @@ function CapsEditor() {
       } = {
         faculty_id: facultyId,
         title: majorName.trim(),
+        time: programTime.trim(), // 👈 map state → field time
         degree_level: degreeLevel,
         degree_abbr: degreeAbbr.trim(),
       };
@@ -507,8 +518,9 @@ function CapsEditor() {
 
       await createProgram(payload);
 
-      // reset name only (หรือจะรีเซ็ตทั้งหมดก็ได้)
+      // reset name & time (หรือจะรีเซ็ตทั้งหมดก็ได้)
       setMajorName("");
+      setProgramTime("");
       alert("บันทึกสาขาสำเร็จ");
     } catch (err) {
       console.error("createProgram error:", err);
@@ -609,16 +621,31 @@ function CapsEditor() {
         </div>
       </div>
 
-      {/* ชื่อสาขา */}
-      <div>
-        <label className="mb-1 block text-sm text-gray-600">ชื่อสาขา *</label>
-        <input
-          type="text"
-          className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={majorName}
-          onChange={(e) => setMajorName(e.target.value)}
-          placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
-        />
+      {/* ชื่อสาขา + เวลา */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">ชื่อสาขา *</label>
+          <input
+            type="text"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={majorName}
+            onChange={(e) => setMajorName(e.target.value)}
+            placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">
+            เวลา (time) *
+          </label>
+          <input
+            type="text"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={programTime}
+            onChange={(e) => setProgramTime(e.target.value)}
+            placeholder='เช่น "sunday", "evening", "เสาร์ - อาทิตย์"'
+          />
+        </div>
       </div>
 
       {/* ระดับปริญญา / ตัวย่อ / เงื่อนไขวุฒิ */}
@@ -655,7 +682,6 @@ function CapsEditor() {
           />
         </div>
 
-        {/* degree_req (optional) */}
         {/* degree_req (optional) */}
         <div>
           <label className="mb-1 block text-sm text-gray-600">
@@ -710,7 +736,7 @@ export default function FacultyAdminPage() {
   const departments: DepartmentOption[] = [
     { id: "cpe", nameTH: "ภาควิชาวิศวกรรมคอมพิวเตอร์" },
     { id: "eee", nameTH: "ภาควิชาวิศวกรรมไฟฟ้า" },
-    { id: "che", nameTH: "ภาควิชาวิศวกรรมเคมี" },
+    { id: "che", nameTH: "ภาควิศวกรรมเคมี" },
   ];
 
   const [deptId, setDeptId] = useState("");

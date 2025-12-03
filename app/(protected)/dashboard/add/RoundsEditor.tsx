@@ -25,6 +25,7 @@ import {
   updateAdmission,
   getAdmissionById,
 } from "@/api/admissionService";
+import DatePickerField from "@/components/ui/DatePickerField";
 
 import {
   Popover,
@@ -148,72 +149,6 @@ const fillMonthly = (rows: MonthlyRow[]) =>
     return { ...m, month, label };
   });
 
-/* ---------- DatePicker ---------- */
-function DatePickerField({
-  valueISO,
-  onChangeISO,
-  ariaLabel,
-  disabledBefore,
-}: {
-  valueISO: string;
-  onChangeISO: (nextISO: string) => void;
-  ariaLabel?: string;
-  disabledBefore?: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-
-  const toLocalDateOnly = (v?: string) => {
-    if (!v) return undefined;
-    if (v.includes("T")) {
-      const d = new Date(v);
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    }
-    return parseISODateLocal(v);
-  };
-
-  const date = toLocalDateOnly(valueISO);
-  const label = date
-    ? `${`${date.getMonth() + 1}`.padStart(
-        2,
-        "0"
-      )} / ${`${date.getDate()}`.padStart(2, "0")} / ${date.getFullYear()}`
-    : "เลือกวันที่";
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="w-full rounded-xl border px-3 py-2 text-left hover:bg-gray-50"
-          aria-label={ariaLabel ?? "เลือกวันที่"}>
-          {label}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="p-0">
-        {(() => {
-          const minDate = disabledBefore
-            ? toLocalDateOnly(disabledBefore)
-            : undefined;
-
-          return (
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(d: Date | undefined) => {
-                if (!d) return;
-                onChangeISO(toISODateLocal(d)); // ส่ง "YYYY-MM-DD"
-                setOpen(false);
-              }}
-              initialFocus
-              disabled={minDate ? { before: minDate } : undefined}
-            />
-          );
-        })()}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /* ---------- สร้างโครงว่าง ---------- */
 const thaiYear = () => new Date().getFullYear() + 543;
 const makeBlankIntake = (): IntakeData => {
@@ -333,6 +268,10 @@ export default function IntakeViewerWithAddModal() {
   const [roundsDraft, setRoundsDraft] = useState<RoundRow[]>([]);
   const [monthlyDraft, setMonthlyDraft] = useState<MonthlyRow[]>([]);
   const [noticeDraft, setNoticeDraft] = useState<string>("");
+  // application window editable fields
+  const [openAtDraft, setOpenAtDraft] = useState<string>("");
+  const [closeAtDraft, setCloseAtDraft] = useState<string>("");
+  const [calendarUrlDraft, setCalendarUrlDraft] = useState<string>("");
 
   const openEditModal = () => {
     if (!selected) return;
@@ -350,7 +289,11 @@ export default function IntakeViewerWithAddModal() {
         title: m.title ?? "",
       }))
     );
-    setNoticeDraft(selected.application_window.notice ?? ""); // ✅ FIX: ensure string
+    // fill editable application_window fields
+    setNoticeDraft(selected.application_window.notice ?? "");
+    setOpenAtDraft(selected.application_window.open_at ?? "");
+    setCloseAtDraft(selected.application_window.close_at ?? "");
+    setCalendarUrlDraft(selected.application_window.calendar_url ?? "");
     setEditModalOpen(true);
   };
 
@@ -370,7 +313,7 @@ export default function IntakeViewerWithAddModal() {
       }))
     );
 
-    // ✅ Optimistic update (รวม notice)
+    // ✅ Optimistic update (รวม notice + window fields)
     setTerms((prev) =>
       [...prev]
         .map((t) =>
@@ -381,7 +324,11 @@ export default function IntakeViewerWithAddModal() {
                 monthly: monthlySaved,
                 application_window: {
                   ...t.application_window,
-                  notice: noticeDraft, // ✅ สำคัญ
+                  notice: noticeDraft,
+                  open_at: openAtDraft || t.application_window.open_at,
+                  close_at: closeAtDraft || t.application_window.close_at,
+                  calendar_url:
+                    calendarUrlDraft ?? t.application_window.calendar_url,
                 },
               }
             : t
@@ -401,10 +348,15 @@ export default function IntakeViewerWithAddModal() {
       monthly?: Array<{ month: string; title: string; interview_date: string }>;
     } = {
       application_window: {
-        open_at: selected.application_window.open_at,
-        close_at: selected.application_window.close_at,
+        open_at: toUTCStartISO(
+          openAtDraft || selected.application_window.open_at
+        ),
+        close_at: toUTCStartISO(
+          closeAtDraft || selected.application_window.close_at
+        ),
         notice: noticeDraft, // ✅ ส่งไปแบ็กเอนด์
-        calendar_url: selected.application_window.calendar_url ?? "",
+        calendar_url:
+          calendarUrlDraft ?? selected.application_window.calendar_url ?? "",
       },
       rounds: roundsSaved
         .filter((r) => r.interview_date)
@@ -1209,17 +1161,57 @@ export default function IntakeViewerWithAddModal() {
                 )}
               </>
             ) : (
-              <div className="space-y-2">
-                <label className="text-sm text-gray-700">รายละเอียด</label>
-                <textarea
-                  className="w-full min-h-[140px] rounded-xl border px-3 py-2 text-sm"
-                  value={noticeDraft}
-                  onChange={(e) => setNoticeDraft(e.target.value)}
-                  placeholder="เช่น ข้อกำหนดเพิ่มเติมสำหรับรอบสัมภาษณ์ หรือคำอธิบายภาคการศึกษา"
-                />
-                <p className="text-xs text-gray-500">
-                  ข้อความนี้จะถูกบันทึกเป็นรายละเอียด (notice) ของภาคการศึกษานี้
-                </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm text-gray-700">
+                      วันที่เปิดรับ (open_at)
+                    </label>
+                    <DatePickerField
+                      valueISO={openAtDraft}
+                      onChangeISO={(iso) => setOpenAtDraft(iso)}
+                      ariaLabel="เลือกวันที่เปิดรับ"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-700">
+                      วันที่ปิดรับ (close_at)
+                    </label>
+                    <DatePickerField
+                      valueISO={closeAtDraft}
+                      onChangeISO={(iso) => setCloseAtDraft(iso)}
+                      ariaLabel="เลือกวันที่ปิดรับ"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-700">
+                    ปฏิทินการรับสมัคร (calendar_url)
+                  </label>
+                  <input
+                    className="w-full rounded-xl border px-3 py-2"
+                    type="url"
+                    value={calendarUrlDraft}
+                    onChange={(e) => setCalendarUrlDraft(e.target.value)}
+                    placeholder="https://example.com/calendar"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-700">รายละเอียด</label>
+                  <textarea
+                    className="w-full min-h-[140px] rounded-xl border px-3 py-2 text-sm"
+                    value={noticeDraft}
+                    onChange={(e) => setNoticeDraft(e.target.value)}
+                    placeholder="เช่น ข้อกำหนดเพิ่มเติมสำหรับรอบสัมภาษณ์ หรือคำอธิบายภาคการศึกษา"
+                  />
+                  <p className="text-xs text-gray-500">
+                    ข้อความนี้จะถูกบันทึกเป็นรายละเอียด (notice)
+                    ของภาคการศึกษานี้
+                  </p>
+                </div>
               </div>
             )}
           </div>

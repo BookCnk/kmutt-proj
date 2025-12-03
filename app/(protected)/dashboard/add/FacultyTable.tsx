@@ -15,6 +15,7 @@ import {
   getProgramsByDepartment,
   deleteProgram,
   updateProgram,
+  toggleProgramActive,
 } from "@/api/programService";
 
 import {
@@ -57,6 +58,7 @@ type DepartmentResponse = {
 type Program = {
   _id: string;
   title: string;
+  time: string;
   degree_level: string; // "master" | "doctoral" | ...
   degree_abbr: string; // "วศ.ม." | ...
   active?: boolean;
@@ -150,6 +152,8 @@ export default function FacultyTable() {
 
   const [savingProgId, setSavingProgId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
+  // toggling active state for program (to avoid needing to close modal)
+  const [togglingProgId, setTogglingProgId] = useState<string | null>(null);
 
   /** ---------- Faculty inline edit (table) ---------- */
   const [editingFacId, setEditingFacId] = useState<string | null>(null);
@@ -362,9 +366,7 @@ export default function FacultyTable() {
     setDeletingProgId(null);
 
     try {
-      const res: ProgramResponse = await getProgramsByDepartment(
-        department._id
-      );
+      const res: any = await getProgramsByDepartment(department._id);
       setProgRows(res?.data ?? []);
     } catch (e) {
       console.error("getProgramsByDepartment error:", e);
@@ -378,7 +380,8 @@ export default function FacultyTable() {
   const startEditProgram = (p: Program) => {
     setEditingProgId(p._id);
     setEditingProgTitle(p.title ?? "");
-    setEditingProgTeachingTime(p.teaching_time ?? ""); // ⬅️ เพิ่มบรรทัดนี้
+    // prefer `teaching_time` but fall back to `time` (some data uses `time`)
+    setEditingProgTeachingTime(p.teaching_time ?? p.time ?? ""); // ⬅️ เพิ่มบรรทัดนี้
   };
   const cancelEditProgram = () => {
     setEditingProgId(null);
@@ -395,9 +398,23 @@ export default function FacultyTable() {
     }
     try {
       setSavingProgId(p._id);
-      await updateProgram(p._id, { title: newTitle });
+      // send both title and teaching_time to backend
+      // cast to any because UpdateProgramDto in types may not include teaching_time
+      await updateProgram(p._id, {
+        title: newTitle,
+        teaching_time: newTeachingTime,
+      } as any);
       setProgRows((prev) =>
-        prev.map((x) => (x._id === p._id ? { ...x, title: newTitle } : x))
+        prev.map((x) =>
+          x._id === p._id
+            ? {
+                ...x,
+                title: newTitle,
+                teaching_time: newTeachingTime,
+                time: newTeachingTime,
+              }
+            : x
+        )
       );
       setEditingProgId(null);
       setEditingProgTitle("");
@@ -423,6 +440,8 @@ export default function FacultyTable() {
       setDeletingProgId(null);
     }
   };
+
+  console.log("progRows:", progRows);
 
   return (
     <>
@@ -688,7 +707,8 @@ export default function FacultyTable() {
       <Dialog open={progModalOpen} onOpenChange={setProgModalOpen}>
         <DialogContent className="w-fit max-w-[90vw]">
           <DialogHeader>
-            <DialogTitle>รายการหลักสูตร/สาขา (Program)</DialogTitle>
+            รายการหลักสูตร/สาขา (Program)
+            <DialogTitle></DialogTitle>
             <DialogDescription>
               ภาค/สาขา: <span className="font-medium">{progDeptTitle}</span>
             </DialogDescription>
@@ -747,9 +767,9 @@ export default function FacultyTable() {
                             </p>
 
                             {/* ⬇️ แสดงวัน-เวลา ถ้ามี */}
-                            {p.teaching_time ? (
+                            {p.time ? (
                               <p className="text-sm text-gray-600 mt-0.5">
-                                วัน-เวลา: {p.teaching_time}
+                                วัน-เวลา: {p.time}
                               </p>
                             ) : (
                               <p className="text-sm text-gray-400 mt-0.5">
@@ -817,6 +837,67 @@ export default function FacultyTable() {
                               disabled={isSaving || isDeleting}
                               onClick={() => confirmDeleteProgram(p)}>
                               {isDeleting ? "กำลังลบ..." : "ลบ"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={p.active ? "outline" : "default"}
+                              disabled={
+                                isSaving ||
+                                isDeleting ||
+                                togglingProgId === p._id
+                              }
+                              onClick={async () => {
+                                // optimistic update: toggle in UI immediately
+                                const prevActive = p.active;
+                                setTogglingProgId(p._id);
+                                setProgRows((prev) =>
+                                  prev.map((x) =>
+                                    x._id === p._id
+                                      ? { ...x, active: !x.active }
+                                      : x
+                                  )
+                                );
+
+                                try {
+                                  const updatedProgram =
+                                    await toggleProgramActive(p._id);
+
+                                  // server might return the program directly or wrapped; prefer returned value if present
+                                  const newActive =
+                                    (updatedProgram as any)?.active ??
+                                    !prevActive;
+
+                                  setProgRows((prev) =>
+                                    prev.map((x) =>
+                                      x._id === p._id
+                                        ? { ...x, active: newActive }
+                                        : x
+                                    )
+                                  );
+                                } catch (err) {
+                                  console.error(
+                                    "toggleProgramActive error:",
+                                    err
+                                  );
+                                  // revert optimistic change
+                                  setProgRows((prev) =>
+                                    prev.map((x) =>
+                                      x._id === p._id
+                                        ? { ...x, active: prevActive }
+                                        : x
+                                    )
+                                  );
+                                  alert("ไม่สามารถเปลี่ยนสถานะหลักสูตรได้");
+                                } finally {
+                                  setTogglingProgId(null);
+                                }
+                              }}>
+                              {togglingProgId === p._id
+                                ? "กำลังเปลี่ยน..."
+                                : p.active
+                                ? "ปิดใช้งาน"
+                                : "เปิดใช้งาน"}
                             </Button>
                           </>
                         )}

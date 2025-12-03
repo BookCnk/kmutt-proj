@@ -12,7 +12,7 @@ type Props = {
 
 export default function ExportGradIntakeButton({
   className,
-  label = "Export Excel (บัณฑิตศึกษา)",
+  label = "Export Excel จำนวนรับนักศึกษา",
 }: Props) {
   const [loading, setLoading] = React.useState(false);
 
