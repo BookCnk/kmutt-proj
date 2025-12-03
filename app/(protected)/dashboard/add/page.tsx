@@ -636,7 +636,7 @@ function CapsEditor() {
 
         <div>
           <label className="mb-1 block text-sm text-gray-600">
-            เวลา (time) *
+            วัน - เวลาในการดำเนินการเรียนการสอน *
           </label>
           <input
             type="text"
