@@ -9,11 +9,9 @@ import { MONTHS_TH } from "@/lib/date-utils";
 
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
-import { useAdmissionBanner } from "@/hooks/useAdmissionBanner";
 import AnnouncementBanner from "./AnnouncementBanner";
 import WindowStatusAlert from "./WindowStatusAlert";
 import SubmitBar from "./SubmitBar";
-
 import FacultySelect from "./fields/FacultySelect";
 import DepartmentSelect from "./fields/DepartmentSelect";
 import ProgramSelect from "./fields/ProgramSelect";
@@ -72,6 +70,7 @@ const intakeConfig: IntakeConfig = {
 /* ------------------------------------------------------------------ */
 function isWithinApplyWindow(startISO: string, endISO: string) {
   const now = Date.now();
+  console.log("Checking apply window:", { now, startISO, endISO });
   return now >= Date.parse(startISO) && now <= Date.parse(endISO);
 }
 
@@ -206,12 +205,15 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const admissions: any = useAdmissionOption();
+
   const isWindowOpen = isWithinApplyWindow(
-    intakeConfig.applyWindow.start,
-    intakeConfig.applyWindow.end
+    admissions.data[0]?.application_window.open_at,
+    admissions.data[0]?.application_window.close_at
   );
 
   console.log("isWindowOpen:", isWindowOpen);
+  console.log("intakeConfig:", intakeConfig);
 
   /* -------- Watch (cascading selects) -------- */
   const facultyId = methods.watch("faculty");
@@ -223,13 +225,10 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
   const departments = useDepartmentsOptions(facultyId || undefined);
   const programs = useProgramsOptions(departmentId || undefined);
 
-  const admissions = useAdmissionOption();
   const banner = useMemo(
     () => computeBannerFromAdmissions(admissions.data),
     [admissions.data]
   );
-
-  console.log(banner);
 
   /* -------- Rounds visibility (รองรับ array) -------- */
   const { showRounds, rounds } = useMemo(() => {
@@ -265,6 +264,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     if (Number.isFinite(n) && n >= 1 && n <= 12) return MONTHS_TH[n - 1];
     return undefined;
   }
+
   /* -------- Submit -------- */
   // แทนที่ฟังก์ชัน handleSubmit ทั้งก้อนด้วยอันนี้
   const handleSubmit = async (values: FormValues) => {

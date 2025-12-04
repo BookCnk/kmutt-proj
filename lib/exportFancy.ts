@@ -225,24 +225,20 @@ function buildFancyRowsByDegree(
     const facultyRows: FancyExportRow[] = [];
 
     for (const r of rows) {
-      // เลือกเฉพาะโปรแกรมของระดับนี้
       const programsOfLevel = r.programs.filter((p) => {
         const lvl = (p.degree_level || "").toLowerCase();
         if (lvl === degreeLevel) return true;
 
-        // fallback: เดาถ้าไม่ได้ระบุ degree_level
         const hasMaster = !!p.master;
         const hasDoctoral = !!p.doctoral;
         if (degreeLevel === "master" && hasMaster && !hasDoctoral) return true;
         if (degreeLevel === "doctoral" && hasDoctoral && !hasMaster)
           return true;
-
         return false;
       });
 
       for (const p of programsOfLevel) {
-        // จำนวนรับเฉพาะระดับนี้
-        let amtRaw =
+        const amtRaw =
           degreeLevel === "master"
             ? p.master?.amount ?? 0
             : p.doctoral?.amount ?? 0;
@@ -269,7 +265,6 @@ function buildFancyRowsByDegree(
     }
 
     if (facultyRows.length > 0) {
-      // แถวหัวคณะ (มีเฉพาะถ้ามีโปรแกรมของระดับนี้จริง ๆ)
       out.push({
         faculty,
         degreeAbbr: "",
@@ -290,9 +285,8 @@ function buildFancyRowsByDegree(
   return out;
 }
 
-// ✓/✗
+// ✓ เท่านั้น (ยกเลิก ✗ ตามที่ขอ)
 const YES = "✓";
-const NO = "✗";
 
 // ===== Logo loader (works in Node or Browser) =====
 async function addLogoIfAny(
@@ -303,18 +297,14 @@ async function addLogoIfAny(
   const width = opts?.width ?? 220;
   const height = opts?.height ?? 95;
 
-  // Try Node.js first
   try {
     const fs = require("fs");
     const buf = fs.readFileSync(LOGO_NODE_PATH);
     const logoId = wb.addImage({ buffer: buf as any, extension: "png" });
     ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width, height } });
     return;
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // Fall back to Browser fetch
   try {
     // @ts-ignore
     if (typeof window !== "undefined" && typeof fetch !== "undefined") {
@@ -389,7 +379,7 @@ async function buildSheetForRows(
   // โลโก้ซ้ายบน
   await addLogoIfAny(wb, ws, { width: 220, height: 95 });
 
-  // ====== ใช้ข้อมูลจาก admission เพื่อสร้างหัวกระดาษแบบ dynamic ======
+  // ====== Header dynamic จาก admission ======
   const term = admission?.term;
   const aw = admission?.application_window;
   const noticeLines = (aw?.notice || "")
@@ -397,18 +387,15 @@ async function buildSheetForRows(
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // A1: คงเดิม
   const a1Base = "จำนวนประกาศรับนักศึกษา ระดับบัณฑิตศึกษา";
   const a1 = degreeLabel ? `${a1Base} — (${degreeLabel})` : a1Base;
 
-  // A2: ใช้บรรทัดแรกของ notice (ตัด "การรับสมัครระดับบัณฑิตศึกษา " ออก) หรือ fallback จาก term
   const a2 =
     noticeLines[0]?.replace(/^การรับสมัครระดับบัณฑิตศึกษา\s*/, "") ||
     (term
       ? `ภาคการศึกษาที่ ${term.label} ปีการศึกษา ${term.academic_year_th}`
       : "");
 
-  // A3: ใช้บรรทัดที่สองของ notice หรือ fallback จาก open_at/close_at
   const a3 =
     noticeLines[1] ||
     (aw?.open_at && aw?.close_at
@@ -554,23 +541,22 @@ async function buildSheetForRows(
       continue;
     }
 
-    // สร้างแถวข้อมูล
     const row = ws.addRow([
       no,
       r.degreeAbbr,
       r.programTitle,
       r.schedule ?? "",
-      "", // E: การเปิดรับ (✓/✗)
+      "", // E: การเปิดรับ (✓ หรือ ว่าง)
       r.amount ?? "", // F: จำนวนการรับ
-      "", // G: เป็นรอบ (✓/✗)
-      "", // H: ทุกเดือน (✓/✗)
+      "", // G: เป็นรอบ (✓ หรือ ว่าง)
+      "", // H: ทุกเดือน (✓ หรือ ว่าง)
       r.phones, // I: เบอร์ติดต่อ
     ]);
 
-    // 1) สไตล์พื้นฐานก่อน (จะไม่ไปทับสีภายหลัง)
+    // สไตล์พื้นฐาน
     row.height = 22;
     row.eachCell((cell, col) => {
-      cell.font = { name: "TH SarabunPSK", size: 14 }; // ไม่มี color ที่นี่
+      cell.font = { name: "TH SarabunPSK", size: 14 };
       cell.alignment = {
         vertical: "middle",
         horizontal: col === 3 || col === 4 || col === 9 ? "left" : "center",
@@ -584,13 +570,13 @@ async function buildSheetForRows(
       };
     });
 
-    // 2) ตั้ง ✓/✗ พร้อม "สี" ทีหลัง (จะไม่โดนทับ)
-    const openCell = row.getCell(5); // การเปิดรับ
-    const roundCell = row.getCell(7); // เป็นรอบ
-    const monthCell = row.getCell(8); // ทุกเดือน
+    // ช่อง ✓ / ว่าง
+    const openCell = row.getCell(5);
+    const roundCell = row.getCell(7);
+    const monthCell = row.getCell(8);
 
-    // ----- การเปิดรับ -----
     if (r.openFlag === "P") {
+      // เปิดรับ → ✓ สีเขียว
       openCell.value = YES;
       openCell.font = {
         name: "TH SarabunPSK",
@@ -599,24 +585,14 @@ async function buildSheetForRows(
         color: { argb: "FF0E7A0D" },
       };
     } else {
-      openCell.value = NO;
-      openCell.font = {
-        name: "TH SarabunPSK",
-        size: 14,
-        bold: true,
-        color: { argb: "FFCC0000" },
-      };
+      // ไม่เปิดรับ → ว่าง
+      openCell.value = "";
+      openCell.font = { name: "TH SarabunPSK", size: 14 };
     }
     openCell.alignment = { vertical: "middle", horizontal: "center" };
 
-    // ----- เป็นรอบ / ทุกเดือน -----
-    if (r.openFlag !== "P") {
-      // ถ้าการเปิดรับเป็นกากบาท → ช่อง G/H ว่าง
-      roundCell.value = "";
-      monthCell.value = "";
-      roundCell.alignment = { vertical: "middle", horizontal: "center" };
-      monthCell.alignment = { vertical: "middle", horizontal: "center" };
-    } else {
+    if (r.openFlag === "P") {
+      // เฉพาะกรณีเปิดรับเท่านั้นที่พิจารณา ✓/ว่าง ในคอลัมน์ G/H
       if (r.isRounds) {
         roundCell.value = YES;
         roundCell.font = {
@@ -626,13 +602,8 @@ async function buildSheetForRows(
           color: { argb: "FF0E7A0D" },
         };
       } else {
-        roundCell.value = NO;
-        roundCell.font = {
-          name: "TH SarabunPSK",
-          size: 14,
-          bold: true,
-          color: { argb: "FFCC0000" },
-        };
+        roundCell.value = ""; // เดิมเป็น ✗ → เปลี่ยนเป็นว่าง
+        roundCell.font = { name: "TH SarabunPSK", size: 14 };
       }
       roundCell.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -645,18 +616,18 @@ async function buildSheetForRows(
           color: { argb: "FF0E7A0D" },
         };
       } else {
-        monthCell.value = NO;
-        monthCell.font = {
-          name: "TH SarabunPSK",
-          size: 14,
-          bold: true,
-          color: { argb: "FFCC0000" },
-        };
+        monthCell.value = ""; // เดิมเป็น ✗ → เปลี่ยนเป็นว่าง
+        monthCell.font = { name: "TH SarabunPSK", size: 14 };
       }
+      monthCell.alignment = { vertical: "middle", horizontal: "center" };
+    } else {
+      // ถ้าไม่เปิดรับอยู่แล้ว ให้ G/H ว่าง
+      roundCell.value = "";
+      monthCell.value = "";
+      roundCell.alignment = { vertical: "middle", horizontal: "center" };
       monthCell.alignment = { vertical: "middle", horizontal: "center" };
     }
 
-    // รวมจำนวนรับทั้งหมด
     const amtNumeric =
       typeof r.amount === "number" ? r.amount : Number(r.amount) || 0;
     grandTotal += amtNumeric;
@@ -703,7 +674,6 @@ async function buildSheetForRows(
     underline: true,
   };
 
-  // พื้นที่พิมพ์ + footer
   const lastRow = ws.lastRow?.number ?? 6;
   ws.pageSetup.printArea = `A1:I${lastRow}`;
   ws.headerFooter.oddFooter = "&Cหน้า &P / &N";
@@ -719,12 +689,10 @@ export async function exportExcelFancy(
   console.log("Exporting with allFormsRaw:", allFormsRaw);
   if (!allFormsRaw?.length) return;
 
-  // 1) แปลง allForms (ใหม่) → โครงสร้างกลาง
   const normalized: SurveyRow[] = (allFormsRaw || []).map(
     mapFormToSurveyRow_New
   );
 
-  // 2) แยกแถวตามระดับการศึกษา
   const masterRows = buildFancyRowsByDegree(normalized, "master");
   const doctoralRows = buildFancyRowsByDegree(normalized, "doctoral");
 
@@ -732,7 +700,6 @@ export async function exportExcelFancy(
   wb.creator = "KMUTT";
   wb.created = new Date();
 
-  // 3) สร้างชีตแยกตามระดับ (ส่ง admission เข้าไปใช้ตั้งหัว A2/A3)
   if (masterRows.length) {
     await buildSheetForRows(
       wb,
@@ -752,10 +719,8 @@ export async function exportExcelFancy(
     );
   }
 
-  // ถ้าไม่มีข้อมูลเลยก็ไม่ต้องสร้างไฟล์
   if (!masterRows.length && !doctoralRows.length) return;
 
-  // ดาวน์โหลดไฟล์ (เบราว์เซอร์) หรือเขียนไฟล์ (Node)
   const buf = await wb.xlsx.writeBuffer();
   // @ts-ignore
   if (typeof window !== "undefined") {
