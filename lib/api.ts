@@ -6,6 +6,7 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosHeaders,
 } from "axios";
+import { decodeJwt } from "@/lib/authz";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const REFRESH_URL = `${API_BASE}/auth/refresh`;
@@ -112,10 +113,31 @@ api.interceptors.response.use(
           withCredentials: true, // ไม่ต้อง ใส่แล้วใน instance
         });
 
+      // Response interceptor (line 65) already returns response.data
+      // So res is the data object, not the axios response
       const newToken = res?.data?.access_token as string | undefined;
 
       if (newToken) {
         localStorage.setItem("token", newToken);
+
+        // Update user data from refresh response or decode from JWT
+        if (res?.data) {
+          localStorage.setItem("user", JSON.stringify(res.data));
+        } else {
+          // Decode user info from JWT if not provided in response
+          const payload = decodeJwt(newToken);
+          if (payload) {
+            const user = {
+              id: payload.id || payload.sub || "",
+              email: payload.email || "",
+              name: payload.name,
+              picture: payload.picture,
+              role: payload.role,
+            };
+            localStorage.setItem("user", JSON.stringify(user));
+          }
+        }
+
         runQueue(newToken);
 
         setAuthHeader(original.headers, newToken);

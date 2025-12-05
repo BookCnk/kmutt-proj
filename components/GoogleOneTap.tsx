@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import api from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
 
 // ---------- Types ----------
 type GoogleCredentialResponse = {
@@ -65,6 +66,7 @@ export default function GoogleOneTap({
   const hasPrompted = React.useRef(false);
   const mounted = React.useRef(true);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const setSession = useAuthStore((s) => s.setSession);
 
   // Ensure cleanup flags
   React.useEffect(() => {
@@ -120,6 +122,8 @@ export default function GoogleOneTap({
         }
         if (result.data) {
           localStorage.setItem("user", JSON.stringify(result.data));
+          // Update Zustand store with new user data
+          setSession(result.data, result.access_token || "");
         }
 
         onSuccess?.(result);
@@ -133,7 +137,7 @@ export default function GoogleOneTap({
         if (mounted.current) setIsProcessing(false);
       }
     },
-    [isProcessing, loginPath, onSuccess, report]
+    [isProcessing, loginPath, onSuccess, report, setSession]
   );
 
   // Load GSI script (idempotent)
