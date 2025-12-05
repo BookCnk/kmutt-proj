@@ -242,14 +242,10 @@ export async function exportToStyledExcel(
   }
 
   // ===== DATA ROWS =====
-  const labelThIndex = headers.indexOf("Label on Web (TH)");
-  const startDateIndex = headers.indexOf("Start Date");
-  const endDateIndex = headers.indexOf("End Date");
-
   selectedRows.forEach((row, index) => {
-    const labelTh = String(row.data[labelThIndex] || "");
-    const startDate = String(row.data[startDateIndex] || "");
-    const endDate = String(row.data[endDateIndex] || "");
+    const labelTh = String(row.label_on_web_th || "");
+    const startDate = String(row.start_date || "");
+    const endDate = String(row.end_date || "");
     const dateRange = formatThaiDateRange(startDate, endDate);
 
     const rowNumber = 6 + index; // Starting from row 6 (after header row 5)

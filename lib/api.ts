@@ -9,7 +9,6 @@ import axios, {
 import { decodeJwt } from "@/lib/authz";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-const REFRESH_URL = `${API_BASE}/auth/refresh`;
 
 // ---------- utils ----------
 const isRefreshEndpoint = (url?: string) =>
