@@ -136,17 +136,15 @@ export function Header({ onLogout }: HeaderProps) {
                     </>
                   )}
 
-                  {user.role === "admin" && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin/export" className="w-full">
-                          <File className="mr-2 h-4 w-4" />
-                          <span>export จาก excel</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/export" className="w-full">
+                        <File className="mr-2 h-4 w-4" />
+                        <span>export จาก excel</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
 
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
