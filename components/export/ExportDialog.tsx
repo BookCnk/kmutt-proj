@@ -4,10 +4,12 @@ import React from "react";
 import { motion } from "framer-motion";
 import { ExportConfig } from "@/app/admin/export/types";
 
+export type ExportFormat = "excel" | "pdf";
+
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (config: ExportConfig) => void;
+  onConfirm: (config: ExportConfig, format: ExportFormat) => void;
   selectedCount: number;
 }
 
@@ -20,6 +22,7 @@ export function ExportDialog({
   const [roundNumber, setRoundNumber] = React.useState("1");
   const [sheetTitle, setSheetTitle] = React.useState("กำหนดการรับสมัครนักศึกษา\nโครงการคัดเลือกตรงความสามารถพิเศษและทุนเพชรพระจอมเกล้่า ปีการศึกษา 2569");
   const [roundTitle, setRoundTitle] = React.useState("สำนักงานคัดเลือก\nและสรรหานักศึกษา");
+  const [format, setFormat] = React.useState<ExportFormat>("excel");
 
   if (!isOpen) return null;
 
@@ -28,7 +31,7 @@ export function ExportDialog({
       roundNumber,
       sheetTitle,
       roundTitle,
-    });
+    }, format);
   };
 
   return (
@@ -39,13 +42,43 @@ export function ExportDialog({
         exit={{ opacity: 0, scale: 0.95 }}
         className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
         <h2 className="text-2xl font-bold text-slate-800 mb-4">
-          Export Excel
+          Export ไฟล์
         </h2>
         <p className="text-slate-600 mb-6">
-          กำหนดค่าข้อมูลในส่วนหัวของไฟล์ Excel ({selectedCount} แถว)
+          กำหนดค่าข้อมูลในส่วนหัวของไฟล์ ({selectedCount} แถว)
         </p>
 
         <div className="space-y-4">
+          {/* Format Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              รูปแบบไฟล์
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="excel"
+                  checked={format === "excel"}
+                  onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                  className="mr-2 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-sm">Excel (.xlsx)</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="pdf"
+                  checked={format === "pdf"}
+                  onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                  className="mr-2 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-sm">PDF (.pdf)</span>
+              </label>
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               รอบที่

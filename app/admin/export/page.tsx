@@ -11,8 +11,9 @@ import {
   ExportDialog,
   SaveTemplateDialog,
   DataTable,
+  ExportFormat,
 } from "@/components/export";
-import { exportToStyledExcel } from "./exportExcel";
+import { exportToStyledExcel, exportToStyledPdf } from "./exportExcel";
 import { saveTemplate as saveTemplateApi } from "@/api/templateService";
 import { useAuthStore } from "@/stores/auth";
 import { CreateTemplateDto } from "@/types/template";
@@ -289,10 +290,14 @@ export default function AdminExportPage() {
   };
 
   // Handler to confirm export
-  const handleExportConfirm = (config: ExportConfig) => {
+  const handleExportConfirm = (config: ExportConfig, format: ExportFormat) => {
     if (!currentSheet) return;
     // Pass empty array for headers as they're not used in the new structure
-    exportToStyledExcel(currentSheet.rows, [], config);
+    if (format === "excel") {
+      exportToStyledExcel(currentSheet.rows, [], config);
+    } else if (format === "pdf") {
+      exportToStyledPdf(currentSheet.rows, [], config);
+    }
     setShowExportDialog(false);
   };
 
