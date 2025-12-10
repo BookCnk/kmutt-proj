@@ -176,7 +176,7 @@ export function DataTable({
                         </svg>
                         <div>
                           <p className="text-base font-medium text-slate-600">ไม่พบข้อมูลในหน้านี้</p>
-                          <p className="text-sm text-slate-500 mt-1">คลิกปุ่ม "เพิ่มแถวใหม่" เพื่อเริ่มต้น</p>
+                          <p className="text-sm text-slate-500 mt-1">คลิกปุ่ม `เพิ่มแถวใหม่` เพื่อเริ่มต้น</p>
                         </div>
                       </div>
                     </td>
