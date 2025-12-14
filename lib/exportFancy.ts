@@ -287,6 +287,7 @@ function buildFancyRowsByDegree(
 
 // ✓ เท่านั้น (ยกเลิก ✗ ตามที่ขอ)
 const YES = "✓";
+const NO = "✗";
 
 // ===== Logo loader (works in Node or Browser) =====
 async function addLogoIfAny(
@@ -388,7 +389,7 @@ async function buildSheetForRows(
     .filter(Boolean);
 
   const a1Base = "จำนวนประกาศรับนักศึกษา ระดับบัณฑิตศึกษา";
-  const a1 = degreeLabel ? `${a1Base} — (${degreeLabel})` : a1Base;
+  const a1 = degreeLabel ? `${a1Base}  (${degreeLabel})` : a1Base;
 
   const a2 =
     noticeLines[0]?.replace(/^การรับสมัครระดับบัณฑิตศึกษา\s*/, "") ||
@@ -586,8 +587,13 @@ async function buildSheetForRows(
       };
     } else {
       // ไม่เปิดรับ → ว่าง
-      openCell.value = "";
-      openCell.font = { name: "TH SarabunPSK", size: 14 };
+      openCell.value = NO;
+      openCell.font = {
+        name: "TH SarabunPSK",
+        size: 14,
+        bold: true,
+        color: { argb: "FFB00020" },
+      };
     }
     openCell.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -737,4 +743,48 @@ export async function exportExcelFancy(
       Buffer.from(buf)
     );
   }
+}
+
+export async function buildExcelFancyBuffer(
+  allFormsRaw: any[],
+  meta?: { admission?: AdmissionMeta }
+): Promise<ArrayBuffer | undefined> {
+  const admission = meta?.admission;
+  if (!allFormsRaw?.length) return;
+
+  const normalized: SurveyRow[] = (allFormsRaw || []).map(
+    mapFormToSurveyRow_New
+  );
+
+  const masterRows = buildFancyRowsByDegree(normalized, "master");
+  const doctoralRows = buildFancyRowsByDegree(normalized, "doctoral");
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "KMUTT";
+  wb.created = new Date();
+
+  if (masterRows.length) {
+    await buildSheetForRows(
+      wb,
+      "จำนวนประกาศรับ_ปริญญาโท",
+      masterRows,
+      admission,
+      "ปริญญาโท"
+    );
+  }
+  if (doctoralRows.length) {
+    await buildSheetForRows(
+      wb,
+      "จำนวนประกาศรับ_ปริญญาเอก",
+      doctoralRows,
+      admission,
+      "ปริญญาเอก"
+    );
+  }
+
+  if (!masterRows.length && !doctoralRows.length) return;
+
+  // ✅ คืน buffer อย่างเดียว
+  const buf = await wb.xlsx.writeBuffer();
+  return buf;
 }

@@ -222,7 +222,7 @@ export default function ProgramSelect({
                           value={String(p.id)}
                           disabled={!p.open || pickedElsewhere}>
                           {p.name}
-                          {!p.open && " (ปิดรับสมัคร)"}
+                          {!p.open && " (ปิดใช้งาน)"}
                           {pickedElsewhere && " (ถูกเลือกแล้ว)"}
                         </SelectItem>
                       );
