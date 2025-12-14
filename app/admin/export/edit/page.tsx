@@ -1,16 +1,24 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 
 import { getTemplateById, updateTemplate } from "@/api/templateService";
 import { useAuthStore } from "@/stores/auth";
-import { DataRow } from "@/app/admin/export/types";
+import { DataRow, ExportConfig } from "@/app/admin/export/types";
 import { DataTable } from "@/components/export/DataTable";
 import { Toolbar } from "@/components/export/Toolbar";
-import { SaveTemplateDialog } from "@/components/export";
+import {
+  SaveTemplateDialog,
+  ExportDialog,
+  ExportFormat,
+} from "@/components/export";
 import { CreateTemplateDto } from "@/types/template";
+
+// ✅ ใช้ตัวเดียวกับหน้าใหญ่ (ปรับ path ให้ตรงโปรเจคคุณ)
+import { exportToStyledExcel, exportToStyledPdf } from "../exportExcel";
 
 type TemplateContent = {
   no?: number;
@@ -86,6 +94,7 @@ function buildTemplatePayloadFromRows(
 }
 
 export default function EditTemplatePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams.get("id");
 
@@ -106,6 +115,9 @@ export default function EditTemplatePage() {
 
   // dialog state
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  // ✅ Export dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const loadTemplate = useCallback(async () => {
     if (!templateId) return;
@@ -233,12 +245,34 @@ export default function EditTemplatePage() {
     loadTemplate();
   };
 
+  // ✅ Export: เปิด dialog เหมือนหน้าใหญ่
   const handleExport = () => {
     if (selectedCount === 0) {
       toast.error("กรุณาเลือกอย่างน้อย 1 แถวเพื่อ Export");
       return;
     }
-    toast.info("TODO: ยังไม่ได้ต่อฟังก์ชัน Export สำหรับหน้าแก้ไข");
+    setShowExportDialog(true);
+  };
+
+  // ✅ Export: confirm แล้วเรียก exportToStyledExcel/exportToStyledPdf
+  const handleExportConfirm = (config: ExportConfig, format: ExportFormat) => {
+    const selectedRows = rows.filter((r) => r.selected);
+    if (selectedRows.length === 0) {
+      toast.error("กรุณาเลือกอย่างน้อย 1 แถวเพื่อ Export");
+      return;
+    }
+
+    try {
+      if (format === "excel") {
+        exportToStyledExcel(selectedRows, [], config);
+      } else if (format === "pdf") {
+        exportToStyledPdf(selectedRows, [], config);
+      }
+      setShowExportDialog(false);
+    } catch (err) {
+      console.error("Export failed", err);
+      toast.error("Export ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   };
 
   // กดปุ่ม Save ใน Toolbar -> แค่เปิด dialog
@@ -273,8 +307,6 @@ export default function EditTemplatePage() {
       setTitle(newTitle); // sync title ที่ header
       toast.success("บันทึก Template สำเร็จ");
       setShowSaveDialog(false);
-      // ถ้าอยากดึงจาก backend มาย้ำอีกที:
-      // await loadTemplate();
     } catch (err: any) {
       console.error("Failed to update template", err);
       toast.error(
@@ -305,6 +337,14 @@ export default function EditTemplatePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 p-6 md:p-8">
       <header className="mb-6">
+        {/* ✅ Back button */}
+        <button
+          onClick={() => router.back()}
+          className="group inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-900 transition-colors mb-4 bg-white/70 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm hover:shadow-md">
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <span className="font-medium">Back</span>
+        </button>
+
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
           แก้ไข Template
         </h1>
@@ -329,7 +369,7 @@ export default function EditTemplatePage() {
           setPerPage={setPerPage}
           onReset={handleReset}
           fileName={title || null}
-          onExport={handleExport}
+          onExport={handleExport} // ✅ ใช้งานจริงแล้ว
           onSave={handleSaveClick}
           selectedCount={selectedCount}
           isAdmin={!!isAdmin}
@@ -350,6 +390,16 @@ export default function EditTemplatePage() {
         onDeleteRow={handleDeleteRow}
         isAdmin={!!isAdmin}
       />
+
+      {/* ✅ Export Dialog */}
+      {showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          onConfirm={handleExportConfirm}
+          selectedCount={selectedCount}
+        />
+      )}
 
       {/* Save Template Dialog */}
       <SaveTemplateDialog
