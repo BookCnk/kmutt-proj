@@ -32,7 +32,7 @@ export const convertExcelToPdf = async (
   formData.append("file", excelBlob, "document.xlsx");
 
   // Send request
-  const response = await api.post<ConversionResponse>(
+  const response : any= await api.post<ConversionResponse>(
     "/convert/excel-to-pdf",
     formData,
     {
