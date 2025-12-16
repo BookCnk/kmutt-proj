@@ -6,6 +6,8 @@ import { getDepartmentsByFaculty } from "@/api/departmentService";
 import { createProgram } from "@/api/programService";
 import FacultyTable from "@/app/(protected)/dashboard/add/FacultyTable";
 import RoundsEditor from "@/app/(protected)/dashboard/add/RoundsEditor";
+import { isAuthorized, clearToken } from "@/utils/auth";
+import { useRouter } from "next/navigation";
 
 import React, { useMemo, useState, useEffect } from "react";
 import {
@@ -742,6 +744,20 @@ export default function FacultyAdminPage() {
   const [deptId, setDeptId] = useState("");
   const [majorName, setMajorName] = useState("");
   const [caps, setCaps] = useState<Caps>({ maxMasters: 0, maxDoctoral: 0 });
+  const router = useRouter();
+
+  useEffect(() => {
+    // ต้องเป็น admin เท่านั้น
+    const ok = isAuthorized(["admin"]);
+    if (!ok) {
+      // optional: ถ้า token หมดอายุ/ผิดพลาด ล้างทิ้ง
+      clearToken();
+      router.replace("/403"); // หรือ "/login"
+    }
+  }, [router]);
+
+  // (optional) กัน flash UI ตอน redirect
+  if (!isAuthorized(["admin"])) return null;
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6">

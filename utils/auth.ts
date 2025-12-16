@@ -1,6 +1,16 @@
 // src/utils/auth.ts
 export const TOKEN_KEY = "token";
 
+export type JwtRole = "user" | "admin" | string;
+
+export type JwtPayload = {
+  id?: string;
+  email?: string;
+  role?: JwtRole;
+  iat?: number;
+  exp?: number;
+};
+
 // อ่าน cookie ฝั่ง client (เฉพาะที่ไม่ใช่ HttpOnly)
 function getCookie(name: string) {
   if (typeof document === "undefined") return null;
@@ -22,7 +32,7 @@ function base64UrlDecode(str: string) {
   }
 }
 
-export function decodeJwt(token: string): any | null {
+export function decodeJwt(token: string): JwtPayload | null {
   try {
     const [, payload] = token.split(".");
     if (!payload) return null;
@@ -54,11 +64,34 @@ export function isTokenValid(): boolean {
   return !isTokenExpired(getClientToken());
 }
 
+/** ✅ อ่าน role จาก token (ถ้าไม่มี token/อ่านไม่ได้ -> null) */
+export function getTokenRole(token?: string | null): JwtRole | null {
+  const t = token ?? getClientToken();
+  if (!t) return null;
+  const p = decodeJwt(t);
+  return (p?.role as JwtRole) ?? null;
+}
+
+/** ✅ เช็ค role แบบเจาะจง (แนะนำ) */
+export function hasRole(allowed: JwtRole | JwtRole[], token?: string | null) {
+  const role = getTokenRole(token);
+  if (!role) return false;
+  const list = Array.isArray(allowed) ? allowed : [allowed];
+  return list.includes(role);
+}
+
+/** ✅ Authorization รวม: token ต้อง valid + role ต้องผ่าน */
+export function isAuthorized(allowedRoles: JwtRole | JwtRole[]) {
+  const token = getClientToken();
+  if (!token) return false;
+  if (isTokenExpired(token)) return false;
+  return hasRole(allowedRoles, token);
+}
+
 export function saveToken(token: string, { alsoCookie = true } = {}) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TOKEN_KEY, token);
   if (alsoCookie) {
-    // เก็บ cookie ให้ guard อ่านได้ (ถ้า backend ใช้ HttpOnly อยู่แล้ว อันนี้ไม่จำเป็น)
     document.cookie = `${TOKEN_KEY}=${encodeURIComponent(
       token
     )}; path=/; SameSite=Lax`;
@@ -70,6 +103,5 @@ export function clearToken() {
   try {
     window.localStorage.removeItem(TOKEN_KEY);
   } catch {}
-  // ลบ cookie ฝั่ง client
   document.cookie = `${TOKEN_KEY}=; path=/; Max-Age=0; SameSite=Lax`;
 }
