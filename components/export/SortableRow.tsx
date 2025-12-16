@@ -61,11 +61,11 @@ export function SortableRow({
         isDragging ? "opacity-50 scale-105 shadow-2xl z-50" : "hover:bg-emerald-50"
       }`}>
       {/* Drag Handle */}
-      <td className="px-3 py-4 border-t border-slate-200 align-top">
+      <td className="w-fit flex px-3 py-4 border-t border-slate-200 align-top">
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 p-1">
+          className="flex cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 p-1">
           <svg
             className="w-5 h-5"
             viewBox="0 0 24 24"
@@ -100,6 +100,7 @@ export function SortableRow({
             value={row.label_on_web_th}
             onChange={(val) => onUpdateRow(row.id, { label_on_web_th: String(val) })}
             required={true}
+            className="text-lg"
           />
           <div className="pt-1">
             <EditableCell
@@ -108,7 +109,7 @@ export function SortableRow({
               type="textarea"
               rows={2}
               placeholder="คำอธิบาย Label on Web (TH)..."
-              className="text-xs text-slate-600"
+              className="text-lg text-slate-600"
             />
           </div>
         </div>
@@ -120,38 +121,32 @@ export function SortableRow({
           value={row.label_on_web_en}
           onChange={(val) => onUpdateRow(row.id, { label_on_web_en: String(val) })}
           required={true}
-        />
-      </td>
-
-      {/* Application Form Status */}
-      <td className="px-4 py-4 border-t border-slate-200 align-top" style={{ minWidth: "15ch" }}>
-        <EditableCell
-          value={row.application_form_status}
-          onChange={(val) => onUpdateRow(row.id, { application_form_status: String(val) })}
-          required={true}
+          className="text-lg"
         />
       </td>
 
       {/* Start Date and End Date with Description */}
-      <td className="px-4 py-4 border-t border-slate-200 align-top" style={{ minWidth: "24ch" }}>
+      <td className="px-4 py-4 border-t border-slate-200 align-top" style={{ minWidth: "20ch" }}>
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-slate-500 mb-1 block">Start Date</label>
+            <div className="flex items-center gap-2">
+              <label className="w-full text-base text-slate-500 mb-1 block">Start Date</label>
               <EditableCell
                 value={row.start_date}
                 onChange={(val) => onUpdateRow(row.id, { start_date: String(val) })}
                 type="date"
                 required={true}
+                className="text-lg"
               />
             </div>
-            <div>
-              <label className="text-xs text-slate-500 mb-1 block">End Date</label>
+            <div className="flex items-center gap-2">
+              <label className="w-full text-base text-slate-500 mb-1 block">End Date</label>
               <EditableCell
                 value={row.end_date}
                 onChange={(val) => onUpdateRow(row.id, { end_date: String(val) })}
                 type="date"
                 required={true}
+                className="text-lg"
               />
             </div>
           </div>
@@ -162,21 +157,10 @@ export function SortableRow({
               type="textarea"
               rows={2}
               placeholder="คำอธิบายวันที่..."
-              className="text-xs text-slate-600"
+              className="text-lg text-slate-600"
             />
           </div>
         </div>
-      </td>
-
-      {/* Current Stage */}
-      <td className="px-4 py-4 border-t border-slate-200 align-top" style={{ minWidth: "10ch" }}>
-        <EditableCell
-          value={row.current_stage}
-          onChange={(val) => onUpdateRow(row.id, { current_stage: val as 'Yes' | 'No' })}
-          type="select"
-          options={currentStageOptions}
-          required={true}
-        />
       </td>
 
       {/* Actions Column - Checkbox */}

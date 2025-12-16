@@ -37,9 +37,7 @@ const HEADERS = [
   "Sequence",
   "Label on Web (TH)",
   "Label on Web (EN)",
-  "Application Form Status",
   "Dates",
-  "Current Stage",
 ];
 
 export function DataTable({
@@ -109,8 +107,8 @@ export function DataTable({
             <thead className="bg-gradient-to-r from-slate-100 to-slate-50 sticky top-0 z-10">
               <tr>
                 {/* Drag Handle Header */}
-                <th className="px-3 py-3 text-left font-semibold text-slate-700 border-b-2 border-slate-300 sticky left-0 z-20 bg-gradient-to-r from-slate-100 to-slate-50">
-                  <div className="flex items-center gap-1">
+                <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b-2 border-slate-300 sticky left-0 z-20 bg-gradient-to-r from-slate-100 to-slate-50">
+                  <div className="w-fit flex items-center gap-1">
                     <svg className="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                     </svg>

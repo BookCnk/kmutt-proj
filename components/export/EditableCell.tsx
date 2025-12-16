@@ -94,7 +94,7 @@ export function EditableCell({
           placeholder={placeholder}
           required={required}
           rows={rows}
-          className={`${baseClassName} resize-y ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+          className={`${baseClassName} resize-y h-40 bg-slate-100 ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
           style={{ whiteSpace: 'pre-wrap' }}
         />
         {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
@@ -103,7 +103,7 @@ export function EditableCell({
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <input
         type={type}
         value={value}
@@ -111,7 +111,7 @@ export function EditableCell({
         disabled={disabled}
         placeholder={placeholder}
         required={required}
-        className={`${baseClassName} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+        className={`${baseClassName} bg-slate-100 ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
       />
       {error && <div className="text-xs text-red-600 mt-1 absolute whitespace-nowrap">{error}</div>}
     </div>
