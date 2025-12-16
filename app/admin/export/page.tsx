@@ -84,11 +84,13 @@ function parseSheet(ws: XLSX.WorkSheet): {
   );
   return { headers, rows: body };
 }
+type UploadFormat = "v1" | "v2";
 
 export default function AdminExportPage() {
   // Auth state
   const { user, accessToken } = useAuthStore();
   const isAdmin = user?.role === "admin";
+  const [uploadFormat, setUploadFormat] = React.useState<UploadFormat>("v1");
 
   const [templates, setTemplates] = React.useState<any[]>([]);
 
@@ -508,6 +510,26 @@ export default function AdminExportPage() {
               transition={{ duration: 0.2 }}
               className="max-w-4xl mx-auto">
               <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-emerald-100">
+                <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <label className="text-sm font-medium text-slate-700">
+                    Upload Format
+                  </label>
+
+                  <select
+                    value={uploadFormat}
+                    onChange={(e) =>
+                      setUploadFormat(e.target.value as UploadFormat)
+                    }
+                    className="w-full sm:w-64 rounded-xl border border-emerald-200 bg-white/80 px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                    <option value="v1">Template V1 (เดิม)</option>
+                    <option value="v2">Template V2 (ใหม่)</option>
+                  </select>
+
+                  <span className="text-xs text-slate-500 sm:ml-2">
+                    เลือกฟอร์แมตก่อนอัปโหลดไฟล์
+                  </span>
+                </div>
+
                 <Dropzone onPick={handlePick} />
                 <div className="mt-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                   <p className="text-sm text-emerald-800 font-medium flex items-center gap-2">
