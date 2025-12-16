@@ -16,13 +16,13 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
+
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
-import ExportGradIntakeButton from "@/components/ExportGradIntakeButton ";
+import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
 import ExportAdmissionsExcelButton from "@/components/ExportAdmissionsExcelButton";
 import { getAdmissionYears } from "@/api/admissionService";
-import * as XLSX from "xlsx";
-// @ts-ignore: no type definitions for 'file-saver' in this project
-import { exportExcelFancy } from "@/lib/exportFancy"; // หรือวางในไฟล์เดียวกัน
+import { exportExcelFancy } from "@/lib/exportFancy";
+import { exportAdmissionsPdf, type SurveyRow } from "@/lib/export/exportAdmissionsPdf";
 
 import {
   getForms as getFormsUser,
@@ -48,8 +48,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -57,7 +55,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -72,6 +69,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { useAuthStore } from "@/stores/auth";
 import { getAuthUser } from "@/utils/storage";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /* ---------------- helpers ---------------- */
 function normalizeId(v: unknown): string {
@@ -111,24 +109,12 @@ type ProgramInForm = {
   rounds?: Array<{ no?: number; interview_date?: string; active?: boolean }>;
   monthly?: Array<{
     month?: string | number;
+    title?: string;
     interview_date?: string;
     active?: boolean;
   }>;
   message?: string;
   degree_abbr?: Record<string, any>;
-};
-
-export type SurveyRow = {
-  id: string;
-  faculty: string;
-  department: string;
-  program: string;
-  programs: ProgramInForm[];
-  submitterEmail: string;
-  submitterName: string;
-  coordinator: string;
-  phone: string[];
-  submittedAt: string;
 };
 
 type SurveyCol = keyof SurveyRow;
@@ -354,7 +340,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [selectedRow, setSelectedRow] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedRowsMap, setSelectedRowsMap] = useState<
+    Record<string, SurveyRow>
+  >({});
 
   const [filters, setFilters] = useState<TableFilters>({
     faculty: "",
@@ -365,7 +354,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   });
   const debouncedFilters = useDebounce(filters, 300);
 
-  // view/delete
   const [viewOpen, setViewOpen] = useState(false);
   const [viewRow, setViewRow] = useState<SurveyRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -383,33 +371,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     setIsAdmin(role === "admin");
   }, [storeUser]);
 
-  // unwrap helper - support many wrapper shapes (axios/res.data/data, direct array, etc.)
   function unwrapList(res: any): any[] {
     if (!res) return [];
-    // If res is array itself
     if (Array.isArray(res)) return res;
-    // axios-style: res.data could be array or object
     if (Array.isArray(res?.data)) return res.data;
-    // nested common shapes:
     if (Array.isArray(res?.data?.data)) return res.data.data;
     if (Array.isArray(res?.data?.items)) return res.data.items;
     if (Array.isArray(res?.items)) return res.items;
-    // sometimes API returns { status, data: { items: [...] } }
     if (Array.isArray(res?.data?.result)) return res.data.result;
-    // fallback empty
     return [];
   }
 
-  // admin response extractor (อ่าน info.totalCount ถ้ามี)
   function extractAdminPaging(res: any, fallbackLimit: number) {
-    // items could be in res.data or res.data.data etc.
-
     const items = unwrapList(res);
     const info =
       res?.info ?? res?.data?.info ?? res?.pagination ?? res?.meta ?? {};
     const limit = Number(info.limit ?? fallbackLimit ?? 10) || 10;
 
-    // server may return totalCount, total or pages + currentCount
     const total =
       Number(
         info.totalCount ??
@@ -419,17 +397,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           items.length
       ) || 0;
 
-    // prefer server pages (info.pages) if present, otherwise compute
     const pagesServer = Number(info.pages) || undefined;
     const computedPages = Math.max(1, Math.ceil(total / Math.max(1, limit)));
     const pages = pagesServer ? Math.max(1, pagesServer) : computedPages;
 
     const currentCount = Number(info.currentCount ?? items.length);
-
     return { items, total, pages, currentCount, limit };
   }
 
-  // user response extractor: ถ้ามี info.totalCount ใช้ backend; ถ้าไม่มีก็ fallback client-side
   function extractUserPaging(res: any, fallbackLimit: number) {
     const items = unwrapList(res);
     const info = res?.info ?? res?.data?.info ?? {};
@@ -460,10 +435,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       hasInfo: true,
     };
   }
+
   const [years, setYears] = useState<any[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>("ทั้งหมด");
 
-  /* ---- API params memo ---- */
   const apiParams: any = useMemo(() => {
     const sortField = mapSortKeyToApiField(sortColumn);
     const sortSign: 1 | -1 | undefined = sortField
@@ -483,7 +458,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       sort: sortSign,
       sort_option: sortField,
       clientSortNum: mapSortKeyToClientNumber(sortColumn),
-
       admission_id: selectedYear === "ทั้งหมด" ? undefined : selectedYear,
     };
   }, [
@@ -503,18 +477,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     const fetchYears = async () => {
       try {
         const data: any = await getAdmissionYears();
-        console.log(data);
-
-        setYears(data);
+        setYears(Array.isArray(data) ? data : []);
+        const active = Array.isArray(data)
+          ? data.find((y: any) => y?.active)
+          : undefined;
+        if (active?._id) {
+          setSelectedYear((prev) => (prev === "ทั้งหมด" ? active._id : prev));
+        }
       } catch (error) {
         console.error("Failed to getAllAdmissions", error);
       }
     };
-
     fetchYears();
   }, []);
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       setLoading(true);
       setLoadError("");
@@ -524,30 +503,21 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         let total = 0;
         let pages = 1;
 
-        // === CONDITION: admin vs user ===
         if (isAdmin) {
-          // admin -> call adminListForms (server side paging expected)
           const res = await adminListForms(apiParams);
-
           const ext = extractAdminPaging(res, apiParams.limit);
           items = ext.items;
           total = ext.total;
           pages = ext.pages;
         } else {
-          // user -> call getFormsUser
-          // if backend user endpoint sends info.totalCount, use server values
-          // otherwise fallback to client-side filter/sort/paging
           const raw = await getFormsUser();
           const ext = extractUserPaging(raw, apiParams.limit);
 
           if (ext.hasInfo) {
-            // server provided totalCount/pages
-            // But we still apply server-side paging: the 'items' here may be current page
             items = ext.items;
             total = ext.total;
             pages = ext.pages;
           } else {
-            // Client-side fallback
             const list = unwrapList(raw);
             const filtered = clientFilter(list, apiParams);
             const sorted = clientSort(
@@ -569,15 +539,26 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         const mapped = (Array.isArray(items) ? items : []).map(
           mapFormToSurveyRow
         );
+
         if (!cancelled) {
           setRows(mapped);
           setTotal(total);
           setTotalPages(Math.max(1, pages));
-          // If current page is out of range (e.g., after changing pageSize), clamp it.
-          if (currentPage > Math.max(1, pages)) {
-            // setCurrentPage will re-trigger effect - that's intended to fetch the correct page
-            setCurrentPage(1);
-          }
+
+          if (currentPage > Math.max(1, pages)) setCurrentPage(1);
+
+          // กัน selection ค้างจากหน้าที่ไม่อยู่แล้ว
+          setSelectedIds((prev) =>
+            prev.filter((id) => mapped.some((r) => r.id === id))
+          );
+          setSelectedRowsMap((prev) => {
+            const next: Record<string, SurveyRow> = {};
+            Object.keys(prev).forEach((id) => {
+              const found = mapped.find((r) => r.id === id);
+              if (found) next[id] = found;
+            });
+            return next;
+          });
         }
       } catch (e: any) {
         if (!cancelled) {
@@ -590,10 +571,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-    // include currentPage so admin paging respects requested page
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiParams, isAdmin, sortDirection, currentPage]);
 
@@ -616,13 +597,79 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     []
   );
 
-  const handlePrintPDF = useCallback(() => {
-    if (!selectedRow) return;
-  }, [selectedRow]);
+  const toggleSelectRow = useCallback((row: SurveyRow, checked?: boolean) => {
+    const id = row.id;
 
-  const openView = useCallback((row: any) => {
+    setSelectedIds((prev) => {
+      const exists = prev.includes(id);
+      const shouldAdd = typeof checked === "boolean" ? checked : !exists;
+      if (shouldAdd && !exists) return [...prev, id];
+      if (!shouldAdd && exists) return prev.filter((x) => x !== id);
+      return prev;
+    });
+
+    setSelectedRowsMap((prev) => {
+      const exists = !!prev[id];
+      const shouldAdd = typeof checked === "boolean" ? checked : !exists;
+      if (shouldAdd) return { ...prev, [id]: row };
+      if (!shouldAdd && exists) {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      }
+      return prev;
+    });
+  }, []);
+
+  const pageRowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const allPageChecked =
+    pageRowIds.length > 0 && pageRowIds.every((id) => selectedIds.includes(id));
+  const somePageChecked =
+    !allPageChecked && pageRowIds.some((id) => selectedIds.includes(id));
+
+  const toggleSelectPage = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (allPageChecked) return prev.filter((id) => !pageRowIds.includes(id));
+      const merged = new Set(prev);
+      pageRowIds.forEach((id) => merged.add(id));
+      return Array.from(merged);
+    });
+
+    setSelectedRowsMap((prev) => {
+      if (allPageChecked) {
+        const next = { ...prev };
+        pageRowIds.forEach((id) => delete next[id]);
+        return next;
+      }
+      const next = { ...prev };
+      rows.forEach((r) => (next[r.id] = r));
+      return next;
+    });
+  }, [allPageChecked, pageRowIds, rows]);
+
+  const handleExportPdf = useCallback(async () => {
+    const selectedRows = selectedIds
+      .map((id) => selectedRowsMap[id])
+      .filter(Boolean);
+
+    if (!selectedRows.length) {
+      toast.error("กรุณาเลือกอย่างน้อย 1 รายการ");
+      return;
+    }
+
+    try {
+      await exportAdmissionsPdf(selectedRows, formatDateTH, {
+        fontUrl: "/fonts/THSarabun.ttf",
+        title: "แบบฟอร์มรับสมัคร",
+      });
+      toast.success("ส่งออก PDF สำเร็จ");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "ส่งออก PDF ไม่สำเร็จ");
+    }
+  }, [selectedIds, selectedRowsMap]);
+
+  const openView = useCallback((row: SurveyRow) => {
     setViewRow(row);
-    setSelectedRow(row.id);
     setViewOpen(true);
   }, []);
 
@@ -634,6 +681,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const doDelete = useCallback(async () => {
     const id = deletingId;
     if (!id) return;
+
     setDeleteOpen(false);
 
     const prev = rows;
@@ -643,7 +691,13 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       const del = isAdmin ? adminDeleteForm : deleteFormUser;
       await del(id);
       toast.success("ลบรายการสำเร็จ");
-      if (selectedRow === id) setSelectedRow("");
+
+      setSelectedIds((prevIds) => prevIds.filter((x) => x !== id));
+      setSelectedRowsMap((prevMap) => {
+        const { [id]: _, ...rest } = prevMap;
+        return rest;
+      });
+
       setCurrentPage((p) => Math.max(1, Math.min(p, totalPages)));
     } catch (e: any) {
       setRows(prev);
@@ -651,11 +705,10 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     } finally {
       setDeletingId("");
     }
-  }, [deletingId, rows, selectedRow, isAdmin, totalPages]);
+  }, [deletingId, rows, isAdmin, totalPages]);
 
   const isInitialLoading = loading && rows.length === 0 && !loadError;
 
-  /* ---------- Pagination numbers ---------- */
   const pageNumbers = useMemo(() => {
     const pages: (number | "…")[] = [];
     const tp = totalPages;
@@ -690,14 +743,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
     [currentPage, totalPages]
   );
 
-  const handleExportExcel = async () => {
-    if (!rows.length) {
-      toast.error("ไม่มีข้อมูลให้ส่งออก");
-      return;
-    }
-    await exportExcelFancy(rows);
-  };
-
   /* ---------------- UI ---------------- */
   return (
     <div className="space-y-4">
@@ -707,39 +752,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex flex-col sm:flex-row gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              {/* <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                disabled={!selectedRow}>
-                <Printer className="mr-2 h-4 w-4" />
-                ส่งออกเป็น Excel
-              </Button> */}
-              <ExportGradIntakeButton admissionId={selectedYear} />
-            </DialogTrigger>
-            <ExportAdmissionsExcelButton />
-
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>ยืนยันการพิมพ์แบบฟอร์ม</DialogTitle>
-                <DialogDescription>
-                  คุณต้องการส่งออกเป็น Excel สำหรับรายการที่เลือกหรือไม่?
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline">ยกเลิก</Button>
-                <Button onClick={handleExportExcel}>ยืนยันการส่งออก</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <ExportGradIntakeButton admissionId={selectedYear} />
+          <ExportAdmissionsExcelButton />
 
           <Button onClick={onCreateNew} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             กรอกข้อมูล
+          </Button>
+
+          <Button
+            variant="default"
+            onClick={handleExportPdf}
+            disabled={!selectedIds.length}
+            className="w-full sm:w-auto">
+            <Printer className="mr-2 h-4 w-4" />
+            Export PDF (Selected)
           </Button>
 
           {isAdmin && (
@@ -757,7 +786,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             เลือก ปีการศึกษา และภาคการศึกษา
           </span>
 
-          {/* 📍 DDL เลือกปี */}
           <Select
             value={selectedYear}
             onValueChange={(v) => {
@@ -769,24 +797,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ทั้งหมด">ทั้งหมด</SelectItem>
-
               {years.map((y) => (
                 <SelectItem key={y._id} value={y._id}>
                   {(() => {
-                    const [semester, year] = (y.label || "").split("/");
+                    const [semester, year] = String(y.label || "").split("/");
                     return `ปีการศึกษา ${year} ภาคเรียนที่ ${semester}`;
                   })()}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
           <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
 
-          {/* 📍 DDL pageSize */}
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
-              setPageSize(parseInt(v));
+              setPageSize(parseInt(v, 10));
               setCurrentPage(1);
             }}>
             <SelectTrigger className="w-32">
@@ -800,7 +827,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           </Select>
         </div>
       </div>
-      {/* Table */}
+
       <div className="border rounded-lg overflow-hidden bg-white relative">
         {loading && rows.length > 0 && (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-white/70 backdrop-blur-sm px-3 py-2 border-b">
@@ -813,6 +840,19 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
+                <TableHead className="w-10 text-center">
+                  <Checkbox
+                    checked={
+                      allPageChecked
+                        ? true
+                        : somePageChecked
+                        ? "indeterminate"
+                        : false
+                    }
+                    onCheckedChange={toggleSelectPage}
+                    aria-label="เลือกทั้งหมดในหน้านี้"
+                  />
+                </TableHead>
                 <TableHead className="w-12">#</TableHead>
 
                 <TableHead className="min-w-[150px]">
@@ -945,13 +985,23 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
               ) : (
                 rows.map((row, index) => (
                   <TableRow key={row.id} className="hover:bg-gray-50">
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={selectedIds.includes(row.id)}
+                        onCheckedChange={(v) =>
+                          toggleSelectRow(row, v === true)
+                        }
+                        aria-label={`เลือกแถว ${row.id}`}
+                      />
+                    </TableCell>
+
                     <TableCell className="font-medium">
                       {(currentPage - 1) * pageSize + index + 1}
                     </TableCell>
+
                     <TableCell className="font-medium">{row.faculty}</TableCell>
                     <TableCell>{row.department}</TableCell>
 
-                    {/* Program cell */}
                     <TableCell className="align-top">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -971,7 +1021,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                           </DropdownMenuLabel>
                           <DropdownMenuSeparator />
 
-                          {row.programs.map((p) => {
+                          {row.programs.map((p: any) => {
                             const noRound =
                               !Array.isArray(p.rounds) || p.rounds.length === 0;
                             const noMonthly =
@@ -980,6 +1030,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                             const hasMsg = !!(
                               p.message && String(p.message).trim()
                             );
+
                             return (
                               <DropdownMenuItem
                                 key={p.programId}
@@ -1033,6 +1084,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                         {row.submitterEmail}
                       </span>
                     </TableCell>
+
                     <TableCell className="text-sm text-gray-600">
                       {formatDateTH(row.submittedAt)}
                     </TableCell>
@@ -1063,7 +1115,6 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="text-sm text-gray-600">
           หน้า {currentPage} จาก {totalPages} (รวม {total} รายการ)
@@ -1104,12 +1155,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
       </div>
 
-      {/* View / Delete */}
       <SurveyDetailsDialog
         open={viewOpen}
         onOpenChange={setViewOpen}
         row={viewRow}
       />
+
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
