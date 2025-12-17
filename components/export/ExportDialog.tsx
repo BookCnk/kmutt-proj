@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { ExportConfig } from "@/app/admin/export/types";
+import { ExportConfig, DataRow } from "@/app/admin/export/types";
 
 export type ExportFormat = "excel" | "pdf";
 
@@ -11,6 +11,9 @@ interface ExportDialogProps {
   onClose: () => void;
   onConfirm: (config: ExportConfig, format: ExportFormat) => void;
   selectedCount: number;
+
+  // ✅ NEW: รับแถวแรกมา 1 แถว
+  firstRow?: DataRow | null;
 }
 
 export function ExportDialog({
@@ -18,20 +21,61 @@ export function ExportDialog({
   onClose,
   onConfirm,
   selectedCount,
+  firstRow,
 }: ExportDialogProps) {
   const [roundNumber, setRoundNumber] = React.useState("1");
-  const [sheetTitle, setSheetTitle] = React.useState("กำหนดการรับสมัครนักศึกษา\nโครงการคัดเลือกตรงความสามารถพิเศษและทุนเพชรพระจอมเกล้่า ปีการศึกษา 2569");
-  const [roundTitle, setRoundTitle] = React.useState("สำนักงานคัดเลือก\nและสรรหานักศึกษา");
+  const [sheetTitle, setSheetTitle] = React.useState(
+    "กำหนดการรับสมัครนักศึกษา\nโครงการคัดเลือกตรงความสามารถพิเศษและทุนเพชรพระจอมเกล้่า ปีการศึกษา 2569"
+  );
+  const [roundTitle, setRoundTitle] = React.useState(
+    "สำนักงานคัดเลือก\nและสรรหานักศึกษา"
+  );
   const [format, setFormat] = React.useState<ExportFormat>("excel");
+
+  console.log("First row in ExportDialog:", firstRow);
+
+  // ✅ NEW: ตอน dialog เปิด ให้ดึงค่าจากแถวแรกมาเติม (เอาแค่แถวเดียว)
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (!firstRow) return;
+
+    // 1) nameHeader อาจมีรูปแบบ: "รอบที่ 1 โครงการ... ปีการศึกษา 2569"
+    const nameHeader = String((firstRow as any)?.nameHeader ?? "").trim();
+    const m = nameHeader.match(/รอบที่\s*(\d+)/);
+
+    // ✅ รอบที่: เอาจาก sequence ก่อน ถ้าไม่มีค่อยดูจาก nameHeader
+    const inferredRound = String((firstRow as any)?.sequence ?? m?.[1] ?? "1");
+
+    // ✅ หัวข้อโครงการ: เอา nameHeader ก่อนเสมอ
+    const inferredSheetTitle =
+      nameHeader ||
+      String((firstRow as any)?.label_on_web_th ?? "").trim() ||
+      sheetTitle;
+
+    // ✅ สำนักงาน: ถ้ามี field เฉพาะให้ใช้ก่อน (เช่น officeName) ไม่งั้น fallback เดิม
+    const inferredRoundTitle =
+      String((firstRow as any)?.officeName ?? "").trim() ||
+      String((firstRow as any)?.label_on_web_en ?? "").trim() ||
+      roundTitle;
+
+    setRoundNumber(inferredRound);
+    setSheetTitle(inferredSheetTitle);
+    setRoundTitle(inferredRoundTitle);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, firstRow]);
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
-    onConfirm({
-      roundNumber,
-      sheetTitle,
-      roundTitle,
-    }, format);
+    onConfirm(
+      {
+        roundNumber,
+        sheetTitle,
+        roundTitle,
+      },
+      format
+    );
   };
 
   return (
@@ -41,15 +85,13 @@ export function ExportDialog({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-4">
-          Export ไฟล์
-        </h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-4">Export ไฟล์</h2>
+
         <p className="text-slate-600 mb-6">
           กำหนดค่าข้อมูลในส่วนหัวของไฟล์ ({selectedCount} แถว)
         </p>
 
         <div className="space-y-4">
-          {/* Format Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               รูปแบบไฟล์
@@ -66,6 +108,7 @@ export function ExportDialog({
                 />
                 <span className="text-sm">Excel (.xlsx)</span>
               </label>
+
               <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
@@ -79,6 +122,7 @@ export function ExportDialog({
               </label>
             </div>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               รอบที่
@@ -123,6 +167,7 @@ export function ExportDialog({
             className="flex-1 px-4 py-2 border rounded-lg hover:bg-slate-50">
             ยกเลิก
           </button>
+
           <button
             onClick={handleSubmit}
             className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">

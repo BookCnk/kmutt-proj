@@ -19,6 +19,17 @@ import {
 import { DataRow } from "@/app/admin/export/types";
 import { SortableRow } from "./SortableRow";
 
+/**
+ * ✅ ColumnDef ทำให้ DataTable รองรับ "หลาย format"
+ * Parent จะเป็นคนส่ง columns มา (ตาม DDL ที่เลือก)
+ */
+export type ColumnDef<T> = {
+  key: string;
+  header: string;
+  className?: string;
+  render: (row: T) => React.ReactNode;
+};
+
 interface DataTableProps {
   rows: DataRow[];
   page: number;
@@ -31,14 +42,10 @@ interface DataTableProps {
   onAddRow: () => void;
   onDeleteRow: (id: string) => void;
   isAdmin: boolean;
-}
 
-const HEADERS = [
-  "Sequence",
-  "Label on Web (TH)",
-  "Label on Web (EN)",
-  "Dates",
-];
+  // ✅ NEW: รับคอลัมน์จาก parent เพื่อเปลี่ยน table ตาม format
+  columns: ColumnDef<DataRow>[];
+}
 
 export function DataTable({
   rows,
@@ -52,6 +59,7 @@ export function DataTable({
   onAddRow,
   onDeleteRow,
   isAdmin,
+  columns,
 }: DataTableProps) {
   const pageCount = Math.max(1, Math.ceil(rows.length / perPage));
   const start = (page - 1) * perPage;
@@ -84,14 +92,27 @@ export function DataTable({
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800">ข้อมูลตาราง</h3>
-            <p className="text-sm text-slate-600 mt-0.5">จัดการและแก้ไขข้อมูลของคุณ</p>
+            <h3 className="text-lg font-semibold text-slate-800">
+              ข้อมูลตาราง
+            </h3>
+            <p className="text-sm text-slate-600 mt-0.5">
+              จัดการและแก้ไขข้อมูลของคุณ
+            </p>
           </div>
           <button
             onClick={onAddRow}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm hover:shadow-md">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             <span className="font-medium">เพิ่มแถวใหม่</span>
           </button>
@@ -109,25 +130,40 @@ export function DataTable({
                 {/* Drag Handle Header */}
                 <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b-2 border-slate-300 sticky left-0 z-20 bg-gradient-to-r from-slate-100 to-slate-50">
                   <div className="w-fit flex items-center gap-1">
-                    <svg className="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    <svg
+                      className="w-4 h-4 text-slate-400"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 8h16M4 16h16"
+                      />
                     </svg>
                   </div>
                 </th>
+
                 {/* Row index */}
                 <th className="px-4 py-3 text-center font-semibold text-slate-700 border-b-2 border-slate-300 bg-gradient-to-r from-slate-100 to-slate-50">
                   #
                 </th>
-                {HEADERS.map((h, i) => (
+
+                {/* ✅ Dynamic headers from columns */}
+                {columns.map((c) => (
                   <th
-                    key={i}
-                    className="px-4 py-3 text-left font-semibold text-slate-700 border-b-2 border-slate-300 whitespace-nowrap">
+                    key={c.key}
+                    className={`px-4 py-3 text-left font-semibold text-slate-700 border-b-2 border-slate-300 whitespace-nowrap ${
+                      c.className || ""
+                    }`}>
                     <div className="flex items-center gap-2">
-                      <span>{h}</span>
+                      <span>{c.header}</span>
                     </div>
                   </th>
                 ))}
-                {/* Actions Header with Select All */}
+
+                {/* Export */}
                 <th className="px-4 py-3 text-center font-semibold text-slate-700 border-b-2 border-slate-300 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <span>Export</span>
@@ -143,12 +179,14 @@ export function DataTable({
                     />
                   </div>
                 </th>
-                {/* Delete Action Header */}
+
+                {/* Actions */}
                 <th className="px-4 py-3 text-center font-semibold text-slate-700 border-b-2 border-slate-300 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
             </thead>
+
             <SortableContext
               items={slice.map((r) => r.id)}
               strategy={verticalListSortingStrategy}>
@@ -158,23 +196,39 @@ export function DataTable({
                     key={row.id}
                     row={row}
                     index={start + ri}
+                    columns={columns} // ✅ NEW
                     onToggleSelect={onToggleSelect}
                     onUpdateRow={onUpdateRow}
                     onDeleteRow={onDeleteRow}
                   />
                 ))}
+
                 {slice.length === 0 && (
                   <tr>
                     <td
                       className="px-6 py-12 text-center text-slate-500"
-                      colSpan={HEADERS.length + 5}>
+                      // ✅ colSpan ต้องอิง columns.length
+                      colSpan={columns.length + 5}>
                       <div className="flex flex-col items-center gap-3">
-                        <svg className="w-16 h-16 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        <svg
+                          className="w-16 h-16 text-slate-300"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                          />
                         </svg>
                         <div>
-                          <p className="text-base font-medium text-slate-600">ไม่พบข้อมูลในหน้านี้</p>
-                          <p className="text-sm text-slate-500 mt-1">คลิกปุ่ม `เพิ่มแถวใหม่` เพื่อเริ่มต้น</p>
+                          <p className="text-base font-medium text-slate-600">
+                            ไม่พบข้อมูลในหน้านี้
+                          </p>
+                          <p className="text-sm text-slate-500 mt-1">
+                            คลิกปุ่ม `เพิ่มแถวใหม่` เพื่อเริ่มต้น
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -185,30 +239,61 @@ export function DataTable({
           </table>
         </DndContext>
       </div>
-      {/* Enhanced Pagination */}
+
+      {/* Pagination (ของเดิมคุณใช้ต่อได้เลย) */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-t border-slate-200">
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-            <span className="text-slate-700 font-medium">{rows.length} แถวทั้งหมด</span>
+            <span className="text-slate-700 font-medium">
+              {rows.length} แถวทั้งหมด
+            </span>
           </div>
+
           <div className="w-px h-4 bg-slate-300"></div>
+
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span className="text-slate-600">หน้า {page} / {pageCount}</span>
-          </div>
-          <div className="w-px h-4 bg-slate-300"></div>
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-4 h-4 text-slate-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             <span className="text-slate-600">
-              <span className="font-semibold text-emerald-600">{rows.filter((r) => r.selected).length}</span> แถวถูกเลือก
+              หน้า {page} / {pageCount}
+            </span>
+          </div>
+
+          <div className="w-px h-4 bg-slate-300"></div>
+
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-emerald-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="text-slate-600">
+              <span className="font-semibold text-emerald-600">
+                {rows.filter((r) => r.selected).length}
+              </span>{" "}
+              แถวถูกเลือก
             </span>
           </div>
         </div>
+
         <div className="flex gap-2">
           <button
             onClick={() => setPage(1)}

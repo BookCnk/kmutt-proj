@@ -21,23 +21,14 @@ import {
 import { useAuthStore } from "@/stores/auth";
 import { CreateTemplateDto } from "@/types/template";
 import { toast } from "sonner";
-import { AxiosError } from "axios";
-import { ToastHub } from "@/components/ui/toast-hub";
 import { TemplateTable } from "./TemplateTable";
 import { ArrowLeft, FileSpreadsheet, Sparkles } from "lucide-react";
 
+import type { ColumnDef } from "@/components/export/DataTable";
+import { EditableCell } from "@/components/export/EditableCell";
+
 /**
  * Excel → Web Preview with Export Feature
- *
- * Features:
- * - Upload Excel files (.xlsx/.xls)
- * - Auto-detect header row
- * - Filter to show only 7 required columns
- * - Drag-and-drop row reordering
- * - Select/deselect rows for export
- * - Export to styled Excel with KMUTT branding
- *
- * @see /lib/exportFancy.ts - Original export implementation reference
  */
 
 // Utilities for Excel parsing
@@ -84,23 +75,21 @@ function parseSheet(ws: XLSX.WorkSheet): {
   );
   return { headers, rows: body };
 }
+
 type UploadFormat = "v1" | "v2";
 
 export default function AdminExportPage() {
-  // Auth state
-  const { user, accessToken } = useAuthStore();
+  const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
-  const [uploadFormat, setUploadFormat] = React.useState<UploadFormat>("v1");
 
+  const [uploadFormat, setUploadFormat] = React.useState<UploadFormat>("v1");
   const [templates, setTemplates] = React.useState<any[]>([]);
 
-  // File state
   const [step, setStep] = React.useState<Step>("idle");
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [sheets, setSheets] = React.useState<SheetMatrix[]>([]);
   const [current, setCurrent] = React.useState<string>("");
 
-  // UI state
   const [search, setSearch] = React.useState("");
   const [perPage, setPerPage] = React.useState(20);
   const [page, setPage] = React.useState(1);
@@ -113,7 +102,9 @@ export default function AdminExportPage() {
   const filteredRows = React.useMemo(() => {
     if (!currentSheet) return [] as DataRow[];
     if (!search.trim()) return currentSheet.rows;
+
     const q = search.toLowerCase();
+    console.log("Filtering rows with currentSheet:", currentSheet.rows?.[0]);
     return currentSheet.rows.filter((r) => {
       const searchableFields = [
         r.label_on_web_th,
@@ -124,7 +115,7 @@ export default function AdminExportPage() {
         r.end_date,
         r.date_description,
         r.current_stage,
-        r.sequence.toString(),
+        r.sequence?.toString(),
       ];
       return searchableFields.some((field) =>
         String(field || "")
@@ -136,7 +127,6 @@ export default function AdminExportPage() {
 
   React.useEffect(() => setPage(1), [search, current]);
 
-  // Handler to reorder rows
   const handleReorder = (newRows: DataRow[]) => {
     setSheets((prevSheets) =>
       prevSheets.map((sheet) =>
@@ -148,7 +138,6 @@ export default function AdminExportPage() {
   const loadTemplates = React.useCallback(async () => {
     try {
       const res = await getTemplates();
-
       const items = (res as any)?.data;
       setTemplates(items);
       console.log("Loaded templates:", items);
@@ -162,7 +151,6 @@ export default function AdminExportPage() {
     loadTemplates();
   }, [loadTemplates]);
 
-  // Handler to toggle individual row selection
   const handleToggleSelect = (id: string) => {
     setSheets((prevSheets) =>
       prevSheets.map((sheet) =>
@@ -178,7 +166,6 @@ export default function AdminExportPage() {
     );
   };
 
-  // Handler to toggle all rows selection
   const handleToggleAll = () => {
     if (!currentSheet) return;
     const allSelected = currentSheet.rows.every((r) => r.selected);
@@ -197,7 +184,6 @@ export default function AdminExportPage() {
     );
   };
 
-  // Handler to update row data
   const handleUpdateRow = (id: string, updates: Partial<DataRow>) => {
     setSheets((prevSheets) =>
       prevSheets.map((sheet) =>
@@ -213,7 +199,6 @@ export default function AdminExportPage() {
     );
   };
 
-  // Handler to add new row
   const handleAddRow = () => {
     if (!currentSheet) return;
 
@@ -244,7 +229,6 @@ export default function AdminExportPage() {
     );
   };
 
-  // Handler to delete row
   const handleDeleteRow = (id: string) => {
     setSheets((prevSheets) =>
       prevSheets.map((sheet) =>
@@ -256,7 +240,6 @@ export default function AdminExportPage() {
                 .map((row, idx) => ({
                   ...row,
                   no: idx + 1,
-                  // Optionally update sequence numbers
                   sequence: idx + 1,
                 })),
             }
@@ -265,7 +248,214 @@ export default function AdminExportPage() {
     );
   };
 
-  // Handler to open save dialog
+  // ✅ V1 columns: เพิ่ม Application Form Status ต่อหลัง Label on Web (EN)
+  const columnsV1: ColumnDef<DataRow>[] = [
+    {
+      key: "sequence",
+      header: "Sequence",
+      className: "min-w-[8ch]",
+      render: (row) => (
+        <div className="px-3 py-2 text-slate-700 font-semibold bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 rounded-lg shadow-sm text-center">
+          {row.sequence}
+        </div>
+      ),
+    },
+    {
+      key: "label_th",
+      header: "Label on Web (TH)",
+      className: "min-w-[20ch]",
+      render: (row) => (
+        <div className="space-y-2">
+          <EditableCell
+            value={row.label_on_web_th}
+            onChange={(val) =>
+              handleUpdateRow(row.id, { label_on_web_th: String(val) })
+            }
+            required
+            className="text-lg"
+          />
+          <div className="pt-1">
+            <EditableCell
+              value={row.label_on_web_th_description || ""}
+              onChange={(val) =>
+                handleUpdateRow(row.id, {
+                  label_on_web_th_description: String(val),
+                })
+              }
+              type="textarea"
+              rows={2}
+              placeholder="คำอธิบาย Label on Web (TH)..."
+              className="text-lg text-slate-600"
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "label_en",
+      header: "Label on Web (EN)",
+      className: "min-w-[20ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.label_on_web_en}
+          onChange={(val) =>
+            handleUpdateRow(row.id, { label_on_web_en: String(val) })
+          }
+          required
+          className="text-lg"
+        />
+      ),
+    },
+    // ✅ NEW: Application Form Status (ต่อหลัง EN)
+    {
+      key: "app_status",
+      header: "Application Form Status",
+      className: "min-w-[22ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.application_form_status || ""}
+          onChange={(val) =>
+            handleUpdateRow(row.id, {
+              application_form_status: String(val),
+            })
+          }
+          placeholder="เช่น Open / Close / Pending..."
+          className="text-lg"
+        />
+      ),
+    },
+    {
+      key: "dates",
+      header: "Dates",
+      className: "min-w-[20ch]",
+      render: (row) => (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2">
+              <label className="w-full text-base text-slate-500 mb-1 block">
+                Start Date
+              </label>
+              <EditableCell
+                value={row.start_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { start_date: String(val) })
+                }
+                type="date"
+                required
+                className="text-lg"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="w-full text-base text-slate-500 mb-1 block">
+                End Date
+              </label>
+              <EditableCell
+                value={row.end_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { end_date: String(val) })
+                }
+                type="date"
+                required
+                className="text-lg"
+              />
+            </div>
+          </div>
+          <div className="pt-1">
+            <EditableCell
+              value={row.date_description || ""}
+              onChange={(val) =>
+                handleUpdateRow(row.id, { date_description: String(val) })
+              }
+              type="textarea"
+              rows={2}
+              placeholder="คำอธิบายวันที่..."
+              className="text-lg text-slate-600"
+            />
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  const columnsV2: ColumnDef<DataRow>[] = [
+    {
+      key: "sequence",
+      header: "Sequence",
+      className: "min-w-[8ch]",
+      render: (row) => (
+        <div className="px-3 py-2 text-slate-700 font-semibold bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 rounded-lg shadow-sm text-center">
+          {row.sequence}
+        </div>
+      ),
+    },
+    {
+      key: "label_th",
+      header: "Label on Web (TH)",
+      className: "min-w-[20ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.label_on_web_th}
+          onChange={(val) =>
+            handleUpdateRow(row.id, { label_on_web_th: String(val) })
+          }
+          required
+          className="text-lg"
+        />
+      ),
+    },
+    {
+      key: "desc",
+      header: "Description",
+      className: "min-w-[20ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.label_on_web_th_description || ""}
+          onChange={(val) =>
+            handleUpdateRow(row.id, {
+              label_on_web_th_description: String(val),
+            })
+          }
+          type="textarea"
+          rows={2}
+          placeholder="Description..."
+          className="text-lg text-slate-600"
+        />
+      ),
+    },
+    {
+      key: "start",
+      header: "Start Date",
+      className: "min-w-[14ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.start_date}
+          onChange={(val) =>
+            handleUpdateRow(row.id, { start_date: String(val) })
+          }
+          type="date"
+          required
+          className="text-lg"
+        />
+      ),
+    },
+    {
+      key: "end",
+      header: "End Date",
+      className: "min-w-[14ch]",
+      render: (row) => (
+        <EditableCell
+          value={row.end_date}
+          onChange={(val) => handleUpdateRow(row.id, { end_date: String(val) })}
+          type="date"
+          required
+          className="text-lg"
+        />
+      ),
+    },
+  ];
+
+  const columns = uploadFormat === "v2" ? columnsV2 : columnsV1;
+
   const handleSaveClick = () => {
     if (!isAdmin || !currentSheet) {
       alert("คุณไม่มีสิทธิ์ในการบันทึกข้อมูล");
@@ -274,7 +464,6 @@ export default function AdminExportPage() {
     setShowSaveDialog(true);
   };
 
-  // Handler to confirm save to database (admin only)
   const handleSaveConfirm = async (title: string) => {
     if (!currentSheet) return;
 
@@ -301,6 +490,7 @@ export default function AdminExportPage() {
         })),
       };
 
+      // (await saveTemplate) as any;
       await saveTemplateApi(payload);
       toast.success("บันทึกข้อมูลสำเร็จ!");
     } catch (error) {
@@ -315,7 +505,6 @@ export default function AdminExportPage() {
     }
   };
 
-  // Handler to open export dialog
   const handleExportClick = () => {
     if (!currentSheet) return;
     const selectedCount = currentSheet.rows.filter((r) => r.selected).length;
@@ -326,15 +515,10 @@ export default function AdminExportPage() {
     setShowExportDialog(true);
   };
 
-  // Handler to confirm export
   const handleExportConfirm = (config: ExportConfig, format: ExportFormat) => {
     if (!currentSheet) return;
-    // Pass empty array for headers as they're not used in the new structure
-    if (format === "excel") {
-      exportToStyledExcel(currentSheet.rows, [], config);
-    } else if (format === "pdf") {
-      exportToStyledPdf(currentSheet.rows, [], config);
-    }
+    if (format === "excel") exportToStyledExcel(currentSheet.rows, [], config);
+    if (format === "pdf") exportToStyledPdf(currentSheet.rows, [], config);
     setShowExportDialog(false);
   };
 
@@ -347,94 +531,54 @@ export default function AdminExportPage() {
       const ws = wb.Sheets[name];
       const { headers, rows } = parseSheet(ws);
 
-      // Map column names to indices
-      const wanted = [
-        "Sequence",
-        "Label on Web (TH)",
-        "Label on Web (TH) Description",
-        "Label on Web (EN)",
-        "Application Form Status",
-        "Start Date",
-        "End Date",
-        "Date Description",
-        "Current Stage",
-      ];
-
       const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+      const findIdx = (col: string) =>
+        headers.findIndex((h) => norm(h) === norm(col));
 
-      const idx: Record<string, number> = {};
-      wanted.forEach((col) => {
-        const i = headers.findIndex((h) => norm(h) === norm(col));
-        if (i >= 0) {
-          idx[col] = i;
-        } else {
-          const partialMatch = headers.findIndex((h) =>
-            norm(h).includes(norm(col))
-          );
-          if (partialMatch >= 0) idx[col] = partialMatch;
-        }
-      });
-
-      // Helper function to parse date and convert to YYYY-MM-DD format
-      const parseDate = (dateStr: string): string => {
-        if (!dateStr || dateStr.trim() === "") {
-          // Return today's date as default
-          const today = new Date();
-          return today.toISOString().split("T")[0];
-        }
-
-        // Try to parse the date
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) {
-          return parsed.toISOString().split("T")[0];
-        }
-
-        // If parsing fails, return today's date
-        const today = new Date();
-        return today.toISOString().split("T")[0];
+      const idx = {
+        sequence: findIdx("Sequence"),
+        nameHeader: findIdx(
+          "Name (TH) (Manage Admission Project) (Manage Admission Project)"
+        ),
+        labelTh: findIdx("Label on Web (TH)"),
+        labelThDescV1: findIdx("Label on Web (TH) Description"),
+        descV2: findIdx("Description"),
+        labelEn: findIdx("Label on Web (EN)"),
+        appStatus: findIdx("Application Form Status"),
+        start: findIdx("Start Date"),
+        end: findIdx("End Date"),
       };
+      console.log("Column indices:", idx);
+      console.log("Column rows:", rows);
+      const parseDate = (v: string) =>
+        v ? new Date(v).toISOString().split("T")[0] : "";
+      const filteredRows: any[] = rows.map((r, i) => ({
+        id: `${name}-row-${i}`,
+        nameHeader: idx.nameHeader >= 0 ? String(r[idx.nameHeader] || "") : "",
+        no: i + 1,
+        sequence: Number(r[idx.sequence]) || i + 1,
 
-      // Create DataRow objects with proper structure
-      const filteredRows: DataRow[] = rows.map((r, rowIndex) => ({
-        id: `${name}-row-${rowIndex}`,
-        no: rowIndex + 1,
-        sequence:
-          Number(idx["Sequence"] >= 0 ? r[idx["Sequence"]] : rowIndex + 1) ||
-          rowIndex + 1,
-        label_on_web_th: String(
-          idx["Label on Web (TH)"] >= 0 ? r[idx["Label on Web (TH)"]] : ""
-        ),
+        label_on_web_th: String(r[idx.labelTh] || ""),
+
         label_on_web_th_description:
-          idx["Label on Web (TH) Description"] >= 0
-            ? String(r[idx["Label on Web (TH) Description"]] || "")
-            : undefined,
-        label_on_web_en: String(
-          idx["Label on Web (EN)"] >= 0 ? r[idx["Label on Web (EN)"]] : ""
-        ),
-        application_form_status: String(
-          idx["Application Form Status"] >= 0
-            ? r[idx["Application Form Status"]]
-            : ""
-        ),
-        start_date: parseDate(
-          String(idx["Start Date"] >= 0 ? r[idx["Start Date"]] : "")
-        ),
-        end_date: parseDate(
-          String(idx["End Date"] >= 0 ? r[idx["End Date"]] : "")
-        ),
-        date_description:
-          idx["Date Description"] >= 0
-            ? String(r[idx["Date Description"]] || "")
-            : undefined,
-        current_stage:
-          idx["Current Stage"] >= 0 &&
-          String(r[idx["Current Stage"]]).toLowerCase() === "yes"
-            ? "Yes"
-            : "No",
-        selected: true, // Default: all rows selected for export
+          uploadFormat === "v2"
+            ? String(r[idx.descV2] || "")
+            : String(r[idx.labelThDescV1] || ""),
+
+        label_on_web_en: idx.labelEn >= 0 ? String(r[idx.labelEn] || "") : "",
+
+        application_form_status:
+          idx.appStatus >= 0 ? String(r[idx.appStatus] || "") : "",
+
+        start_date: parseDate(String(r[idx.start] || "")),
+        end_date: parseDate(String(r[idx.end] || "")),
+
+        date_description: undefined,
+        current_stage: "No",
+        selected: true,
       }));
 
-      return { name, headers: wanted, rows: filteredRows };
+      return { name, headers, rows: filteredRows };
     });
 
     setSheets(parsed);
@@ -456,17 +600,21 @@ export default function AdminExportPage() {
     window.location.href = "/";
   };
 
+  const firstRowForExport = React.useMemo(() => {
+    if (!currentSheet) return null;
+    console.log("First row for export:", currentSheet.rows?.[0]);
+    return currentSheet.rows?.[0] ?? null;
+  }, [currentSheet]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 relative overflow-hidden">
-      {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
       </div>
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-6 md:py-10">
-        {/* Header with Back Button */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -531,6 +679,7 @@ export default function AdminExportPage() {
                 </div>
 
                 <Dropzone onPick={handlePick} />
+
                 <div className="mt-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
                   <p className="text-sm text-emerald-800 font-medium flex items-center gap-2">
                     <Sparkles className="w-4 h-4" />
@@ -558,6 +707,7 @@ export default function AdminExportPage() {
                     onChange={(n) => setCurrent(n)}
                   />
                 </div>
+
                 <div className="p-6">
                   <Toolbar
                     search={search}
@@ -574,6 +724,26 @@ export default function AdminExportPage() {
                     isAdmin={isAdmin}
                     isSaving={isSaving}
                   />
+
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Upload Format
+                    </span>
+
+                    <select
+                      value={uploadFormat}
+                      onChange={(e) =>
+                        setUploadFormat(e.target.value as UploadFormat)
+                      }
+                      className="w-full sm:w-64 rounded-xl border border-emerald-200 bg-white/80 px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                      <option value="v1">Template V1 (เดิม)</option>
+                      <option value="v2">Template V2 (ใหม่)</option>
+                    </select>
+
+                    <span className="text-xs text-slate-500">
+                      เปลี่ยนแล้วหัวตาราง/ช่องข้อมูลจะเปลี่ยนตาม
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -583,6 +753,7 @@ export default function AdminExportPage() {
                   page={page}
                   setPage={setPage}
                   perPage={perPage}
+                  columns={columns}
                   onReorder={handleReorder}
                   onToggleSelect={handleToggleSelect}
                   onToggleAll={handleToggleAll}
@@ -596,7 +767,6 @@ export default function AdminExportPage() {
           )}
         </AnimatePresence>
 
-        {/* Export Dialog */}
         <AnimatePresence>
           {showExportDialog && (
             <ExportDialog
@@ -606,11 +776,11 @@ export default function AdminExportPage() {
               selectedCount={
                 currentSheet?.rows.filter((r) => r.selected).length || 0
               }
+              firstRow={firstRowForExport}
             />
           )}
         </AnimatePresence>
 
-        {/* Save Template Dialog */}
         <AnimatePresence>
           {showSaveDialog && (
             <SaveTemplateDialog
@@ -624,7 +794,6 @@ export default function AdminExportPage() {
           )}
         </AnimatePresence>
 
-        {/* Template Table Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

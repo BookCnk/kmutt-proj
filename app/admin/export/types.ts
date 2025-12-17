@@ -9,7 +9,7 @@ export type DataRow = {
   start_date: string;
   end_date: string;
   date_description?: string;
-  current_stage: 'Yes' | 'No';
+  current_stage: "Yes" | "No";
   selected: boolean;
 };
 
