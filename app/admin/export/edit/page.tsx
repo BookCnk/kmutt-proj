@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { getTemplateById, updateTemplate } from "@/api/templateService";
 import { useAuthStore } from "@/stores/auth";
-import { DataRow, ExportConfig } from "@/app/admin/export/types";
+import type { DataRow, ExportConfig } from "@/app/admin/export/types";
 
 import { DataTable } from "@/components/export/DataTable";
 import { Toolbar } from "@/components/export/Toolbar";
@@ -20,11 +20,18 @@ import {
 import { EditableCell } from "@/components/export/EditableCell";
 import type { ColumnDef } from "@/components/export/DataTable";
 
-import { CreateTemplateDto } from "@/types/template";
+import type { CreateTemplateDto } from "@/types/template";
 import { exportToStyledExcel, exportToStyledPdf } from "../exportExcel";
 
 type UploadFormat = "v1" | "v2";
 
+/**
+ * NOTE:
+ * - ให้ field ตรงกับหน้า AdminExportPage:
+ *   - date.description -> row.date_description (string)
+ *   - date.show_range  -> row.show_date_range (boolean)
+ *   - export           -> row.selected
+ */
 type TemplateContent = {
   no?: number;
   sequence?: number;
@@ -38,6 +45,7 @@ type TemplateContent = {
     start_date?: string;
     end_date?: string;
     description?: string;
+    show_range?: boolean; // ✅ สำคัญ (ให้ตรง schema)
   };
   current_stage?: string;
   export?: boolean;
@@ -59,14 +67,26 @@ function mapTemplateToRows(template: TemplateDoc): DataRow[] {
     id: `${template._id}-row-${idx}`,
     no: c.no ?? idx + 1,
     sequence: c.sequence ?? idx + 1,
+
     label_on_web_th: c.label_on_web_th?.label ?? "",
-    label_on_web_th_description: c.label_on_web_th?.description || undefined,
+    label_on_web_th_description: c.label_on_web_th?.description || "",
+
     label_on_web_en: c.label_on_web_en ?? "",
     application_form_status: c.application_form_status ?? "",
+
     start_date: c.date?.start_date ?? today,
     end_date: c.date?.end_date ?? today,
-    date_description: c.date?.description || undefined,
+
+    // ✅ เหมือนหน้าหลัก: date_description = text
+    date_description: c.date?.description ?? "",
+
+    // ✅ เหมือนหน้าหลัก: show_date_range = checkbox boolean
+    show_date_range:
+      typeof c.date?.show_range === "boolean" ? c.date.show_range : true,
+
     current_stage: c.current_stage ?? "No",
+
+    // ✅ export -> selected
     selected: typeof c.export === "boolean" ? c.export : true,
   }));
 }
@@ -82,19 +102,20 @@ function buildTemplatePayloadFromRows(
       sequence: row.sequence,
       label_on_web_th: {
         label: row.label_on_web_th,
-        description: row.label_on_web_th_description,
+        description: row.label_on_web_th_description || undefined,
       },
       label_on_web_en: row.label_on_web_en,
       application_form_status: row.application_form_status,
       date: {
         start_date: row.start_date,
         end_date: row.end_date,
-        description: row.date_description,
+        description: row.date_description || undefined,
+        show_range: !!row.show_date_range, // ✅ ส่งกลับให้ตรง schema
       },
       current_stage: row.current_stage,
       export: row.selected,
     })),
-  };
+  } as CreateTemplateDto;
 }
 
 export default function EditTemplatePage() {
@@ -119,7 +140,6 @@ export default function EditTemplatePage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const loadTemplate = useCallback(async () => {
@@ -132,16 +152,11 @@ export default function EditTemplatePage() {
       const data: TemplateDoc = (res as any)?.data ?? (res as any);
 
       setTitle(data.title || "");
-      const mapped = mapTemplateToRows(data);
-      setRows(mapped);
-
-      // ✅ Auto detect format (best-effort):
-      // ถ้าเจอ description แบบ V2 ใช้ v2 (คุณปรับเงื่อนไขได้)
-      // ตอนนี้ใช้ heuristic เบา ๆ: ถ้า label_on_web_th_description มีค่าแต่ label_th_desc ชื่อหัวใน V2 ไม่รู้
-      // เลยปล่อย default v1
+      setRows(mapTemplateToRows(data));
     } catch (err: any) {
       console.error("Failed to load template", err);
-      setLoadError(err?.message || "ไม่สามารถโหลด Template นี้ได้");
+      const msg = err?.message || "ไม่สามารถโหลด Template นี้ได้";
+      setLoadError(msg);
       toast.error("ไม่สามารถโหลด Template นี้ได้");
     } finally {
       setLoading(false);
@@ -184,11 +199,13 @@ export default function EditTemplatePage() {
     [rows]
   );
 
+  // ✅ ส่ง "แถวแรกแค่แถวเดียว" เข้า ExportDialog เหมือนหน้าหลัก
+  const firstRowForExport = useMemo(() => {
+    return rows.find((r) => r.selected) ?? rows[0] ?? null;
+  }, [rows]);
+
   // === handlers ===
-  const handleReorder = (newRows: DataRow[]) => {
-    // เหมือนหน้าใหญ่: reorder เฉพาะลำดับ
-    setRows(newRows);
-  };
+  const handleReorder = (newRows: DataRow[]) => setRows(newRows);
 
   const handleToggleSelect = (id: string) => {
     setRows((prev) =>
@@ -218,12 +235,16 @@ export default function EditTemplatePage() {
       no: newRowNumber,
       sequence: newRowNumber,
       label_on_web_th: "",
-      label_on_web_th_description: undefined,
+      label_on_web_th_description: "",
       label_on_web_en: "",
       application_form_status: "",
       start_date: today,
       end_date: today,
-      date_description: undefined,
+
+      // ✅ เหมือนหน้าหลัก
+      date_description: "",
+      show_date_range: true,
+
       current_stage: "No",
       selected: true,
     };
@@ -259,6 +280,7 @@ export default function EditTemplatePage() {
 
   const handleExportConfirm = (config: ExportConfig, format: ExportFormat) => {
     const selectedRows = rows.filter((r) => r.selected);
+
     if (selectedRows.length === 0) {
       toast.error("กรุณาเลือกอย่างน้อย 1 แถวเพื่อ Export");
       return;
@@ -315,7 +337,10 @@ export default function EditTemplatePage() {
     }
   };
 
-  // ✅ columns เหมือนหน้า AdminExportPage (V1/V2)
+  const selectedRows = rows.filter((r) => r.selected);
+  console.log("selectedRows", selectedRows[0]);
+
+  // === columns (เหมือนหน้า AdminExportPage) ===
   const columnsV1: ColumnDef<DataRow>[] = [
     {
       key: "sequence",
@@ -381,7 +406,9 @@ export default function EditTemplatePage() {
         <EditableCell
           value={row.application_form_status || ""}
           onChange={(val) =>
-            handleUpdateRow(row.id, { application_form_status: String(val) })
+            handleUpdateRow(row.id, {
+              application_form_status: String(val),
+            })
           }
           placeholder="เช่น Open / Close / Pending..."
           className="text-lg"
@@ -424,6 +451,8 @@ export default function EditTemplatePage() {
               />
             </div>
           </div>
+
+          {/* ✅ date_description = text input */}
           <div className="pt-1">
             <EditableCell
               value={row.date_description || ""}
@@ -441,22 +470,8 @@ export default function EditTemplatePage() {
     },
   ];
 
+  // ✅ V2: Dates มี checkbox show_date_range + date_description แยก
   const columnsV2: ColumnDef<DataRow>[] = [
-    {
-      key: "name_th",
-      header: "Name (TH)",
-      className: "min-w-[20ch]",
-      render: (row) => (
-        <EditableCell
-          value={row.label_on_web_th}
-          onChange={(val) =>
-            handleUpdateRow(row.id, { label_on_web_th: String(val) })
-          }
-          required
-          className="text-lg"
-        />
-      ),
-    },
     {
       key: "sequence",
       header: "Sequence",
@@ -470,65 +485,89 @@ export default function EditTemplatePage() {
     {
       key: "label_th",
       header: "Label on Web (TH)",
-      className: "min-w-[20ch]",
+      className: "min-w-[26ch]",
       render: (row) => (
-        <EditableCell
-          value={row.label_on_web_th}
-          onChange={(val) =>
-            handleUpdateRow(row.id, { label_on_web_th: String(val) })
-          }
-          required
-          className="text-lg"
-        />
+        <div className="space-y-2">
+          <EditableCell
+            value={row.label_on_web_th}
+            onChange={(val) =>
+              handleUpdateRow(row.id, { label_on_web_th: String(val) })
+            }
+            required
+            className="text-lg"
+          />
+
+          <EditableCell
+            value={row.label_on_web_th_description || ""}
+            onChange={(val) =>
+              handleUpdateRow(row.id, {
+                label_on_web_th_description: String(val),
+              })
+            }
+            type="textarea"
+            rows={2}
+            placeholder="Description..."
+            className="text-lg text-slate-600"
+          />
+        </div>
       ),
     },
     {
-      key: "desc",
-      header: "Description",
-      className: "min-w-[20ch]",
+      key: "dates",
+      header: "Dates",
+      className: "min-w-[32ch]",
       render: (row) => (
-        <EditableCell
-          value={row.label_on_web_th_description || ""}
-          onChange={(val) =>
-            handleUpdateRow(row.id, {
-              label_on_web_th_description: String(val),
-            })
-          }
-          type="textarea"
-          rows={2}
-          placeholder="Description..."
-          className="text-lg text-slate-600"
-        />
-      ),
-    },
-    {
-      key: "start",
-      header: "Start Date",
-      className: "min-w-[14ch]",
-      render: (row) => (
-        <EditableCell
-          value={row.start_date}
-          onChange={(val) =>
-            handleUpdateRow(row.id, { start_date: String(val) })
-          }
-          type="date"
-          required
-          className="text-lg"
-        />
-      ),
-    },
-    {
-      key: "end",
-      header: "End Date",
-      className: "min-w-[14ch]",
-      render: (row) => (
-        <EditableCell
-          value={row.end_date}
-          onChange={(val) => handleUpdateRow(row.id, { end_date: String(val) })}
-          type="date"
-          required
-          className="text-lg"
-        />
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm text-slate-500">Start Date</label>
+              <EditableCell
+                value={row.start_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { start_date: String(val) })
+                }
+                type="date"
+                className="text-lg"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-500">End Date</label>
+              <EditableCell
+                value={row.end_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { end_date: String(val) })
+                }
+                type="date"
+                className="text-lg"
+              />
+            </div>
+          </div>
+
+          {/* ✅ show_date_range = checkbox only */}
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={row.show_date_range ?? false}
+              onChange={(e) =>
+                handleUpdateRow(row.id, { show_date_range: e.target.checked })
+              }
+            />
+            Show range
+          </label>
+
+          {/* ✅ date_description = text input (แยกจาก checkbox) */}
+          <EditableCell
+            value={row.date_description || ""}
+            onChange={(val) =>
+              handleUpdateRow(row.id, { date_description: String(val) })
+            }
+            type="textarea"
+            rows={2}
+            placeholder="Date description..."
+            className="text-lg text-slate-600"
+          />
+        </div>
       ),
     },
   ];
@@ -553,6 +592,7 @@ export default function EditTemplatePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 relative overflow-hidden">
+      {/* background blobs (เหมือนหน้าเดิม) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
@@ -560,7 +600,7 @@ export default function EditTemplatePage() {
       </div>
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-6 md:py-10">
-        {/* Header same vibe as main page */}
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -580,6 +620,7 @@ export default function EditTemplatePage() {
               <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
                 Edit Template
               </h1>
+
               <div className="flex items-center gap-2 mt-1">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
                 <p className="text-emerald-700 font-medium">
@@ -590,14 +631,49 @@ export default function EditTemplatePage() {
             </div>
           </div>
 
+          <p className="text-slate-600 text-sm max-w-2xl">
+            แก้ไขข้อมูล ค้นหา จัดลำดับ
+            และส่งออกเป็นไฟล์เอกสารที่สวยงามพร้อมใช้งาน
+          </p>
+
           {loadError && (
-            <p className="text-xs text-red-600 mt-1">
+            <p className="text-xs text-red-600 mt-2">
               โหลดข้อมูลไม่สำเร็จ: {loadError}
             </p>
           )}
+          {loading && (
+            <p className="text-xs text-slate-500 mt-2">กำลังโหลดข้อมูล...</p>
+          )}
         </motion.div>
 
+        {/* Card: Toolbar */}
         <div className="bg-white/80 backdrop-blur-xl border border-emerald-100 rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-white">
+                <div className="text-lg font-semibold">Template Editor</div>
+                <div className="text-white/80 text-sm">
+                  {title || "กำลังโหลด..."}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-sm font-medium text-white/90">
+                  Upload Format
+                </span>
+                <select
+                  value={uploadFormat}
+                  onChange={(e) =>
+                    setUploadFormat(e.target.value as UploadFormat)
+                  }
+                  className="w-full sm:w-64 rounded-xl border border-white/30 bg-white/90 px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60">
+                  <option value="v1">Template V1 (เดิม)</option>
+                  <option value="v2">Template V2 (ใหม่)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="p-6">
             <Toolbar
               search={search}
@@ -613,29 +689,13 @@ export default function EditTemplatePage() {
               isSaving={isSaving}
             />
 
-            {/* ✅ DDL same as main page (switch columns live) */}
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="text-sm font-medium text-slate-700">
-                Upload Format
-              </span>
-
-              <select
-                value={uploadFormat}
-                onChange={(e) =>
-                  setUploadFormat(e.target.value as UploadFormat)
-                }
-                className="w-full sm:w-64 rounded-xl border border-emerald-200 bg-white/80 px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
-                <option value="v1">Template V1 (เดิม)</option>
-                <option value="v2">Template V2 (ใหม่)</option>
-              </select>
-
-              <span className="text-xs text-slate-500">
-                เปลี่ยนแล้วหัวตาราง/ช่องข้อมูลจะเปลี่ยนตาม
-              </span>
+            <div className="mt-4 text-xs text-slate-500">
+              เปลี่ยน Upload Format แล้วหัวตาราง/ช่องข้อมูลจะเปลี่ยนตาม
             </div>
           </div>
         </div>
 
+        {/* Card: Table */}
         <div className="mt-6 bg-white/80 backdrop-blur-xl border border-emerald-100 rounded-3xl shadow-2xl overflow-hidden">
           <DataTable
             rows={filteredRows}
@@ -661,6 +721,7 @@ export default function EditTemplatePage() {
               onClose={() => setShowExportDialog(false)}
               onConfirm={handleExportConfirm}
               selectedCount={selectedCount}
+              firstRow={firstRowForExport as any}
             />
           )}
         </AnimatePresence>

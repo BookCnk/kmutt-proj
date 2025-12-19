@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Edit3, Trash2, RefreshCcw } from "lucide-react";
+import { Loader2, Edit3, Trash2, RefreshCcw, Copy } from "lucide-react";
 
 import { getTemplates, deleteTemplate } from "@/api/templateService";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,12 @@ function formatDateTH(d?: string) {
   }
 }
 
-export function TemplateTable() {
+type TemplateTableProps = {
+  onCopy?: (tpl: TemplateDoc) => void; // ✅ ให้ parent เปิด modal
+  refreshSignal?: number; // ✅ parent ส่งสัญญาณให้ reload
+};
+
+export function TemplateTable({ onCopy, refreshSignal }: TemplateTableProps) {
   const [templates, setTemplates] = useState<TemplateDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -92,17 +97,22 @@ export function TemplateTable() {
     loadTemplates();
   }, [loadTemplates]);
 
+  // ✅ reload เมื่อ parent ส่ง refreshSignal เปลี่ยนค่า
+  useEffect(() => {
+    if (typeof refreshSignal === "number") {
+      loadTemplates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
+
   const handleEdit = (tpl: TemplateDoc) => {
-    // 👉 ไปหน้า /admin/export/edit?id=...
     router.push(`/admin/export/edit?id=${tpl._id}`);
   };
 
-  // เปิด modal เลือก template ที่จะลบ
   const handleDelete = (tpl: TemplateDoc) => {
     setDeleteTarget(tpl);
   };
 
-  // กดยืนยันลบใน modal
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -177,7 +187,7 @@ export function TemplateTable() {
                 </TableHead>
                 <TableHead className="min-w-[180px]">สร้างเมื่อ</TableHead>
                 <TableHead className="min-w-[180px]">แก้ไขล่าสุด</TableHead>
-                <TableHead className="w-[160px] text-center">Actions</TableHead>
+                <TableHead className="w-[220px] text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,6 +236,17 @@ export function TemplateTable() {
                           <Edit3 className="w-4 h-4 mr-1" />
                           Edit
                         </Button>
+
+                        {/* ✅ Copy -> ส่งขึ้น parent */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                          onClick={() => onCopy?.(tpl)}>
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy
+                        </Button>
+
                         <Button
                           size="sm"
                           variant="outline"

@@ -17,15 +17,32 @@ import { exportToStyledExcel, exportToStyledPdf } from "./exportExcel";
 import {
   saveTemplate as saveTemplateApi,
   getTemplates,
+  duplicateTemplate,
 } from "@/api/templateService";
 import { useAuthStore } from "@/stores/auth";
 import { CreateTemplateDto } from "@/types/template";
 import { toast } from "sonner";
 import { TemplateTable } from "./TemplateTable";
-import { ArrowLeft, FileSpreadsheet, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  FileSpreadsheet,
+  Sparkles,
+  Copy,
+  Loader2,
+} from "lucide-react";
 
 import type { ColumnDef } from "@/components/export/DataTable";
 import { EditableCell } from "@/components/export/EditableCell";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 /**
  * Excel → Web Preview with Export Feature
@@ -97,6 +114,14 @@ export default function AdminExportPage() {
   const [showSaveDialog, setShowSaveDialog] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
+  // ✅ Copy modal at Parent
+  const [copyTarget, setCopyTarget] = React.useState<{
+    _id: string;
+    title: string;
+  } | null>(null);
+  const [copyLoading, setCopyLoading] = React.useState(false);
+  const [templateRefreshSignal, setTemplateRefreshSignal] = React.useState(0);
+
   const currentSheet = sheets.find((s) => s.name === current) || sheets[0];
 
   const filteredRows = React.useMemo(() => {
@@ -104,7 +129,6 @@ export default function AdminExportPage() {
     if (!search.trim()) return currentSheet.rows;
 
     const q = search.toLowerCase();
-    console.log("Filtering rows with currentSheet:", currentSheet.rows?.[0]);
     return currentSheet.rows.filter((r) => {
       const searchableFields = [
         r.label_on_web_th,
@@ -215,9 +239,12 @@ export default function AdminExportPage() {
       application_form_status: "",
       start_date: today,
       end_date: today,
-      date_description: undefined,
+      // ✅ text field
+      date_description: "",
       current_stage: "No",
       selected: true,
+      // ✅ checkbox only
+      show_date_range: true,
     };
 
     setSheets((prevSheets) =>
@@ -248,7 +275,7 @@ export default function AdminExportPage() {
     );
   };
 
-  // ✅ V1 columns: เพิ่ม Application Form Status ต่อหลัง Label on Web (EN)
+  // ✅ V1 columns (ไม่ยุ่ง)
   const columnsV1: ColumnDef<DataRow>[] = [
     {
       key: "sequence",
@@ -306,7 +333,6 @@ export default function AdminExportPage() {
         />
       ),
     },
-    // ✅ NEW: Application Form Status (ต่อหลัง EN)
     {
       key: "app_status",
       header: "Application Form Status",
@@ -360,6 +386,8 @@ export default function AdminExportPage() {
               />
             </div>
           </div>
+
+          {/* ✅ date_description = text input */}
           <div className="pt-1">
             <EditableCell
               value={row.date_description || ""}
@@ -377,6 +405,7 @@ export default function AdminExportPage() {
     },
   ];
 
+  // ✅ V2 columns: แก้ให้ date_description เป็น text + show_date_range เป็น checkbox เท่านั้น
   const columnsV2: ColumnDef<DataRow>[] = [
     {
       key: "sequence",
@@ -391,65 +420,89 @@ export default function AdminExportPage() {
     {
       key: "label_th",
       header: "Label on Web (TH)",
-      className: "min-w-[20ch]",
+      className: "min-w-[26ch]",
       render: (row) => (
-        <EditableCell
-          value={row.label_on_web_th}
-          onChange={(val) =>
-            handleUpdateRow(row.id, { label_on_web_th: String(val) })
-          }
-          required
-          className="text-lg"
-        />
+        <div className="space-y-2">
+          <EditableCell
+            value={row.label_on_web_th}
+            onChange={(val) =>
+              handleUpdateRow(row.id, { label_on_web_th: String(val) })
+            }
+            required
+            className="text-lg"
+          />
+
+          <EditableCell
+            value={row.label_on_web_th_description || ""}
+            onChange={(val) =>
+              handleUpdateRow(row.id, {
+                label_on_web_th_description: String(val),
+              })
+            }
+            type="textarea"
+            rows={2}
+            placeholder="Description..."
+            className="text-lg text-slate-600"
+          />
+        </div>
       ),
     },
     {
-      key: "desc",
-      header: "Description",
-      className: "min-w-[20ch]",
+      key: "dates",
+      header: "Dates",
+      className: "min-w-[32ch]",
       render: (row) => (
-        <EditableCell
-          value={row.label_on_web_th_description || ""}
-          onChange={(val) =>
-            handleUpdateRow(row.id, {
-              label_on_web_th_description: String(val),
-            })
-          }
-          type="textarea"
-          rows={2}
-          placeholder="Description..."
-          className="text-lg text-slate-600"
-        />
-      ),
-    },
-    {
-      key: "start",
-      header: "Start Date",
-      className: "min-w-[14ch]",
-      render: (row) => (
-        <EditableCell
-          value={row.start_date}
-          onChange={(val) =>
-            handleUpdateRow(row.id, { start_date: String(val) })
-          }
-          type="date"
-          required
-          className="text-lg"
-        />
-      ),
-    },
-    {
-      key: "end",
-      header: "End Date",
-      className: "min-w-[14ch]",
-      render: (row) => (
-        <EditableCell
-          value={row.end_date}
-          onChange={(val) => handleUpdateRow(row.id, { end_date: String(val) })}
-          type="date"
-          required
-          className="text-lg"
-        />
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm text-slate-500">Start Date</label>
+              <EditableCell
+                value={row.start_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { start_date: String(val) })
+                }
+                type="date"
+                className="text-lg"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-500">End Date</label>
+              <EditableCell
+                value={row.end_date}
+                onChange={(val) =>
+                  handleUpdateRow(row.id, { end_date: String(val) })
+                }
+                type="date"
+                className="text-lg"
+              />
+            </div>
+          </div>
+
+          {/* ✅ show_date_range = checkbox only */}
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={row.show_date_range ?? false}
+              onChange={(e) =>
+                handleUpdateRow(row.id, { show_date_range: e.target.checked })
+              }
+            />
+            Show range
+          </label>
+
+          {/* ✅ date_description = text input (แยกจาก checkbox) */}
+          <EditableCell
+            value={row.date_description || ""}
+            onChange={(val) =>
+              handleUpdateRow(row.id, { date_description: String(val) })
+            }
+            type="textarea"
+            rows={2}
+            placeholder="Date description..."
+            className="text-lg text-slate-600"
+          />
+        </div>
       ),
     },
   ];
@@ -483,16 +536,19 @@ export default function AdminExportPage() {
           date: {
             start_date: row.start_date,
             end_date: row.end_date,
+            // ✅ ส่ง text ที่พิมพ์เอง
             description: row.date_description,
+            // ✅ checkbox boolean เท่านั้น
+            show_range: !!row.show_date_range,
           },
           current_stage: row.current_stage,
           export: row.selected,
         })),
       };
 
-      // (await saveTemplate) as any;
       await saveTemplateApi(payload);
       toast.success("บันทึกข้อมูลสำเร็จ!");
+      setTemplateRefreshSignal((x) => x + 1); // ✅ ให้ table reload
     } catch (error) {
       toast.error(
         `เกิดข้อผิดพลาดในการบันทึก: ${
@@ -517,8 +573,13 @@ export default function AdminExportPage() {
 
   const handleExportConfirm = (config: ExportConfig, format: ExportFormat) => {
     if (!currentSheet) return;
-    if (format === "excel") exportToStyledExcel(currentSheet.rows, [], config);
-    if (format === "pdf") exportToStyledPdf(currentSheet.rows, [], config);
+
+    const selectedRows = currentSheet.rows.filter((r) => r.selected);
+    if (selectedRows.length === 0) return;
+
+    if (format === "excel") exportToStyledExcel(selectedRows, [], config);
+    if (format === "pdf") exportToStyledPdf(selectedRows, [], config);
+
     setShowExportDialog(false);
   };
 
@@ -532,14 +593,16 @@ export default function AdminExportPage() {
       const { headers, rows } = parseSheet(ws);
 
       const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+
       const findIdx = (col: string) =>
         headers.findIndex((h) => norm(h) === norm(col));
 
+      const findIdxStartsWith = (prefix: string) =>
+        headers.findIndex((h) => norm(h).startsWith(norm(prefix)));
+
       const idx = {
         sequence: findIdx("Sequence"),
-        nameHeader: findIdx(
-          "Name (TH) (Manage Admission Project) (Manage Admission Project)"
-        ),
+        nameHeader: findIdxStartsWith("Name (TH)"),
         labelTh: findIdx("Label on Web (TH)"),
         labelThDescV1: findIdx("Label on Web (TH) Description"),
         descV2: findIdx("Description"),
@@ -547,14 +610,23 @@ export default function AdminExportPage() {
         appStatus: findIdx("Application Form Status"),
         start: findIdx("Start Date"),
         end: findIdx("End Date"),
+        // ✅ support date_description from file (optional)
+        dateDesc: findIdx("Date Description"),
       };
-      console.log("Column indices:", idx);
-      console.log("Column rows:", rows);
-      const parseDate = (v: string) =>
-        v ? new Date(v).toISOString().split("T")[0] : "";
-      const filteredRows: any[] = rows.map((r, i) => ({
+
+      const parseDate = (v: string) => {
+        if (!v) return "";
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toISOString().split("T")[0];
+      };
+
+      const filteredRows: DataRow[] = rows.map((r, i) => ({
         id: `${name}-row-${i}`,
+
+        // @ts-ignore (ถ้า DataRow ยังไม่มี field นี้)
         nameHeader: idx.nameHeader >= 0 ? String(r[idx.nameHeader] || "") : "",
+
         no: i + 1,
         sequence: Number(r[idx.sequence]) || i + 1,
 
@@ -573,7 +645,13 @@ export default function AdminExportPage() {
         start_date: parseDate(String(r[idx.start] || "")),
         end_date: parseDate(String(r[idx.end] || "")),
 
-        date_description: undefined,
+        // ✅ checkbox default (แยกจาก description)
+        show_date_range: true,
+
+        // ✅ date_description = text from file if exists
+        date_description:
+          idx.dateDesc >= 0 ? String(r[idx.dateDesc] || "") : "",
+
         current_stage: "No",
         selected: true,
       }));
@@ -602,9 +680,35 @@ export default function AdminExportPage() {
 
   const firstRowForExport = React.useMemo(() => {
     if (!currentSheet) return null;
-    console.log("First row for export:", currentSheet.rows?.[0]);
-    return currentSheet.rows?.[0] ?? null;
+    return (
+      currentSheet.rows.find((r) => r.selected) ??
+      currentSheet.rows?.[0] ??
+      null
+    );
   }, [currentSheet]);
+
+  // ✅ parent รับ event จาก TemplateTable
+  const handleOpenCopyModal = (tpl: { _id: string; title: string }) => {
+    setCopyTarget({ _id: tpl._id, title: tpl.title });
+  };
+
+  const confirmCopyTemplate = async () => {
+    if (!copyTarget) return;
+    try {
+      setCopyLoading(true);
+      await duplicateTemplate(copyTarget._id);
+      toast.success(`คัดลอก Template "${copyTarget.title}" สำเร็จ`);
+      setCopyTarget(null);
+      setTemplateRefreshSignal((x) => x + 1); // ✅ ให้ table reload
+    } catch (err: any) {
+      console.error("Failed to copy template", err);
+      toast.error(
+        err?.message || `คัดลอก Template "${copyTarget.title}" ไม่สำเร็จ`
+      );
+    } finally {
+      setCopyLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 relative overflow-hidden">
@@ -807,9 +911,67 @@ export default function AdminExportPage() {
               Templates ที่บันทึกไว้
             </h2>
           </div>
-          <TemplateTable />
+
+          {/* ✅ ส่ง onCopy + refreshSignal */}
+          <TemplateTable
+            onCopy={handleOpenCopyModal}
+            refreshSignal={templateRefreshSignal}
+          />
         </motion.div>
       </div>
+
+      {/* ✅ Copy modal controlled by Parent */}
+      <Dialog
+        open={!!copyTarget}
+        onOpenChange={(open) => {
+          if (!open && !copyLoading) setCopyTarget(null);
+        }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการคัดลอก Template</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <p>
+                ต้องการคัดลอก Template{" "}
+                <span className="font-semibold text-slate-900">
+                  {copyTarget?.title}
+                </span>{" "}
+                ใช่หรือไม่?
+              </p>
+              <p className="text-xs text-slate-500">
+                ระบบจะสร้างชื่อใหม่อัตโนมัติ (เช่น Copy, Copy 2)
+                เพื่อไม่ให้ชื่อซ้ำ
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={copyLoading}
+              onClick={() => !copyLoading && setCopyTarget(null)}>
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+              onClick={confirmCopyTemplate}
+              disabled={copyLoading}>
+              {copyLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  กำลังคัดลอก...
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-1" />
+                  คัดลอก
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         @keyframes blob {
