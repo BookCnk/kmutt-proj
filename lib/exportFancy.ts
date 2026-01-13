@@ -11,6 +11,42 @@ const LOGO_WEB_URL = "/ICON.png"; // URL โลโก้สำหรับเบ
 const BRAND_ORANGE = "FFFF4616"; // #FA4616 (ARGB)
 const TITLE_RED = "FFCC0000"; // สีแดงสำหรับหัวบรรทัดแรก
 
+const FACULTY_ORDER = [
+  "คณะวิศวกรรมศาสตร์",
+  "คณะวิทยาศาสตร์",
+  "คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี",
+  "คณะพลังงานสิ่งแวดล้อมและวัสดุ",
+  "คณะทรัพยากรชีวภาพและเทคโนโลยี",
+  "คณะศิลปศาสตร์",
+  "คณะสถาปัตยกรรมศาสตร์และการออกแบบ",
+  "สถาบันวิทยาการหุ่นยนต์ภาคสนาม",
+  "คณะเทคโนโลยีสารสนเทศ",
+  "บัณฑิตวิทยาลัยร่วมด้านพลังงานและสิ่งแวดล้อม",
+  "บัณฑิตวิทยาลัยการจัดการและนวัตกรรม",
+] as const;
+
+function normText(s: string) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[()\-–—]/g, "");
+}
+
+function getFacultyRank(facultyName: string): number {
+  const f = normText(facultyName);
+
+  for (let i = 0; i < FACULTY_ORDER.length; i++) {
+    const o = normText(FACULTY_ORDER[i]);
+    if (!o) continue;
+    if (f.includes(o) || o.includes(f)) return i;
+  }
+
+  if (f.includes("jgsee")) return FACULTY_ORDER.length - 2;
+  if (f.includes("gmi")) return FACULTY_ORDER.length - 1;
+
+  return 999;
+}
+
 // ===== Helpers =====
 const thaiMonthYearNow = () => {
   const d = new Date();
@@ -61,10 +97,22 @@ const asText = (v: any) => (typeof v === "string" ? v : v?.title ?? "");
 // ดึง "วัน-เวลาเรียน" จากท้ายชื่อ
 function parseScheduleFromProgramTitle(title: string): string | undefined {
   if (!title) return undefined;
-  const m = title.match(/-\s*\(([^)]+)\)\s*$/);
-  if (m) return m[1]?.trim();
-  const m2 = title.match(/\(([^)]+วัน[^)]*)\)\s*$/);
-  if (m2) return m2[1]?.trim();
+
+  const patterns = [
+    /-\s*\(([^)]+)\)\s*$/, // Explicit schedule in "- ( ... )" format
+    /\(([^()]+วัน[^()]*)\)\s*$/, // Parentheses that mention "day" words
+    /\(([^()]+เวลา[^()]*)\)\s*$/, // Parentheses that mention "time" words
+    /\[([^\]]+)\]\s*$/, // Trailing bracketed note
+  ];
+
+  for (const pattern of patterns) {
+    const match = title.match(pattern);
+    if (match?.[1]) {
+      const value = match[1].trim();
+      if (value) return value;
+    }
+  }
+
   return undefined;
 }
 
@@ -133,7 +181,11 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
     ? doc.intake_programs.map((ip: any) => {
         const pid = ip?.program_id ?? {};
         const rawTitle: string = pid?.title ?? "";
-        const schedule = parseScheduleFromProgramTitle(rawTitle);
+        const scheduleValue =
+          typeof pid?.time === "string" && pid.time.trim().length > 0
+            ? pid.time.trim()
+            : parseScheduleFromProgramTitle(rawTitle);
+        const schedule = scheduleValue || undefined;
         const cleanTitle = stripScheduleFromTitle(rawTitle);
 
         const deg = ip?.intake_degree ?? {};
@@ -218,9 +270,26 @@ function buildFancyRowsByDegree(
     grouped.set(r.faculty, arr);
   });
 
+  const orderedFaculties = Array.from(grouped.entries()).sort(([fa], [fb]) => {
+    const ra = getFacultyRank(fa);
+    const rb = getFacultyRank(fb);
+    if (ra !== rb) return ra - rb;
+    return (fa || "").localeCompare(fb || "", "th");
+  });
+
   const out: FancyExportRow[] = [];
 
-  grouped.forEach((rows, faculty) => {
+  for (const [faculty, rowsRaw] of orderedFaculties) {
+    const rows = [...rowsRaw].sort((a, b) => {
+      const da = a.department || "";
+      const db = b.department || "";
+      const cmp = da.localeCompare(db, "th");
+      if (cmp !== 0) return cmp;
+      const pa = a.program || "";
+      const pb = b.program || "";
+      return pa.localeCompare(pb, "th");
+    });
+
     let sum = 0;
     const facultyRows: FancyExportRow[] = [];
 
@@ -237,7 +306,13 @@ function buildFancyRowsByDegree(
         return false;
       });
 
-      for (const p of programsOfLevel) {
+      if (!programsOfLevel.length) continue;
+
+      const sortedPrograms = [...programsOfLevel].sort((a, b) =>
+        (a.title || "").localeCompare(b.title || "", "th")
+      );
+
+      for (const p of sortedPrograms) {
         const amtRaw =
           degreeLevel === "master"
             ? p.master?.amount ?? 0
@@ -280,7 +355,7 @@ function buildFancyRowsByDegree(
 
       out.push(...facultyRows);
     }
-  });
+  }
 
   return out;
 }
@@ -576,62 +651,57 @@ async function buildSheetForRows(
     const roundCell = row.getCell(7);
     const monthCell = row.getCell(8);
 
-    if (r.openFlag === "P") {
-      // เปิดรับ → ✓ สีเขียว
-      openCell.value = YES;
-      openCell.font = {
+    const setYes = (cell: ExcelJS.Cell) => {
+      cell.value = YES;
+      cell.font = {
         name: "TH SarabunPSK",
         size: 14,
         bold: true,
         color: { argb: "FF0E7A0D" },
       };
-    } else {
-      // ไม่เปิดรับ → ว่าง
-      openCell.value = NO;
-      openCell.font = {
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    };
+
+    const setNo = (cell: ExcelJS.Cell) => {
+      cell.value = NO;
+      cell.font = {
         name: "TH SarabunPSK",
         size: 14,
         bold: true,
         color: { argb: "FFB00020" },
       };
-    }
-    openCell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    };
+
+    const setBlank = (cell: ExcelJS.Cell) => {
+      cell.value = "";
+      cell.font = { name: "TH SarabunPSK", size: 14 };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    };
 
     if (r.openFlag === "P") {
-      // เฉพาะกรณีเปิดรับเท่านั้นที่พิจารณา ✓/ว่าง ในคอลัมน์ G/H
-      if (r.isRounds) {
-        roundCell.value = YES;
-        roundCell.font = {
-          name: "TH SarabunPSK",
-          size: 14,
-          bold: true,
-          color: { argb: "FF0E7A0D" },
-        };
-      } else {
-        roundCell.value = ""; // เดิมเป็น ✗ → เปลี่ยนเป็นว่าง
-        roundCell.font = { name: "TH SarabunPSK", size: 14 };
-      }
-      roundCell.alignment = { vertical: "middle", horizontal: "center" };
+      setYes(openCell);
 
-      if (r.isMonthly) {
-        monthCell.value = YES;
-        monthCell.font = {
-          name: "TH SarabunPSK",
-          size: 14,
-          bold: true,
-          color: { argb: "FF0E7A0D" },
-        };
+      if (!r.isRounds && !r.isMonthly) {
+        setNo(roundCell);
+        setNo(monthCell);
       } else {
-        monthCell.value = ""; // เดิมเป็น ✗ → เปลี่ยนเป็นว่าง
-        monthCell.font = { name: "TH SarabunPSK", size: 14 };
+        if (r.isRounds) {
+          setYes(roundCell);
+        } else {
+          setBlank(roundCell);
+        }
+
+        if (r.isMonthly) {
+          setYes(monthCell);
+        } else {
+          setBlank(monthCell);
+        }
       }
-      monthCell.alignment = { vertical: "middle", horizontal: "center" };
     } else {
-      // ถ้าไม่เปิดรับอยู่แล้ว ให้ G/H ว่าง
-      roundCell.value = "";
-      monthCell.value = "";
-      roundCell.alignment = { vertical: "middle", horizontal: "center" };
-      monthCell.alignment = { vertical: "middle", horizontal: "center" };
+      setNo(openCell);
+      setBlank(roundCell);
+      setBlank(monthCell);
     }
 
     const amtNumeric =

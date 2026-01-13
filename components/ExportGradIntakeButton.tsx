@@ -165,7 +165,7 @@ export default function ExportGradIntakeButton({
                   )}
                 </button>
 
-                <button
+                {/* <button
                   type="button"
                   onClick={() => onChoose("pdf")}
                   disabled={!!loading}
@@ -182,7 +182,7 @@ export default function ExportGradIntakeButton({
                   {loading === "pdf" && (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
-                </button>
+                </button> */}
 
                 <button
                   type="button"
