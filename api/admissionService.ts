@@ -5,6 +5,7 @@ import {
   AdmissionResponse,
   CreateAdmissionDto,
   UpdateAdmissionDto,
+  ActiveProgram,
 } from "@/types/admission";
 const BASE = "/admission";
 

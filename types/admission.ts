@@ -54,3 +54,14 @@ export type CreateAdmissionDto = Omit<Admission, "_id">;
 export type UpdateAdmissionDto = Partial<Omit<Admission, "_id" | "term">> & {
   term?: AdmissionTerm;
 };
+
+export type ActiveProgram = {
+  _id: string;
+  faculty_id?: { _id: string; title: string };
+  department_id?: { _id: string; title: string };
+  title: string;
+  degree_level?: "master" | "doctoral" | string;
+  degree_abbr?: string;
+  time?: string; // ถ้ามีใน model
+  active: boolean;
+};

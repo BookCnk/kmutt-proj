@@ -3,15 +3,16 @@
 import React from "react";
 import { adminListForms } from "@/api/formService";
 import { getAdmissionById } from "@/api/admissionService";
+import { getActivePrograms } from "@/api/programService";
 import { exportExcelFancy, buildExcelFancyBuffer } from "@/lib/exportFancy";
-import { convertExcelToPdf } from "@/api/conversionService"; // ❗ห้ามแก้ไฟล์นี้
+import { convertExcelToPdf } from "@/api/conversionService";
 import { saveAs } from "file-saver";
-import { Loader2, FileSpreadsheet, FileText, X } from "lucide-react";
+import { Loader2, FileSpreadsheet, X } from "lucide-react";
 
 type Props = {
   className?: string;
   label?: string;
-  admissionId?: string; // _id ของรอบรับ หรือ "ทั้งหมด" (คุณใช้ selectedYear ก็ได้)
+  admissionId?: string; // _id ของรอบรับ หรือ "ทั้งหมด"
   roundNumber?: string | number; // optional
 };
 
@@ -36,11 +37,13 @@ export default function ExportGradIntakeButton({
     if (admissionId && admissionId !== "ทั้งหมด")
       params.admission_id = admissionId;
 
-    const [list, admissionResp] = await Promise.all([
+    // ✅ ดึง active programs มาด้วย
+    const [list, admissionResp, activeResp] = await Promise.all([
       adminListForms(params),
       admissionId && admissionId !== "ทั้งหมด"
         ? getAdmissionById(admissionId)
         : Promise.resolve(undefined),
+      getActivePrograms(),
     ]);
 
     const items =
@@ -54,11 +57,27 @@ export default function ExportGradIntakeButton({
       (admissionResp as any)?.data ??
       admissionResp;
 
-    return { items, admission };
+    // ✅ รองรับหลายรูปแบบ response
+    const activePrograms =
+      (activeResp as any)?.items ??
+      (activeResp as any)?.data?.items ??
+      (activeResp as any)?.data?.data ??
+      (activeResp as any)?.data ??
+      (Array.isArray(activeResp) ? activeResp : []) ??
+      [];
+
+    return { items, admission, activePrograms };
   };
 
-  const exportPdf = async (items: any[], admission: any) => {
-    const excelBuf = await buildExcelFancyBuffer(items, { admission });
+  const exportPdf = async (
+    items: any[],
+    admission: any,
+    activePrograms: any[]
+  ) => {
+    const excelBuf = await buildExcelFancyBuffer(items, {
+      admission,
+      activePrograms,
+    });
     if (!excelBuf) throw new Error("ไม่มีข้อมูลสำหรับ export");
 
     const pdfBlob = await convertExcelToPdf(excelBuf);
@@ -70,8 +89,12 @@ export default function ExportGradIntakeButton({
     saveAs(pdfBlob, filename);
   };
 
-  const exportXlsx = async (items: any[], admission: any) => {
-    await exportExcelFancy(items, { admission }); // ✅ เดิม: ดาวน์โหลด xlsx
+  const exportXlsx = async (
+    items: any[],
+    admission: any,
+    activePrograms: any[]
+  ) => {
+    await exportExcelFancy(items, { admission, activePrograms });
   };
 
   const onChoose = async (format: ExportFormat) => {
@@ -79,20 +102,20 @@ export default function ExportGradIntakeButton({
     setLoading(format);
 
     try {
-      const { items, admission } = await fetchData();
+      const { items, admission, activePrograms } = await fetchData();
+
       if (!items?.length) {
         alert("ไม่มีข้อมูลสำหรับ export");
         return;
       }
 
       if (format === "xlsx") {
-        await exportXlsx(items, admission);
+        await exportXlsx(items, admission, activePrograms);
       } else if (format === "pdf") {
-        await exportPdf(items, admission);
+        await exportPdf(items, admission, activePrograms);
       } else {
-        // both
-        await exportXlsx(items, admission);
-        await exportPdf(items, admission);
+        await exportXlsx(items, admission, activePrograms);
+        await exportPdf(items, admission, activePrograms);
       }
 
       setOpen(false);
@@ -106,7 +129,6 @@ export default function ExportGradIntakeButton({
 
   return (
     <>
-      {/* ปุ่มเดิม (กดแล้วเปิด modal) */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -120,7 +142,6 @@ export default function ExportGradIntakeButton({
         {label}
       </button>
 
-      {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={close} />
@@ -164,25 +185,6 @@ export default function ExportGradIntakeButton({
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
                 </button>
-
-                {/* <button
-                  type="button"
-                  onClick={() => onChoose("pdf")}
-                  disabled={!!loading}
-                  className="w-full flex items-center justify-between rounded-xl border px-4 py-3 hover:bg-gray-50 disabled:opacity-60">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-medium">PDF (.pdf)</div>
-                      <div className="text-xs text-gray-500">
-                        แปลงจาก Excel แล้วดาวน์โหลด PDF
-                      </div>
-                    </div>
-                  </div>
-                  {loading === "pdf" && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                </button> */}
 
                 <button
                   type="button"

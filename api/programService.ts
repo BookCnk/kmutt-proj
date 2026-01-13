@@ -51,3 +51,8 @@ export const getProgramsByDegree = async (
   degreeLevel: string
 ): Promise<ProgramResponse> =>
   api.get<ProgramResponse, ProgramResponse>(`${BASE}/degree/${degreeLevel}`);
+
+export const getActivePrograms = async (): Promise<any[]> => {
+  const res = await api.get<any, any>(`admin${BASE}/active`);
+  return res?.data ?? res ?? [];
+};

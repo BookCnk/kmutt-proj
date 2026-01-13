@@ -1,3 +1,4 @@
+// lib/exportFancy.ts
 // ===== Dependencies =====
 // 1) npm i exceljs
 // 2) npm i file-saver   (ถ้าจะดาวน์โหลดในเบราว์เซอร์)
@@ -10,6 +11,7 @@ const LOGO_NODE_PATH = "D:/project/public/ICON.png"; // พาธโลโก้
 const LOGO_WEB_URL = "/ICON.png"; // URL โลโก้สำหรับเบราว์เซอร์
 const BRAND_ORANGE = "FFFF4616"; // #FA4616 (ARGB)
 const TITLE_RED = "FFCC0000"; // สีแดงสำหรับหัวบรรทัดแรก
+const DIRECT_CONTACT_MESSAGE = "ติดต่อสมัครโดยตรงที่สาขาวิชา";
 
 const FACULTY_ORDER = [
   "คณะวิศวกรรมศาสตร์",
@@ -167,8 +169,28 @@ type FancyExportRow = {
   isRounds: boolean;
   isMonthly: boolean;
   phones: string;
+  isActiveOnly?: boolean;
+  admissionText?: string;
   isFacultyHeader?: boolean;
   facultyTotal?: number;
+};
+
+export type AdmissionMeta = {
+  term?: { label?: string; semester?: number; academic_year_th?: number };
+  application_window?: {
+    open_at?: string;
+    close_at?: string;
+    notice?: string;
+    calendar_url?: string;
+  };
+  rounds?: { no?: number; title?: string; interview_date?: string }[];
+  monthly?: { month?: string; title?: string; interview_date?: string }[];
+  _id?: string;
+};
+
+export type ExportFancyMeta = {
+  admission?: AdmissionMeta;
+  activePrograms?: any[];
 };
 
 // ===== Normalizer: allForms (โครงสร้างใหม่) -> SurveyRow =====
@@ -258,6 +280,144 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
   };
 }
 
+// ===== Merge activePrograms into SurveyRow[] (กันซ้ำด้วย key) =====
+type PrepareSurveyRowsOptions = {
+  activePrograms?: any[];
+};
+
+function buildProgramKey(input: {
+  faculty: string;
+  department: string;
+  title: string;
+  degree_level?: string;
+  degree_abbr?: string;
+}) {
+  return [
+    normText(input.faculty),
+    normText(input.department),
+    normText(stripScheduleFromTitle(input.title)),
+    (input.degree_level || "").toLowerCase(),
+    normText(input.degree_abbr || ""),
+  ].join("|");
+}
+
+function normalizePhones(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.trim() ? [value.trim()] : [];
+  }
+  return [];
+}
+
+function mergeActiveProgramsIntoRows(
+  normalized: SurveyRow[],
+  activePrograms: any[]
+): SurveyRow[] {
+  if (!activePrograms?.length) return normalized;
+
+  const existing = new Set<string>();
+  normalized.forEach((row) => {
+    row.programs.forEach((prog) => {
+      existing.add(
+        buildProgramKey({
+          faculty: row.faculty,
+          department: row.department,
+          title: prog.title,
+          degree_level: prog.degree_level,
+          degree_abbr: prog.degree_abbr,
+        })
+      );
+    });
+  });
+
+  const merged = [...normalized];
+
+  for (const ap of activePrograms) {
+    // กันเคสส่งมาทั้งหมด แต่เราอยากเอาเฉพาะ active = true
+    if (ap?.active === false) continue;
+
+    const faculty = asText(ap?.faculty_id);
+    const department = asText(ap?.department_id);
+    const rawTitle: string = ap?.title ?? "";
+    const cleanTitle = stripScheduleFromTitle(rawTitle);
+    const scheduleValue =
+      typeof ap?.time === "string" && ap.time.trim()
+        ? ap.time.trim()
+        : parseScheduleFromProgramTitle(rawTitle);
+
+    const key = buildProgramKey({
+      faculty,
+      department,
+      title: cleanTitle,
+      degree_level: ap?.degree_level,
+      degree_abbr: ap?.degree_abbr,
+    });
+
+    if (existing.has(key)) continue;
+    existing.add(key);
+
+    const degreeLevel =
+      typeof ap?.degree_level === "string"
+        ? ap.degree_level.toLowerCase()
+        : undefined;
+
+    const masterInfo =
+      degreeLevel === "master"
+        ? { amount: 0, bachelor_req: false, master_req: false }
+        : undefined;
+    const doctoralInfo =
+      degreeLevel === "doctoral"
+        ? { amount: 0, bachelor_req: false, master_req: false }
+        : undefined;
+
+    const program: ProgramInForm = {
+      programId: normalizeId(ap?._id),
+      title: cleanTitle,
+      schedule: scheduleValue || undefined,
+      degree_abbr: ap?.degree_abbr,
+      degree_level: ap?.degree_level,
+      master: masterInfo,
+      doctoral: doctoralInfo,
+      rounds: [],
+      monthly: [],
+      message: DIRECT_CONTACT_MESSAGE, // ✅ ตรง requirement
+    };
+
+    const phones = normalizePhones(
+      ap?.contact_phone ?? ap?.phones ?? ap?.phone
+    );
+
+    merged.push({
+      id: normalizeId(ap?._id),
+      faculty,
+      department,
+      program: cleanTitle,
+      programs: [program],
+      submitterEmail: "-",
+      submitterName: "-",
+      coordinator: "-",
+      phone: phones,
+      submittedAt: new Date().toISOString(),
+    });
+  }
+
+  return merged;
+}
+
+function prepareSurveyRows(
+  allFormsRaw: any[],
+  options?: PrepareSurveyRowsOptions
+): SurveyRow[] {
+  const baseRows: SurveyRow[] = (allFormsRaw || []).map(mapFormToSurveyRow_New);
+  const activePrograms = options?.activePrograms ?? [];
+  if (!activePrograms.length) return baseRows;
+  return mergeActiveProgramsIntoRows(baseRows, activePrograms);
+}
+
 // ===== รวมข้อมูลจาก SurveyRow[] -> FancyExportRow[] แยกตาม degree =====
 function buildFancyRowsByDegree(
   data: SurveyRow[],
@@ -325,6 +485,9 @@ function buildFancyRowsByDegree(
         const hasMonthly = Array.isArray(p.monthly) && p.monthly.length > 0;
         const isOpen = subtotal > 0 || hasRounds || hasMonthly;
 
+        const admissionText = (p.message || "").trim();
+        const isActiveOnly = admissionText === DIRECT_CONTACT_MESSAGE;
+
         facultyRows.push({
           faculty,
           degreeAbbr: p.degree_abbr || guessDegreeAbbrFromProgramTitle(p.title),
@@ -335,6 +498,8 @@ function buildFancyRowsByDegree(
           isRounds: hasRounds,
           isMonthly: hasMonthly,
           phones: (r.phone || []).filter(Boolean).join(" / "),
+          admissionText,
+          isActiveOnly,
         });
       }
     }
@@ -411,19 +576,6 @@ async function addLogoIfAny(
     console.warn("โหลดโลโก้ไม่สำเร็จ:", e);
   }
 }
-
-export type AdmissionMeta = {
-  term?: { label?: string; semester?: number; academic_year_th?: number };
-  application_window?: {
-    open_at?: string;
-    close_at?: string;
-    notice?: string;
-    calendar_url?: string;
-  };
-  rounds?: { no?: number; title?: string; interview_date?: string }[];
-  monthly?: { month?: string; title?: string; interview_date?: string }[];
-  _id?: string;
-};
 
 // ===== Sheet builder (ใช้ซ้ำได้ทั้งโท/เอก) =====
 async function buildSheetForRows(
@@ -544,11 +696,11 @@ async function buildSheetForRows(
     { key: "deg", width: 10 },
     { key: "prog", width: 58 },
     { key: "sch", width: 45 },
-    { key: "open", width: 12 },
-    { key: "amt", width: 14 },
-    { key: "round", width: 12 },
-    { key: "month", width: 12 },
-    { key: "phone", width: 22 },
+    { key: "open", width: 12 }, // E
+    { key: "amt", width: 14 }, // F
+    { key: "round", width: 12 }, // G
+    { key: "month", width: 12 }, // H
+    { key: "phone", width: 22 }, // I
   ];
 
   [5, 6].forEach((r) => {
@@ -582,6 +734,7 @@ async function buildSheetForRows(
   // ----- Data -----
   let no = 1;
   let grandTotal = 0;
+
   for (const r of rows) {
     if (r.isFacultyHeader) {
       const row = ws.addRow([
@@ -622,11 +775,11 @@ async function buildSheetForRows(
       r.degreeAbbr,
       r.programTitle,
       r.schedule ?? "",
-      "", // E: การเปิดรับ (✓ หรือ ว่าง)
-      r.amount ?? "", // F: จำนวนการรับ
-      "", // G: เป็นรอบ (✓ หรือ ว่าง)
-      "", // H: ทุกเดือน (✓ หรือ ว่าง)
-      r.phones, // I: เบอร์ติดต่อ
+      "", // E
+      r.amount ?? "", // F
+      "", // G
+      "", // H
+      r.phones, // I
     ]);
 
     // สไตล์พื้นฐาน
@@ -646,10 +799,10 @@ async function buildSheetForRows(
       };
     });
 
-    // ช่อง ✓ / ว่าง
-    const openCell = row.getCell(5);
-    const roundCell = row.getCell(7);
-    const monthCell = row.getCell(8);
+    const openCell = row.getCell(5); // E
+    const amtCell = row.getCell(6); // F
+    const roundCell = row.getCell(7); // G
+    const monthCell = row.getCell(8); // H
 
     const setYes = (cell: ExcelJS.Cell) => {
       cell.value = YES;
@@ -679,24 +832,39 @@ async function buildSheetForRows(
       cell.alignment = { vertical: "middle", horizontal: "center" };
     };
 
-    if (r.openFlag === "P") {
+    // ✅ UPDATE: ถ้าเป็น "ติดต่อสมัคร..." ให้ merge E-H แล้วโชว์ข้อความในช่วงนั้น
+    if (r.admissionText) {
+      // ล้างค่าเดิมก่อน (กันหลงค่า)
+      amtCell.value = "";
+      roundCell.value = "";
+      monthCell.value = "";
+
+      // merge E..H ในแถวนี้
+      try {
+        ws.mergeCells(row.number, 5, row.number, 8); // E..H
+      } catch {
+        // ถ้าโดน merge ซ้ำ จะ throw — ปล่อยผ่าน
+      }
+
+      openCell.value = r.admissionText;
+      openCell.font = { name: "TH SarabunPSK", size: 14, bold: true };
+      openCell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
+      };
+    } else if (r.openFlag === "P") {
       setYes(openCell);
 
       if (!r.isRounds && !r.isMonthly) {
         setNo(roundCell);
         setNo(monthCell);
       } else {
-        if (r.isRounds) {
-          setYes(roundCell);
-        } else {
-          setBlank(roundCell);
-        }
+        if (r.isRounds) setYes(roundCell);
+        else setBlank(roundCell);
 
-        if (r.isMonthly) {
-          setYes(monthCell);
-        } else {
-          setBlank(monthCell);
-        }
+        if (r.isMonthly) setYes(monthCell);
+        else setBlank(monthCell);
       }
     } else {
       setNo(openCell);
@@ -742,6 +910,7 @@ async function buildSheetForRows(
       right: { style: "thin", color: { argb: "FFAAAAAA" } },
     };
   });
+
   const totalAmtCell = totalRow.getCell(6);
   totalAmtCell.font = {
     name: "TH SarabunPSK",
@@ -758,16 +927,13 @@ async function buildSheetForRows(
 // ===== Main exporter =====
 export async function exportExcelFancy(
   allFormsRaw: any[],
-  meta?: { admission?: AdmissionMeta }
+  meta?: ExportFancyMeta
 ) {
   const admission = meta?.admission;
-  console.log("Admission meta:", admission);
-  console.log("Exporting with allFormsRaw:", allFormsRaw);
-  if (!allFormsRaw?.length) return;
+  const activePrograms = meta?.activePrograms ?? [];
 
-  const normalized: SurveyRow[] = (allFormsRaw || []).map(
-    mapFormToSurveyRow_New
-  );
+  const normalized = prepareSurveyRows(allFormsRaw, { activePrograms });
+  if (!normalized.length) return;
 
   const masterRows = buildFancyRowsByDegree(normalized, "master");
   const doctoralRows = buildFancyRowsByDegree(normalized, "doctoral");
@@ -798,6 +964,7 @@ export async function exportExcelFancy(
   if (!masterRows.length && !doctoralRows.length) return;
 
   const buf = await wb.xlsx.writeBuffer();
+
   // @ts-ignore
   if (typeof window !== "undefined") {
     saveAs(
@@ -817,14 +984,13 @@ export async function exportExcelFancy(
 
 export async function buildExcelFancyBuffer(
   allFormsRaw: any[],
-  meta?: { admission?: AdmissionMeta }
+  meta?: ExportFancyMeta
 ): Promise<ArrayBuffer | undefined> {
   const admission = meta?.admission;
-  if (!allFormsRaw?.length) return;
+  const activePrograms = meta?.activePrograms ?? [];
 
-  const normalized: SurveyRow[] = (allFormsRaw || []).map(
-    mapFormToSurveyRow_New
-  );
+  const normalized = prepareSurveyRows(allFormsRaw, { activePrograms });
+  if (!normalized.length) return;
 
   const masterRows = buildFancyRowsByDegree(normalized, "master");
   const doctoralRows = buildFancyRowsByDegree(normalized, "doctoral");
@@ -854,7 +1020,6 @@ export async function buildExcelFancyBuffer(
 
   if (!masterRows.length && !doctoralRows.length) return;
 
-  // ✅ คืน buffer อย่างเดียว
   const buf = await wb.xlsx.writeBuffer();
   return buf;
 }
