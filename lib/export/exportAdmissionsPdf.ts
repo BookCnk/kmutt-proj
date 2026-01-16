@@ -376,30 +376,101 @@ export async function exportAdmissionsPdf(
       .join("\n");
   };
 
-  const buildSchedule = (r: SurveyRow) => {
-    const list = Array.isArray(r.programs) ? r.programs : [];
-    const lines: string[] = [];
+  // ✅ replace only buildSchedule() in exportAdmissionsPdf.ts
 
-    list.forEach((p, pi) => {
-      const prefix = `${pi + 1})`;
+  const buildSchedule = (r: SurveyRow) => {
+    const programs = Array.isArray(r.programs) ? r.programs : [];
+    if (!programs.length) return "-";
+
+    const safe = (v: any) => (v ?? "").toString().trim();
+
+    // Build normalized schedule entries for a program (for comparison + rendering)
+    const buildEntries = (p: ProgramInForm) => {
+      const entries: Array<{
+        kind: "round" | "monthly";
+        title: string;
+        month: string;
+        date: string;
+      }> = [];
 
       const rounds = Array.isArray(p.rounds) ? p.rounds : [];
       rounds.forEach((rd, i) => {
-        const t = safeText(rd?.title) || `รอบที่ ${rd?.no ?? i + 1}`;
+        const t = safe(rd?.title) || `รอบที่ ${rd?.no ?? i + 1}`;
         const dt = rd?.interview_date ? formatDateTH(rd.interview_date) : "-";
-        lines.push(`${prefix} [Round] ${t}: ${dt}`);
+        entries.push({ kind: "round", title: t, month: "", date: dt });
       });
 
       const monthly = Array.isArray(p.monthly) ? p.monthly : [];
       monthly.forEach((m, i) => {
-        const mm = safeText(m?.month);
-        const mt = safeText(m?.title);
+        const mm = safe(m?.month);
+        const mt = safe(m?.title);
         const dt = m?.interview_date ? formatDateTH(m.interview_date) : "-";
         const label = mt || (mm ? `Month ${mm}` : `Monthly ${i + 1}`);
-        lines.push(
-          `${prefix} [Monthly] ${label}${mm ? ` (month: ${mm})` : ""}: ${dt}`
-        );
+        entries.push({ kind: "monthly", title: label, month: mm, date: dt });
       });
+
+      return entries;
+    };
+
+    const entriesToLines = (
+      entries: ReturnType<typeof buildEntries>,
+      prefix?: string
+    ) => {
+      const lines: string[] = [];
+      entries.forEach((e) => {
+        if (e.kind === "round") {
+          lines.push(
+            `${prefix ? `${prefix} ` : ""}[Round] ${e.title}: ${e.date}`
+          );
+        } else {
+          lines.push(
+            `${prefix ? `${prefix} ` : ""}[Monthly] ${e.title}${
+              e.month ? ` (month: ${e.month})` : ""
+            }: ${e.date}`
+          );
+        }
+      });
+      return lines;
+    };
+
+    // Make a comparable key (same schedule => same key)
+    const makeKey = (entries: ReturnType<typeof buildEntries>) =>
+      entries
+        .map(
+          (e) =>
+            `${e.kind}|${safe(e.title).toLowerCase()}|${safe(
+              e.month
+            ).toLowerCase()}|${safe(e.date)}`
+        )
+        .join("||");
+
+    // group programs by identical schedule
+    const byKey = new Map<
+      string,
+      { entries: ReturnType<typeof buildEntries>; programIdxs: number[] }
+    >();
+
+    programs.forEach((p, pi) => {
+      const entries = buildEntries(p);
+      const key = makeKey(entries);
+      const hit = byKey.get(key);
+      if (hit) hit.programIdxs.push(pi);
+      else byKey.set(key, { entries, programIdxs: [pi] });
+    });
+
+    // ✅ if all programs share the same schedule -> show only ONE set (no 1)/2)/3) prefix
+    if (byKey.size === 1 && programs.length > 1) {
+      const only = Array.from(byKey.values())[0];
+      const lines = entriesToLines(only.entries);
+      return lines.length ? lines.join("\n") : "-";
+    }
+
+    // otherwise, fallback to the original behavior (show per-program)
+    const lines: string[] = [];
+    programs.forEach((p, pi) => {
+      const prefix = `${pi + 1})`;
+      const entries = buildEntries(p);
+      lines.push(...entriesToLines(entries, prefix));
     });
 
     return lines.length ? lines.join("\n") : "-";

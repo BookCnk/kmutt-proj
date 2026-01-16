@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Users,
@@ -79,6 +80,7 @@ function useDebounce<T>(value: T, delay = 400) {
 
 /* ---------- Page ---------- */
 export default function AdminUsersPage() {
+  const router = useRouter();
   // table rows
   const [rows, setRows] = React.useState<UserDoc[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -190,7 +192,21 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 md:p-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 space-y-4">
+        <button
+          type="button"
+          aria-label="ย้อนกลับ"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/admin");
+            }
+          }}
+          className="inline-flex items-center gap-2 w-fit rounded-lg px-2 py-1 text-sm font-medium text-blue-600 transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200">
+          <ChevronLeft className="h-4 w-4" />
+          กลับ
+        </button>
         <div className="flex items-center gap-3 mb-2">
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-lg shadow-lg">
             <Users className="w-6 h-6 text-white" />
