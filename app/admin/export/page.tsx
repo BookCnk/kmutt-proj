@@ -588,6 +588,14 @@ export default function AdminExportPage() {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf);
 
+    const defaultDateDescBySequence: Record<number, string> = {
+      4: "(หากพ้นกำหนดจะถือว่าสละสิทธิในการเข้าสอบ)",
+      6: "(กำหนดการอาจมีการเปลี่ยนแปลง)",
+      9: "(กรณีผ่านการคัดเลือกมากกว่า 1 สาขาวิชา/โครงการ ต้องสละสิทธิการเข้าศึกษาในสาขาวิชา/โครงการที่ไม่ประสงค์จะเข้าศึกษา ทั้งนี้ เพื่อสำรองที่นั่งให้กับผู้ผ่านการคัดเลือกอันดับสำรอง)",
+      10: "(ถ้าไม่ยืนยันสิทธิ จะถือว่าไม่ต้องการใช้สิทธิเข้าศึกษา จะขอสิทธิเข้าศึกษาในภายหลังไม่ได้)",
+      12: "(หากพ้นกำหนดจะถือว่าไม่มีสิทธิในการเข้าศึกษา)",
+    };
+
     const parsed: SheetMatrix[] = wb.SheetNames.map((name) => {
       const ws = wb.Sheets[name];
       const { headers, rows } = parseSheet(ws);
@@ -621,40 +629,46 @@ export default function AdminExportPage() {
         return d.toISOString().split("T")[0];
       };
 
-      const filteredRows: DataRow[] = rows.map((r, i) => ({
-        id: `${name}-row-${i}`,
+      const filteredRows: DataRow[] = rows.map((r, i) => {
+        const seq = Number(r[idx.sequence]) || i + 1;
 
-        // @ts-ignore (ถ้า DataRow ยังไม่มี field นี้)
-        nameHeader: idx.nameHeader >= 0 ? String(r[idx.nameHeader] || "") : "",
+        const fromFile =
+          idx.dateDesc >= 0 ? String(r[idx.dateDesc] || "").trim() : "";
 
-        no: i + 1,
-        sequence: Number(r[idx.sequence]) || i + 1,
+        const hardcoded = defaultDateDescBySequence[seq] ?? "";
 
-        label_on_web_th: String(r[idx.labelTh] || ""),
+        return {
+          id: `${name}-row-${i}`,
 
-        label_on_web_th_description:
-          uploadFormat === "v2"
-            ? String(r[idx.descV2] || "")
-            : String(r[idx.labelThDescV1] || ""),
+          nameHeader:
+            idx.nameHeader >= 0 ? String(r[idx.nameHeader] || "") : "",
 
-        label_on_web_en: idx.labelEn >= 0 ? String(r[idx.labelEn] || "") : "",
+          no: i + 1,
+          sequence: seq,
 
-        application_form_status:
-          idx.appStatus >= 0 ? String(r[idx.appStatus] || "") : "",
+          label_on_web_th: String(r[idx.labelTh] || ""),
 
-        start_date: parseDate(String(r[idx.start] || "")),
-        end_date: parseDate(String(r[idx.end] || "")),
+          label_on_web_th_description:
+            uploadFormat === "v2"
+              ? String(r[idx.descV2] || "")
+              : String(r[idx.labelThDescV1] || ""),
 
-        // ✅ checkbox default (แยกจาก description)
-        show_date_range: true,
+          label_on_web_en: idx.labelEn >= 0 ? String(r[idx.labelEn] || "") : "",
 
-        // ✅ date_description = text from file if exists
-        date_description:
-          idx.dateDesc >= 0 ? String(r[idx.dateDesc] || "") : "",
+          application_form_status:
+            idx.appStatus >= 0 ? String(r[idx.appStatus] || "") : "",
 
-        current_stage: "No",
-        selected: true,
-      }));
+          start_date: parseDate(String(r[idx.start] || "")),
+          end_date: parseDate(String(r[idx.end] || "")),
+
+          show_date_range: true,
+
+          date_description: fromFile || hardcoded,
+
+          current_stage: "No",
+          selected: true,
+        };
+      });
 
       return { name, headers, rows: filteredRows };
     });
