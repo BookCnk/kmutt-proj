@@ -91,7 +91,7 @@ function extractDeptCount(payload: any): number | null {
 
 async function fetchDeptCount(
   fid: string,
-  attempt = 0
+  attempt = 0,
 ): Promise<number | null> {
   try {
     const dres: any = await getDepartmentsByFaculty(fid);
@@ -159,7 +159,7 @@ export default function FacultyTable() {
       setLoading(true);
       try {
         const res: any = await getFaculties();
-        const arr = Array.isArray(res) ? res : res?.data ?? [];
+        const arr = Array.isArray(res) ? res : (res?.data ?? []);
 
         const mapped: FacultyRow[] = [];
         for (const f of arr) {
@@ -241,7 +241,7 @@ export default function FacultyTable() {
       setSavingFacId(row.id);
       await updateFaculty(row.id, { title: newTitle });
       setRows((prev) =>
-        prev.map((f) => (f.id === row.id ? { ...f, title: newTitle } : f))
+        prev.map((f) => (f.id === row.id ? { ...f, title: newTitle } : f)),
       );
       if (deptModalOpen && deptFacultyId === row.id)
         setDeptFacultyTitle(newTitle);
@@ -293,7 +293,7 @@ export default function FacultyTable() {
       setSavingDeptId(dep._id);
       await updateDepartment(dep._id, { title: newTitle });
       setDeptRows((prev) =>
-        prev.map((d) => (d._id === dep._id ? { ...d, title: newTitle } : d))
+        prev.map((d) => (d._id === dep._id ? { ...d, title: newTitle } : d)),
       );
       if (progModalOpen && progDeptId === dep._id) setProgDeptTitle(newTitle);
       setEditingDeptId(null);
@@ -319,8 +319,8 @@ export default function FacultyTable() {
                 ...f,
                 departmentCount: Math.max(0, (f.departmentCount ?? 0) - 1),
               }
-            : f
-        )
+            : f,
+        ),
       );
       if (progModalOpen && progDeptId === dep._id) {
         setProgModalOpen(false);
@@ -376,8 +376,8 @@ export default function FacultyTable() {
   };
   const saveEditProgram = async (p: Program) => {
     if (!editingProgId || editingProgId !== p._id) return;
-    const newTitle = editingProgTitle.trim();
-    const newTeachingTime = editingProgTeachingTime.trim();
+    const newTitle = editingProgTitle;
+    const newTeachingTime = editingProgTeachingTime;
     if (!newTitle) {
       alert("กรุณากรอกชื่อหลักสูตร/สาขา");
       return;
@@ -401,8 +401,8 @@ export default function FacultyTable() {
                 time: newTeachingTime,
                 teaching_time: newTeachingTime,
               }
-            : x
-        )
+            : x,
+        ),
       );
 
       setEditingProgId(null);
@@ -733,8 +733,9 @@ export default function FacultyTable() {
                               placeholder="ชื่อหลักสูตร/สาขา"
                             />
 
-                            <input
-                              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            <textarea
+                              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                              rows={3}
                               value={editingProgTeachingTime}
                               onChange={(e) =>
                                 setEditingProgTeachingTime(e.target.value)
@@ -840,8 +841,8 @@ export default function FacultyTable() {
                                   prev.map((x) =>
                                     x._id === p._id
                                       ? { ...x, active: !x.active }
-                                      : x
-                                  )
+                                      : x,
+                                  ),
                                 );
 
                                 try {
@@ -854,20 +855,20 @@ export default function FacultyTable() {
                                     prev.map((x) =>
                                       x._id === p._id
                                         ? { ...x, active: newActive }
-                                        : x
-                                    )
+                                        : x,
+                                    ),
                                   );
                                 } catch (err) {
                                   console.error(
                                     "toggleProgramActive error:",
-                                    err
+                                    err,
                                   );
                                   setProgRows((prev) =>
                                     prev.map((x) =>
                                       x._id === p._id
                                         ? { ...x, active: prevActive }
-                                        : x
-                                    )
+                                        : x,
+                                    ),
                                   );
                                   alert("ไม่สามารถเปลี่ยนสถานะหลักสูตรได้");
                                 } finally {
@@ -877,8 +878,8 @@ export default function FacultyTable() {
                               {togglingProgId === p._id
                                 ? "กำลังเปลี่ยน..."
                                 : p.active
-                                ? "ปิดใช้งาน"
-                                : "เปิดใช้งาน"}
+                                  ? "ปิดใช้งาน"
+                                  : "เปิดใช้งาน"}
                             </Button>
                           </>
                         )}

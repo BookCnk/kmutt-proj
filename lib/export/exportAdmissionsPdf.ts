@@ -383,6 +383,7 @@ export async function exportAdmissionsPdf(
     if (!programs.length) return "-";
 
     const safe = (v: any) => (v ?? "").toString().trim();
+    const stripTime = (v: string) => v.replace(/\s+\d{2}:\d{2}:\d{2}\s*$/, "");
 
     // Build normalized schedule entries for a program (for comparison + rendering)
     const buildEntries = (p: ProgramInForm) => {
@@ -396,7 +397,9 @@ export async function exportAdmissionsPdf(
       const rounds = Array.isArray(p.rounds) ? p.rounds : [];
       rounds.forEach((rd, i) => {
         const t = safe(rd?.title) || `รอบที่ ${rd?.no ?? i + 1}`;
-        const dt = rd?.interview_date ? formatDateTH(rd.interview_date) : "-";
+        const dt = rd?.interview_date
+          ? stripTime(formatDateTH(rd.interview_date))
+          : "-";
         entries.push({ kind: "round", title: t, month: "", date: dt });
       });
 
@@ -404,7 +407,9 @@ export async function exportAdmissionsPdf(
       monthly.forEach((m, i) => {
         const mm = safe(m?.month);
         const mt = safe(m?.title);
-        const dt = m?.interview_date ? formatDateTH(m.interview_date) : "-";
+        const dt = m?.interview_date
+          ? stripTime(formatDateTH(m.interview_date))
+          : "-";
         const label = mt || (mm ? `Month ${mm}` : `Monthly ${i + 1}`);
         entries.push({ kind: "monthly", title: label, month: mm, date: dt });
       });
@@ -484,7 +489,14 @@ export async function exportAdmissionsPdf(
     const department = safeText(r.department) || "-";
     const programsTitles = buildProgramsTitles(r);
     const schedule = buildSchedule(r);
-    const submitterEmail = safeText(r.submitterEmail) || "-";
+    const submitterEmail = (() => {
+      const name = safeText(r.submitterName);
+      const email = safeText(r.submitterEmail);
+      if (name && email && email !== "-") {
+        return `${name} <${email}>`;
+      }
+      return name || email || "-";
+    })();
     const submittedAt = r.submittedAt ? formatDateTH(r.submittedAt) : "-";
 
     const bodyTexts = [

@@ -22,7 +22,10 @@ import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
 import ExportAdmissionsExcelButton from "@/components/ExportAdmissionsExcelButton";
 import { getAdmissionYears } from "@/api/admissionService";
 import { exportExcelFancy } from "@/lib/exportFancy";
-import { exportAdmissionsPdf, type SurveyRow } from "@/lib/export/exportAdmissionsPdf";
+import {
+  exportAdmissionsPdf,
+  type SurveyRow,
+} from "@/lib/export/exportAdmissionsPdf";
 
 import {
   getForms as getFormsUser,
@@ -172,20 +175,20 @@ function clientFilter(all: any[], p: any) {
     arr = arr.filter((d) => {
       const ips = Array.isArray(d.intake_programs) ? d.intake_programs : [];
       return ips.some((ip: any) =>
-        textOf(ip.program_id).toLowerCase().includes(q)
+        textOf(ip.program_id).toLowerCase().includes(q),
       );
     });
   }
   if (p.submitter_name) {
     const q = String(p.submitter_name).trim().toLowerCase();
     arr = arr.filter((d) =>
-      (d.submitter?.name || "").toLowerCase().includes(q)
+      (d.submitter?.name || "").toLowerCase().includes(q),
     );
   }
   if (p.submitter_email) {
     const q = String(p.submitter_email).trim().toLowerCase();
     arr = arr.filter((d) =>
-      (d.submitter?.email || "").toLowerCase().includes(q)
+      (d.submitter?.email || "").toLowerCase().includes(q),
     );
   }
   return arr;
@@ -285,8 +288,8 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
     intakePrograms.length === 0
       ? "-"
       : intakePrograms.length === 1
-      ? intakePrograms[0].title
-      : `${intakePrograms[0].title} +${intakePrograms.length - 1}`;
+        ? intakePrograms[0].title
+        : `${intakePrograms[0].title} +${intakePrograms.length - 1}`;
 
   const submitterName = doc?.submitter?.name ?? "-";
   const submitterEmail = doc?.submitter?.email ?? "-";
@@ -295,8 +298,8 @@ function mapFormToSurveyRow(doc: any): SurveyRow {
   const phone: string[] = Array.isArray(doc?.submitter?.phone)
     ? doc.submitter.phone
     : doc?.submitter?.phone
-    ? [String(doc.submitter.phone)]
-    : [];
+      ? [String(doc.submitter.phone)]
+      : [];
 
   const submittedAt =
     doc?.created_at ?? doc?.updated_at ?? new Date().toISOString();
@@ -394,7 +397,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           info.total ??
           res?.total ??
           res?.data?.total ??
-          items.length
+          items.length,
       ) || 0;
 
     const pagesServer = Number(info.pages) || undefined;
@@ -416,7 +419,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         total: items.length,
         pages: Math.max(
           1,
-          Math.ceil(items.length / Math.max(1, fallbackLimit || 10))
+          Math.ceil(items.length / Math.max(1, fallbackLimit || 10)),
         ),
         limit: fallbackLimit || 10,
         hasInfo: false,
@@ -523,12 +526,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             const sorted = clientSort(
               filtered,
               apiParams.clientSortNum,
-              sortDirection
+              sortDirection,
             );
             const paged = clientPage(
               sorted,
               apiParams.page || 1,
-              apiParams.limit || 10
+              apiParams.limit || 10,
             );
             items = paged.items;
             total = paged.total;
@@ -537,7 +540,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         }
 
         const mapped = (Array.isArray(items) ? items : []).map(
-          mapFormToSurveyRow
+          mapFormToSurveyRow,
         );
 
         if (!cancelled) {
@@ -549,7 +552,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
           // กัน selection ค้างจากหน้าที่ไม่อยู่แล้ว
           setSelectedIds((prev) =>
-            prev.filter((id) => mapped.some((r) => r.id === id))
+            prev.filter((id) => mapped.some((r) => r.id === id)),
           );
           setSelectedRowsMap((prev) => {
             const next: Record<string, SurveyRow> = {};
@@ -581,12 +584,12 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
   const handleSort = useCallback(
     (column: SurveyCol) => {
       setSortDirection((prev) =>
-        sortColumn === column ? (prev === "asc" ? "desc" : "asc") : "asc"
+        sortColumn === column ? (prev === "asc" ? "desc" : "asc") : "asc",
       );
       setSortColumn(column);
       setCurrentPage(1);
     },
-    [sortColumn]
+    [sortColumn],
   );
 
   const handleFilterChange = useCallback(
@@ -594,7 +597,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       setFilters((prev) => ({ ...prev, [key]: value }));
       setCurrentPage(1);
     },
-    []
+    [],
   );
 
   const toggleSelectRow = useCallback((row: SurveyRow, checked?: boolean) => {
@@ -740,7 +743,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       const next = Math.max(1, Math.min(p, totalPages));
       if (next !== currentPage) setCurrentPage(next);
     },
-    [currentPage, totalPages]
+    [currentPage, totalPages],
   );
 
   /* ---------------- UI ---------------- */
@@ -846,8 +849,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       allPageChecked
                         ? true
                         : somePageChecked
-                        ? "indeterminate"
-                        : false
+                          ? "indeterminate"
+                          : false
                     }
                     onCheckedChange={toggleSelectPage}
                     aria-label="เลือกทั้งหมดในหน้านี้"
@@ -1081,7 +1084,14 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     <TableCell>{row.submitterName}</TableCell>
                     <TableCell>
                       <span className="text-blue-600">
-                        {row.submitterEmail}
+                        {(() => {
+                          const name = String(row.submitterName || "").trim();
+                          const email = String(row.submitterEmail || "").trim();
+                          if (name && email && email !== "-") {
+                            return `${name} <${email}>`;
+                          }
+                          return name || email || "-";
+                        })()}
                       </span>
                     </TableCell>
 
@@ -1142,7 +1152,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                 onClick={() => gotoPage(p as number)}>
                 {p}
               </Button>
-            )
+            ),
           )}
 
           <Button

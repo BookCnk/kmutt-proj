@@ -110,10 +110,12 @@ export default function ExportGradIntakeButton({
       }
 
       if (format === "xlsx") {
+        console.log("Export Excel data:", { items, admission, activePrograms });
         await exportXlsx(items, admission, activePrograms);
       } else if (format === "pdf") {
         await exportPdf(items, admission, activePrograms);
       } else {
+        console.log("Export Excel data:", { items, admission, activePrograms });
         await exportXlsx(items, admission, activePrograms);
         await exportPdf(items, admission, activePrograms);
       }
