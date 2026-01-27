@@ -1,3 +1,4 @@
+// app/(protected)/dashboard/add/FacultyTable.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -27,6 +28,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ========= Types ========= */
 type FacultyRow = {
@@ -61,6 +68,7 @@ type Program = {
   time?: string; // ✅ ใช้เป็น source หลักที่ backend รองรับ
   degree_level: string;
   degree_abbr: string;
+  degree_req?: "bachelor" | "master";
   active?: boolean;
 
   teaching_time?: string; // ข้อมูลเดิม/สำรองจากบางเรคคอร์ด
@@ -77,7 +85,6 @@ type ProgramResponse = {
   data: Program[];
 };
 
-// ช่วยหน่อย
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 function extractDeptCount(payload: any): number | null {
@@ -111,6 +118,14 @@ async function fetchDeptCount(
   }
 }
 
+function normalizeDegreeLevel(v: unknown): "master" | "doctoral" | "" {
+  const s = String(v ?? "")
+    .toLowerCase()
+    .trim();
+  if (s === "master" || s === "doctoral") return s;
+  return "";
+}
+
 export default function FacultyTable() {
   const [rows, setRows] = useState<FacultyRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -140,6 +155,13 @@ export default function FacultyTable() {
   const [editingProgTitle, setEditingProgTitle] = useState<string>("");
   const [editingProgTeachingTime, setEditingProgTeachingTime] =
     useState<string>("");
+
+  // ✅ NEW: edit degree_level + degree_abbr
+  const [editingProgDegreeLevel, setEditingProgDegreeLevel] =
+    useState<string>("");
+  const [editingProgDegreeAbbr, setEditingProgDegreeAbbr] =
+    useState<string>("");
+  const [editingProgDegreeReq, setEditingProgDegreeReq] = useState<string>("");
 
   const [savingProgId, setSavingProgId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
@@ -348,6 +370,10 @@ export default function FacultyTable() {
 
     setEditingProgId(null);
     setEditingProgTitle("");
+    setEditingProgTeachingTime("");
+    setEditingProgDegreeLevel("");
+    setEditingProgDegreeReq("");
+    setEditingProgDegreeAbbr("");
     setSavingProgId(null);
     setDeletingProgId(null);
 
@@ -366,55 +392,99 @@ export default function FacultyTable() {
   const startEditProgram = (p: Program) => {
     setEditingProgId(p._id);
     setEditingProgTitle(p.title ?? "");
-    // ✅ ใช้ค่าเริ่มต้นจาก p.time ก่อน (เพราะ backend อ่านฟิลด์นี้)
     setEditingProgTeachingTime(p.time ?? p.teaching_time ?? "");
+
+    // ✅ NEW defaults
+    const normalizedLevel = normalizeDegreeLevel(p.degree_level);
+    setEditingProgDegreeLevel(normalizedLevel);
+    setEditingProgDegreeAbbr(p.degree_abbr ?? "");
+    if (
+      normalizedLevel === "doctoral" &&
+      (p.degree_req === "bachelor" || p.degree_req === "master")
+    ) {
+      setEditingProgDegreeReq(p.degree_req);
+    } else {
+      setEditingProgDegreeReq("");
+    }
   };
+
   const cancelEditProgram = () => {
     setEditingProgId(null);
     setEditingProgTitle("");
     setEditingProgTeachingTime("");
+    setEditingProgDegreeLevel("");
+    setEditingProgDegreeReq("");
+    setEditingProgDegreeAbbr("");
   };
+
   const saveEditProgram = async (p: Program) => {
     if (!editingProgId || editingProgId !== p._id) return;
-    const newTitle = editingProgTitle;
-    const newTeachingTime = editingProgTeachingTime;
+
+    const newTitle = editingProgTitle.trim();
+    const newTeachingTime = editingProgTeachingTime?.trim() || "";
+    const newDegreeLevel = normalizeDegreeLevel(editingProgDegreeLevel);
+    const newDegreeAbbr = editingProgDegreeAbbr.trim();
+
+    const newDegreeReq: "bachelor" | "master" | undefined =
+      editingProgDegreeReq === "bachelor" || editingProgDegreeReq === "master"
+        ? editingProgDegreeReq
+        : undefined;
+
+    /* ---------- validation ---------- */
     if (!newTitle) {
       alert("กรุณากรอกชื่อหลักสูตร/สาขา");
       return;
     }
+
+    if (!newDegreeLevel) {
+      alert("กรุณาเลือกระดับ (master / doctoral)");
+      return;
+    }
+
+    if (newDegreeLevel === "doctoral" && !newDegreeReq) {
+      alert("กรุณาเลือกวุฒิขั้นต่ำสำหรับหลักสูตรปริญญาเอก");
+      return;
+    }
+
     try {
       setSavingProgId(p._id);
-      // ✅ ส่ง 'time' ให้ backend (และจะพ่วง teaching_time ไปด้วยก็ได้ เผื่อใช้ในอนาคต)
-      await updateProgram(p._id, {
+
+      const payload = {
         title: newTitle,
         time: newTeachingTime,
-        teaching_time: newTeachingTime, // optional: เผื่อมีที่อื่นอ่านฟิลด์นี้
-      } as any);
+        teaching_time: newTeachingTime,
+        degree_level: newDegreeLevel,
+        degree_abbr: newDegreeAbbr,
 
-      // ✅ optimistic update ให้ state มีทั้ง time และ teaching_time เป็นค่าใหม่
+        // ✅ ส่ง degree_req เฉพาะ doctoral
+        ...(newDegreeLevel === "doctoral"
+          ? { degree_req: newDegreeReq }
+          : { degree_req: undefined }),
+      };
+
+      await updateProgram(p._id, payload as any);
+
+      // ✅ optimistic update
       setProgRows((prev) =>
         prev.map((x) =>
           x._id === p._id
             ? {
                 ...x,
-                title: newTitle,
-                time: newTeachingTime,
-                teaching_time: newTeachingTime,
+                ...payload,
               }
             : x,
         ),
       );
 
-      setEditingProgId(null);
-      setEditingProgTitle("");
-      setEditingProgTeachingTime("");
+      cancelEditProgram();
     } catch (err) {
       console.error("updateProgram error:", err);
-      alert("บันทึกชื่อ/เวลาเรียน ไม่สำเร็จ");
+      alert("บันทึกไม่สำเร็จ");
     } finally {
       setSavingProgId(null);
     }
   };
+
   const confirmDeleteProgram = async (program: Program) => {
     const ok = confirm(`ยืนยันลบหลักสูตร/สาขา: "${program.title}" ?`);
     if (!ok) return;
@@ -731,6 +801,12 @@ export default function FacultyTable() {
                               }
                               disabled={isSaving || isDeleting}
                               placeholder="ชื่อหลักสูตร/สาขา"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  saveEditProgram(p);
+                                }
+                              }}
                             />
 
                             <textarea
@@ -742,6 +818,156 @@ export default function FacultyTable() {
                               }
                               disabled={isSaving || isDeleting}
                               placeholder="วัน-เวลาในการดำเนินการเรียนการสอน (เช่น จ.-พ. 09:00–12:00 ห้อง B201)"
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "Enter" &&
+                                  (e.ctrlKey || e.metaKey)
+                                ) {
+                                  e.preventDefault();
+                                  saveEditProgram(p);
+                                }
+                              }}
+                            />
+
+                            {/* ✅ NEW: degree_level */}
+                            <div className="mt-2">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className={`w-full rounded-md border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                      editingProgDegreeLevel
+                                        ? "text-gray-900"
+                                        : "text-gray-500"
+                                    }`}
+                                    disabled={isSaving || isDeleting}>
+                                    {editingProgDegreeLevel === "master"
+                                      ? "ปริญญาโท (master)"
+                                      : editingProgDegreeLevel === "doctoral"
+                                        ? "ปริญญาเอก (doctoral)"
+                                        : "เลือกระดับ"}
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="start"
+                                  className="w-56">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingProgDegreeLevel("");
+                                      setEditingProgDegreeReq("");
+                                    }}
+                                    className={
+                                      editingProgDegreeLevel === ""
+                                        ? "bg-blue-50 text-blue-600"
+                                        : ""
+                                    }>
+                                    ไม่ระบุ
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingProgDegreeLevel("master");
+                                      setEditingProgDegreeReq("");
+                                    }}
+                                    className={
+                                      editingProgDegreeLevel === "master"
+                                        ? "bg-blue-50 text-blue-600"
+                                        : ""
+                                    }>
+                                    ปริญญาโท (master)
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setEditingProgDegreeLevel("doctoral")
+                                    }
+                                    className={
+                                      editingProgDegreeLevel === "doctoral"
+                                        ? "bg-blue-50 text-blue-600"
+                                        : ""
+                                    }>
+                                    ปริญญาเอก (doctoral)
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+
+                            {editingProgDegreeLevel === "doctoral" ? (
+                              <div className="mt-2">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className={`w-full rounded-md border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        editingProgDegreeReq
+                                          ? "text-gray-900"
+                                          : "text-gray-500"
+                                      }`}
+                                      disabled={isSaving || isDeleting}>
+                                      {editingProgDegreeReq === "bachelor"
+                                        ? "ผู้สมัครต้องจบปริญญาตรี"
+                                        : editingProgDegreeReq === "master"
+                                          ? "ผู้สมัครต้องจบปริญญาโท"
+                                          : "เลือกระดับวุฒิขั้นต่ำ"}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="start"
+                                    className="w-56">
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setEditingProgDegreeReq("")
+                                      }
+                                      className={
+                                        editingProgDegreeReq === ""
+                                          ? "bg-blue-50 text-blue-600"
+                                          : ""
+                                      }>
+                                      ไม่ระบุ
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setEditingProgDegreeReq("bachelor")
+                                      }
+                                      className={
+                                        editingProgDegreeReq === "bachelor"
+                                          ? "bg-blue-50 text-blue-600"
+                                          : ""
+                                      }>
+                                      ผู้สมัครต้องจบปริญญาตรี (bachelor)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setEditingProgDegreeReq("master")
+                                      }
+                                      className={
+                                        editingProgDegreeReq === "master"
+                                          ? "bg-blue-50 text-blue-600"
+                                          : ""
+                                      }>
+                                      ผู้สมัครต้องจบปริญญาโท (master)
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  ระบุวุฒิขั้นต่ำของผู้สมัครสำหรับหลักสูตรปริญญาเอก
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {/* ✅ NEW: degree_abbr */}
+                            <input
+                              className="mt-2 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingProgDegreeAbbr}
+                              onChange={(e) =>
+                                setEditingProgDegreeAbbr(e.target.value)
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="วุฒิ (เช่น วศ.ม., วท.ม., ปร.ด.)"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  saveEditProgram(p);
+                                }
+                              }}
                             />
                           </>
                         ) : (
@@ -750,7 +976,6 @@ export default function FacultyTable() {
                               {p.title}
                             </p>
 
-                            {/* ✅ แสดงจาก p.time เป็นหลัก */}
                             {p.time ? (
                               <p className="text-sm text-gray-600 mt-0.5">
                                 วัน-เวลา: {p.time}
@@ -771,6 +996,19 @@ export default function FacultyTable() {
                           <span>ระดับ: {p.degree_level || "-"}</span>
                           <span>•</span>
                           <span>วุฒิ: {p.degree_abbr || "-"}</span>
+                          {p.degree_level === "doctoral" ? (
+                            <>
+                              <span>•</span>
+                              <span>
+                                วุฒิขั้นต่ำ:{" "}
+                                {p.degree_req === "master"
+                                  ? "ปริญญาโท"
+                                  : p.degree_req === "bachelor"
+                                    ? "ปริญญาตรี"
+                                    : "-"}
+                              </span>
+                            </>
+                          ) : null}
                           <span>•</span>
                           {p.active === false ? (
                             <span className="rounded bg-gray-200 px-1.5 py-0.5 text-gray-700">
@@ -837,6 +1075,7 @@ export default function FacultyTable() {
                               onClick={async () => {
                                 const prevActive = p.active;
                                 setTogglingProgId(p._id);
+
                                 setProgRows((prev) =>
                                   prev.map((x) =>
                                     x._id === p._id
@@ -851,6 +1090,7 @@ export default function FacultyTable() {
                                   const newActive =
                                     (updatedProgram as any)?.active ??
                                     !prevActive;
+
                                   setProgRows((prev) =>
                                     prev.map((x) =>
                                       x._id === p._id
