@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, File } from "lucide-react";
+import { LogOut, User, File, LayoutTemplate } from "lucide-react";
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -44,7 +44,7 @@ export function Header({ onLogout }: HeaderProps) {
           const u = JSON.parse(raw);
           if (u?.email) setSession(u, token);
         }
-      } catch {}
+      } catch { }
     }
   }, [user, setSession]);
 
@@ -141,6 +141,16 @@ export function Header({ onLogout }: HeaderProps) {
                       <Link href="/admin/export" className="w-full">
                         <File className="mr-2 h-4 w-4" />
                         <span>export จาก excel</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/infographic-builder" className="w-full">
+                        <LayoutTemplate className="mr-2 h-4 w-4" />
+                        <span>Infographic Builder</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
