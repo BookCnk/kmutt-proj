@@ -1,27 +1,16 @@
 'use client';
 
-// ─── SidebarTools ─────────────────────────────────────────────────────────────
-// Left sidebar for the infographic builder.
-// Handles: Excel file upload, major group selector, Add Text Block button.
-
+// ─── SidebarTools (multi-page version) ────────────────────────────────────────
 import { useRef, useState } from 'react';
-import { useEditorStore } from '@/stores/useEditorStore';
+import { useEditorStore, groupByFaculty } from '@/stores/useEditorStore';
 import { parseExcelToGroups } from '@/lib/excelParser';
-import type { CanvasElement } from '@/types/infographic';
 
 export function SidebarTools() {
-    const {
-        majorGroups,
-        selectedGroupIndex,
-        setMajorGroups,
-        setSelectedGroup,
-        loadGroupToCanvas,
-        addElement,
-    } = useEditorStore();
-
+    const { majorGroups, setMajorGroups, scrollToFaculty } = useEditorStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState<string | null>(null);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -31,38 +20,23 @@ export function SidebarTools() {
         try {
             const groups = await parseExcelToGroups(file);
             setMajorGroups(groups);
-            if (groups.length > 0) loadGroupToCanvas(groups[0]);
         } catch (err) {
-            setError('ไม่สามารถอ่านไฟล์ Excel ได้ กรุณาตรวจสอบรูปแบบไฟล์');
+            setError('ไม่สามารถอ่านไฟล์ Excel ได้');
             console.error(err);
         } finally {
             setLoading(false);
         }
     }
 
-    function handleSelectGroup(index: number) {
-        setSelectedGroup(index);
-        loadGroupToCanvas(majorGroups[index]);
-    }
-
-    function handleAddText() {
-        const el: CanvasElement = {
-            id: `text-${Date.now()}`,
-            type: 'text',
-            content: 'คลิกแล้วแก้ไขข้อความ',
-            styles: { x: 40, y: 40, width: 300, height: 48, fontSize: 14, color: '#1e293b' },
-        };
-        addElement(el);
-    }
+    const faculties = groupByFaculty(majorGroups);
 
     return (
         <div className="flex flex-col gap-4 h-full overflow-y-auto">
-            {/* Header */}
             <div className="pb-2 border-b border-slate-200">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">เครื่องมือ</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">เนื้อหา</p>
             </div>
 
-            {/* Excel upload zone */}
+            {/* Upload */}
             <div>
                 <p className="text-xs font-semibold text-slate-600 mb-1">อัปโหลด Input.xlsx</p>
                 <button
@@ -72,53 +46,62 @@ export function SidebarTools() {
                 >
                     {loading ? 'กำลังอ่านข้อมูล…' : '📂 คลิกเพื่ออัปโหลดไฟล์'}
                 </button>
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    className="hidden"
-                    onChange={handleFileChange}
-                />
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
                 {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
                 {majorGroups.length > 0 && (
-                    <p className="mt-1 text-xs text-green-600">✓ พบ {majorGroups.length} สาขาวิชา</p>
+                    <p className="mt-1 text-xs text-green-600">✓ {faculties.length} คณะ · {majorGroups.length} สาขาวิชา</p>
                 )}
             </div>
 
-            {/* Major group selector */}
+            {/* TOC link */}
             {majorGroups.length > 0 && (
+                <button
+                    onClick={() => scrollToFaculty(null)}
+                    className="w-full text-left text-xs px-3 py-2 rounded font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors"
+                >
+                    📋 สารบัญ (หน้า 1)
+                </button>
+            )}
+
+            {/* Faculty navigation */}
+            {faculties.length > 0 && (
                 <div>
-                    <p className="text-xs font-semibold text-slate-600 mb-1">เลือกสาขาวิชา</p>
-                    <div className="flex flex-col gap-1 max-h-72 overflow-y-auto pr-1">
-                        {majorGroups.map((g, i) => (
-                            <button
-                                key={i}
-                                onClick={() => handleSelectGroup(i)}
-                                className={`text-left text-xs px-2 py-1.5 rounded transition-colors ${i === selectedGroupIndex
-                                        ? 'bg-blue-600 text-white font-semibold'
-                                        : 'hover:bg-slate-100 text-slate-700'
-                                    }`}
-                            >
-                                <span className="block font-semibold truncate">{g.faculty}</span>
-                                <span className="block truncate opacity-80">{g.admissionMajor}</span>
-                            </button>
+                    <p className="text-xs font-semibold text-slate-600 mb-1">คณะ / สถาบัน</p>
+                    <div className="flex flex-col gap-0.5">
+                        {faculties.map(({ faculty, majors }) => (
+                            <div key={faculty}>
+                                {/* Faculty header — click to scroll to section */}
+                                <button
+                                    onClick={() => {
+                                        scrollToFaculty(faculty);
+                                        setExpanded(expanded === faculty ? null : faculty);
+                                    }}
+                                    className="w-full text-left text-xs px-2 py-2 rounded font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between"
+                                >
+                                    <span className="truncate">{faculty}</span>
+                                    <span className="text-slate-400 ml-1 shrink-0">
+                                        {expanded === faculty ? '▲' : '▼'} {majors.length}
+                                    </span>
+                                </button>
+
+                                {/* Majors list (collapsible) */}
+                                {expanded === faculty && (
+                                    <div className="pl-3 flex flex-col gap-0.5 mb-1">
+                                        {majors.map((g) => (
+                                            <div
+                                                key={g.admissionMajor}
+                                                className="text-xs text-slate-500 px-2 py-1 rounded hover:bg-slate-50 truncate"
+                                            >
+                                                · {g.admissionMajor}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ))}
                     </div>
                 </div>
             )}
-
-            <hr className="border-slate-200" />
-
-            {/* Add element buttons */}
-            <div>
-                <p className="text-xs font-semibold text-slate-600 mb-1">เพิ่ม Element</p>
-                <button
-                    onClick={handleAddText}
-                    className="w-full text-left text-sm bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded transition-colors"
-                >
-                    🔤 เพิ่มกล่องข้อความ
-                </button>
-            </div>
         </div>
     );
 }

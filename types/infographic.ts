@@ -29,7 +29,19 @@ export interface AdmissionMajorGroup {
     criteria: AdmissionCriteriaRow[];
 }
 
-export type ElementType = 'text' | 'faculty-header' | 'criteria-table';
+/** One row in the Table-of-Contents page */
+export interface FacultyTOCEntry {
+    faculty: string;
+    startPage: number; // 1-based page number where this faculty starts
+}
+
+/** Data passed to the FacultyTOC canvas element */
+export interface FacultyTOCData {
+    entries: FacultyTOCEntry[];
+}
+
+export type ElementType = 'text' | 'faculty-header' | 'criteria-table' | 'faculty-toc';
+
 
 export interface CanvasElementStyles {
     x: number;
@@ -46,7 +58,7 @@ export interface CanvasElementStyles {
 export interface CanvasElement {
     id: string;
     type: ElementType;
-    /** text → string | faculty-header / criteria-table → AdmissionMajorGroup */
-    content: string | AdmissionMajorGroup;
+    /** text → string | faculty-header / criteria-table → AdmissionMajorGroup | faculty-toc → FacultyTOCData */
+    content: string | AdmissionMajorGroup | FacultyTOCData;
     styles: CanvasElementStyles;
 }

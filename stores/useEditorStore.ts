@@ -1,83 +1,53 @@
 // ─── Infographic CMS Builder — Editor Store ───────────────────────────────────
-// Zustand store for the WYSIWYG builder page.
-// Entirely separate from the existing auth.ts and templateRows.ts stores.
-
 import { create } from 'zustand';
-import type { AdmissionMajorGroup, CanvasElement, CanvasElementStyles } from '@/types/infographic';
+import type { AdmissionMajorGroup, FacultyTOCEntry } from '@/types/infographic';
+
+// ── Helper: compute TOC entries (page numbers) from all groups ─────────────────
+export function buildTOCEntries(groups: AdmissionMajorGroup[]): FacultyTOCEntry[] {
+    const facultyOrder: string[] = [];
+    const facultyMajorCount: Record<string, number> = {};
+
+    for (const g of groups) {
+        if (!facultyMajorCount[g.faculty]) {
+            facultyOrder.push(g.faculty);
+            facultyMajorCount[g.faculty] = 0;
+        }
+        facultyMajorCount[g.faculty]++;
+    }
+
+    let page = 2; // page 1 = TOC
+    return facultyOrder.map((faculty) => {
+        const entry: FacultyTOCEntry = { faculty, startPage: page };
+        page += facultyMajorCount[faculty];
+        return entry;
+    });
+}
+
+/** Groups by faculty, preserving insertion order */
+export function groupByFaculty(
+    groups: AdmissionMajorGroup[]
+): { faculty: string; majors: AdmissionMajorGroup[] }[] {
+    const map = new Map<string, AdmissionMajorGroup[]>();
+    for (const g of groups) {
+        if (!map.has(g.faculty)) map.set(g.faculty, []);
+        map.get(g.faculty)!.push(g);
+    }
+    return Array.from(map.entries()).map(([faculty, majors]) => ({ faculty, majors }));
+}
 
 interface EditorState {
-    /** All major groups parsed from the uploaded Excel */
     majorGroups: AdmissionMajorGroup[];
-    /** Index in majorGroups currently loaded onto the canvas */
-    selectedGroupIndex: number;
-    /** Elements placed on the A4 canvas */
-    canvasElements: CanvasElement[];
-    /** ID of the currently selected element (for PropertiesPanel) */
-    selectedElementId: string | null;
+    /** Faculty name to scroll to; null = scroll to top (TOC) */
+    scrollTarget: string | null;
 
-    // ── Actions ──────────────────────────────────────────────────────────────
     setMajorGroups: (groups: AdmissionMajorGroup[]) => void;
-    setSelectedGroup: (index: number) => void;
-    /** Replace the canvas with the default layout for the selected group */
-    loadGroupToCanvas: (group: AdmissionMajorGroup) => void;
-    addElement: (element: CanvasElement) => void;
-    updateElement: (id: string, patch: Partial<Omit<CanvasElement, 'id'>>) => void;
-    updateElementStyles: (id: string, styles: Partial<CanvasElementStyles>) => void;
-    removeElement: (id: string) => void;
-    setSelectedElement: (id: string | null) => void;
-    clearCanvas: () => void;
+    scrollToFaculty: (faculty: string | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
     majorGroups: [],
-    selectedGroupIndex: 0,
-    canvasElements: [],
-    selectedElementId: null,
+    scrollTarget: null,
 
-    setMajorGroups: (groups) => set({ majorGroups: groups }),
-
-    setSelectedGroup: (index) => set({ selectedGroupIndex: index }),
-
-    loadGroupToCanvas: (group) => {
-        const headerEl: CanvasElement = {
-            id: 'faculty-header',
-            type: 'faculty-header',
-            content: group,
-            styles: { x: 20, y: 20, width: 754, height: 180 },
-        };
-        const tableEl: CanvasElement = {
-            id: 'criteria-table',
-            type: 'criteria-table',
-            content: group,
-            styles: { x: 20, y: 220, width: 754, height: 600 },
-        };
-        set({ canvasElements: [headerEl, tableEl], selectedElementId: null });
-    },
-
-    addElement: (element) =>
-        set((s) => ({ canvasElements: [...s.canvasElements, element] })),
-
-    updateElement: (id, patch) =>
-        set((s) => ({
-            canvasElements: s.canvasElements.map((el) =>
-                el.id === id ? { ...el, ...patch } : el
-            ),
-        })),
-
-    updateElementStyles: (id, styles) =>
-        set((s) => ({
-            canvasElements: s.canvasElements.map((el) =>
-                el.id === id ? { ...el, styles: { ...el.styles, ...styles } } : el
-            ),
-        })),
-
-    removeElement: (id) =>
-        set((s) => ({
-            canvasElements: s.canvasElements.filter((el) => el.id !== id),
-            selectedElementId: s.selectedElementId === id ? null : s.selectedElementId,
-        })),
-
-    setSelectedElement: (id) => set({ selectedElementId: id }),
-
-    clearCanvas: () => set({ canvasElements: [], selectedElementId: null }),
+    setMajorGroups: (groups) => set({ majorGroups: groups, scrollTarget: null }),
+    scrollToFaculty: (faculty) => set({ scrollTarget: faculty }),
 }));

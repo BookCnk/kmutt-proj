@@ -2,28 +2,25 @@
 
 // ─── Infographic Builder Page ─────────────────────────────────────────────────
 // Route: /admin/infographic-builder  (inside the (protected) layout)
-// 3-column WYSIWYG layout: SidebarTools | A4Canvas | PropertiesPanel
+// 3-column layout: SidebarTools | scrollable multi-page A4Canvas | PropertiesPanel removed
 
+import { useState } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { exportCanvasToPDF } from '@/lib/exportPdf';
+import { exportAllPagesToPDF } from '@/lib/exportPdf';
 import { SidebarTools } from '@/components/infographic/SidebarTools';
 import { A4Canvas } from '@/components/infographic/A4Canvas';
-import { PropertiesPanel } from '@/components/infographic/PropertiesPanel';
-import { useState } from 'react';
 
 export default function InfographicBuilderPage() {
-    const { majorGroups, selectedGroupIndex, clearCanvas } = useEditorStore();
+    const { majorGroups } = useEditorStore();
     const [exporting, setExporting] = useState(false);
-
-    const currentGroup = majorGroups[selectedGroupIndex];
 
     async function handleExport() {
         setExporting(true);
-        const filename = currentGroup
-            ? `${currentGroup.faculty} - ${currentGroup.admissionMajor}`.replace(/[/\\?%*:|"<>]/g, '-')
-            : 'infographic';
-        await exportCanvasToPDF('a4-canvas', filename);
-        setExporting(false);
+        try {
+            await exportAllPagesToPDF('KMUTT-Infographic-2569');
+        } finally {
+            setExporting(false);
+        }
     }
 
     return (
@@ -33,44 +30,31 @@ export default function InfographicBuilderPage() {
             <div className="flex items-center justify-between bg-white border-b px-4 py-2 shadow-sm flex-shrink-0">
                 <div>
                     <h1 className="text-base font-bold text-slate-800">🗂️ Infographic Builder</h1>
-                    {currentGroup && (
-                        <p className="text-xs text-slate-500">{currentGroup.faculty} › {currentGroup.admissionMajor}</p>
+                    {majorGroups.length > 0 && (
+                        <p className="text-xs text-slate-500">
+                            {majorGroups.length + 1} หน้า (สารบัญ + {majorGroups.length} สาขาวิชา)
+                        </p>
                     )}
                 </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={clearCanvas}
-                        className="text-xs px-3 py-1.5 border rounded hover:bg-slate-50 text-slate-600 transition-colors"
-                    >
-                        🗑 ล้างหน้ากระดาษ
-                    </button>
-                    <button
-                        onClick={handleExport}
-                        disabled={exporting || !currentGroup}
-                        className="text-xs px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
-                    >
-                        {exporting ? 'กำลัง Export…' : '⬇ Export PDF'}
-                    </button>
-                </div>
+                <button
+                    onClick={handleExport}
+                    disabled={exporting || majorGroups.length === 0}
+                    className="text-xs px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
+                >
+                    {exporting ? 'กำลัง Export…' : '⬇ Export PDF ทั้งหมด'}
+                </button>
             </div>
 
-            {/* ── 3-column layout ── */}
+            {/* ── 2-column layout: sidebar + canvas ── */}
             <div className="flex flex-1 overflow-hidden">
 
-                {/* Left sidebar */}
                 <aside className="w-64 flex-shrink-0 bg-white border-r overflow-y-auto p-3">
                     <SidebarTools />
                 </aside>
 
-                {/* Centre canvas (takes all remaining space, scrollable) */}
                 <main className="flex-1 overflow-hidden">
                     <A4Canvas />
                 </main>
-
-                {/* Right sidebar */}
-                <aside className="w-64 flex-shrink-0 bg-white border-l overflow-y-auto p-3">
-                    <PropertiesPanel />
-                </aside>
 
             </div>
         </div>
