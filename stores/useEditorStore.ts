@@ -18,7 +18,8 @@ export function buildTOCEntries(groups: AdmissionMajorGroup[]): FacultyTOCEntry[
     let page = 2; // page 1 = TOC
     return facultyOrder.map((faculty) => {
         const entry: FacultyTOCEntry = { faculty, startPage: page };
-        page += facultyMajorCount[faculty];
+        // 1 summary page + N major pages
+        page += 1 + facultyMajorCount[faculty];
         return entry;
     });
 }

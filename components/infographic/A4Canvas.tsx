@@ -7,6 +7,7 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore, buildTOCEntries, groupByFaculty } from '@/stores/useEditorStore';
 import { FacultyTOC } from './FacultyTOC';
+import { FacultySummaryPage } from './FacultySummaryPage';
 import { MajorPage } from './MajorPage';
 
 const A4_W = 794;
@@ -30,15 +31,17 @@ export function A4Canvas() {
 
     // Scroll to faculty when scrollTarget changes
     useEffect(() => {
-        if (!scrollTarget) {
+        if (!scrollTarget) return; // null = idle, nothing to do
+
+        if (scrollTarget === '__toc__') {
             containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
+        } else {
+            const el = sectionRefs.current.get(scrollTarget);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
-        const el = sectionRefs.current.get(scrollTarget);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        // Reset so the same faculty can be clicked again
+        // Reset to idle so the same target can be clicked again
         scrollToFaculty(null);
     }, [scrollTarget, scrollToFaculty]);
 
@@ -73,32 +76,41 @@ export function A4Canvas() {
                     <FacultyTOC data={{ entries: tocEntries }} />
                 </div>
 
-                {/* ── Faculty groups ── */}
+                {/* ── Faculty groups: summary page then individual major pages ── */}
                 {(() => {
-                    let majorIdx = 0;
-                    return faculties.map(({ faculty, majors }) => (
-                        <div
-                            key={faculty}
-                            ref={(el) => {
-                                if (el) sectionRefs.current.set(faculty, el);
-                            }}
-                            className="flex flex-col items-center gap-6"
-                            id={`section-${faculty}`}
-                        >
-                            {majors.map((group) => {
-                                const pg = pageNumbers[majorIdx++];
-                                return (
-                                    <div key={group.admissionMajor} id={`page-${pg}`} data-a4-page="" style={PAGE_STYLE}>
-                                        <MajorPage group={group} pageNumber={pg} />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ));
+                    let pg = 2; // page 1 = TOC, page 2 = first faculty summary
+                    return faculties.map(({ faculty, majors }) => {
+                        const summaryPg = pg++;
+                        return (
+                            <div
+                                key={faculty}
+                                ref={(el) => {
+                                    if (el) sectionRefs.current.set(faculty, el);
+                                }}
+                                className="flex flex-col items-center gap-6"
+                                id={`section-${faculty}`}
+                            >
+                                {/* Faculty summary page */}
+                                <div id={`page-${summaryPg}`} data-a4-page="" style={PAGE_STYLE}>
+                                    <FacultySummaryPage faculty={faculty} majors={majors} pageNumber={summaryPg} />
+                                </div>
+
+                                {/* Individual major pages */}
+                                {majors.map((group) => {
+                                    const majorPg = pg++;
+                                    return (
+                                        <div key={group.admissionMajor} id={`page-${majorPg}`} data-a4-page="" style={PAGE_STYLE}>
+                                            <MajorPage group={group} pageNumber={majorPg} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    });
                 })()}
 
                 <p className="text-xs text-slate-500 pb-4">
-                    ทั้งหมด {majorGroups.length + 1} หน้า — A4 (210 × 297 mm)
+                    ทั้งหมด {majorGroups.length + faculties.length + 1} หน้า — A4 (210 × 297 mm)
                 </p>
             </div>
         </div>

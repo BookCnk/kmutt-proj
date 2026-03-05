@@ -10,7 +10,6 @@ export function SidebarTools() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [expanded, setExpanded] = useState<string | null>(null);
 
     async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -56,7 +55,7 @@ export function SidebarTools() {
             {/* TOC link */}
             {majorGroups.length > 0 && (
                 <button
-                    onClick={() => scrollToFaculty(null)}
+                    onClick={() => scrollToFaculty('__toc__')}
                     className="w-full text-left text-xs px-3 py-2 rounded font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors"
                 >
                     📋 สารบัญ (หน้า 1)
@@ -68,36 +67,14 @@ export function SidebarTools() {
                 <div>
                     <p className="text-xs font-semibold text-slate-600 mb-1">คณะ / สถาบัน</p>
                     <div className="flex flex-col gap-0.5">
-                        {faculties.map(({ faculty, majors }) => (
-                            <div key={faculty}>
-                                {/* Faculty header — click to scroll to section */}
-                                <button
-                                    onClick={() => {
-                                        scrollToFaculty(faculty);
-                                        setExpanded(expanded === faculty ? null : faculty);
-                                    }}
-                                    className="w-full text-left text-xs px-2 py-2 rounded font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between"
-                                >
-                                    <span className="truncate">{faculty}</span>
-                                    <span className="text-slate-400 ml-1 shrink-0">
-                                        {expanded === faculty ? '▲' : '▼'} {majors.length}
-                                    </span>
-                                </button>
-
-                                {/* Majors list (collapsible) */}
-                                {expanded === faculty && (
-                                    <div className="pl-3 flex flex-col gap-0.5 mb-1">
-                                        {majors.map((g) => (
-                                            <div
-                                                key={g.admissionMajor}
-                                                className="text-xs text-slate-500 px-2 py-1 rounded hover:bg-slate-50 truncate"
-                                            >
-                                                · {g.admissionMajor}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                        {faculties.map(({ faculty }) => (
+                            <button
+                                key={faculty}
+                                onClick={() => scrollToFaculty(faculty)}
+                                className="w-full text-left text-xs px-2 py-2 rounded font-semibold text-slate-700 hover:bg-slate-100 transition-colors truncate"
+                            >
+                                {faculty}
+                            </button>
                         ))}
                     </div>
                 </div>

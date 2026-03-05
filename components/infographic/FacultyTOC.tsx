@@ -19,7 +19,7 @@ export function FacultyTOC({ data }: Props) {
     const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
 
     return (
-        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'Sarabun, sans-serif', padding: '40px 60px 20px' }}>
+        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'Sarabun, sans-serif', padding: '20px 30px 10px' }}>
 
             {/* ── Top header bar ── */}
             <div className="flex items-stretch border-b-2 border-orange-500" style={{ minHeight: 72 }}>
