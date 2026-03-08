@@ -24,7 +24,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
   return (
     <div
       className="w-full h-full flex flex-col bg-white overflow-hidden text-black"
-      style={{ fontFamily: 'Sarabun, sans-serif', padding: '20px 30px 10px', fontSize: 11 }}
+      style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 11 }}
     >
       {/* ── Header ── */}
       <div className="flex items-stretch mb-3" style={{ border: `2px solid ${ACCENT}`, minHeight: 60 }}>

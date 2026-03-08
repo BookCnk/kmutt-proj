@@ -1,4 +1,30 @@
 @import url("https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap");
+
+@font-face {
+  font-family: 'THSarabun';
+  src: url('/fonts/THSarabun.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'THSarabun';
+  src: url('/fonts/THSarabun Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'THSarabun';
+  src: url('/fonts/THSarabun Italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'THSarabun';
+  src: url('/fonts/THSarabun BoldItalic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,7 +44,7 @@
 }
 
 .thai-text {
-  font-family: var(--font-kanit), "Kanit", sans-serif;
+  font-family: 'THSarabun', var(--font-kanit), "Kanit", sans-serif;
 }
 
 @layer base {
@@ -83,13 +109,13 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: "Kanit", sans-serif;
+    font-family: 'THSarabun', "Kanit", sans-serif;
   }
 }
 
 /* Custom styles for Thai language support */
 .thai-text {
-  font-family: "Kanit", sans-serif;
+  font-family: 'THSarabun', "Kanit", sans-serif;
 }
 
 /* Improve table responsiveness */

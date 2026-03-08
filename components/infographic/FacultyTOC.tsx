@@ -4,6 +4,7 @@
 // Renders the Table-of-Contents first page, listing all distinct faculties
 // with dotted lines and page numbers — matching Criteria.pdf page 1.
 
+import Image from 'next/image';
 import type { FacultyTOCData } from '@/types/infographic';
 
 interface Props {
@@ -16,28 +17,30 @@ export function FacultyTOC({ data }: Props) {
         'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
         'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
     ];
+    // Date string like "11 พฤศจิกายน 2568"
     const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
 
     return (
-        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'Sarabun, sans-serif', padding: '20px 30px 10px' }}>
+        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'THSarabun, sans-serif', padding: '30px 40px' }}>
 
             {/* ── Top header bar ── */}
-            <div className="flex items-stretch border-b-2 border-orange-500" style={{ minHeight: 72 }}>
+            <div className="flex items-stretch border-[1.5px] border-orange-500 rounded-sm overflow-hidden" style={{ minHeight: 70 }}>
                 {/* Logo / title block */}
-                <div className="flex items-center gap-3 px-4 py-2" style={{ minWidth: 260 }}>
-                    {/* KMUTT logo placeholder */}
-                    <div className="flex items-center justify-center rounded" style={{ width: 52, height: 52, background: 'linear-gradient(135deg,#b91c1c,#ea580c)' }}>
-                        <span className="text-white font-black text-lg leading-none">K</span>
+                <div className="flex items-center gap-4 px-4 py-2 bg-white" style={{ flex: '0 0 45%' }}>
+                    {/* Official logo image */}
+                    <div className="flex items-center pr-3 border-r border-slate-200">
+                        <Image src="/ICON.png" alt="KMUTT 65" width={80} height={52} className="object-contain" priority />
                     </div>
-                    <div className="text-xs font-semibold leading-snug text-slate-800">
-                        <div className="text-sm font-bold">เกณฑ์การรับสมัครนักศึกษา</div>
-                        <div>รอบที่ 2 (ปีการศึกษา 2569)</div>
+                    {/* Title */}
+                    <div className="text-slate-800 flex flex-col justify-center">
+                        <div className="text-[13px] font-bold leading-tight">เกณฑ์การรับสมัครนักศึกษา</div>
+                        <div className="text-[13px] font-bold leading-tight">รอบที่ 2 (ปีการศึกษา 2569)</div>
                     </div>
                 </div>
 
-                {/* Orange banner */}
+                {/* Orange banner block */}
                 <div
-                    className="flex-1 flex items-center justify-center text-white font-bold text-sm px-6"
+                    className="flex-1 flex items-center justify-center text-white font-bold text-sm px-6 border-l-[1.5px] border-orange-500"
                     style={{ backgroundColor: '#ea580c' }}
                 >
                     โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT
@@ -45,50 +48,56 @@ export function FacultyTOC({ data }: Props) {
             </div>
 
             {/* ── Body ── */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col pt-16">
 
                 {/* Section heading */}
-                <h2 className="text-center font-bold mb-10" style={{ fontSize: 18, color: '#1e293b' }}>
+                <h2 className="text-center font-bold mb-14" style={{ fontSize: 20, color: '#1e293b' }}>
                     คณะ/สถาบัน
                 </h2>
 
                 {/* TOC entries */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-5 px-6">
                     {data.entries.map((entry, i) => (
-                        <div key={i} className="flex items-baseline gap-0" style={{ fontSize: 14 }}>
+                        <div key={i} className="flex items-baseline gap-0" style={{ fontSize: 16 }}>
                             {/* Faculty name */}
-                            <span className="shrink-0 text-slate-800">{entry.faculty}</span>
+                            <span className="shrink-0 font-bold text-slate-800">{entry.faculty}</span>
                             {/* Dotted leader */}
                             <span
-                                className="flex-1 mx-1 overflow-hidden text-slate-400"
+                                className="flex-1 mx-1 overflow-hidden"
                                 style={{
-                                    borderBottom: '1px dotted #94a3b8',
-                                    marginBottom: 3,
+                                    borderBottom: '1.2px dotted #94a3b8',
+                                    marginBottom: 4,
                                     minWidth: 40,
                                 }}
                             />
                             {/* Page number */}
-                            <span className="shrink-0 text-slate-800 tabular-nums">{entry.startPage}</span>
+                            <span className="shrink-0 font-bold text-slate-800 tabular-nums">{entry.startPage}</span>
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* ── Footer ── */}
-            <div className="flex items-end justify-between px-8 py-3 border-t border-slate-200" style={{ minHeight: 52 }}>
-                {/* Orange squares + office name */}
+            <div className="grid grid-cols-3 items-end pt-4 pb-2">
+                {/* Left: squares + office name */}
                 <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                        <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: '#ea580c' }} />
-                        <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: '#fb923c' }} />
+                    <div className="flex gap-0.5">
+                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#ea580c' }} />
+                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#fb923c' }} />
+                        <div className="w-3.5 h-3.5 bg-slate-200" />
                     </div>
-                    <span className="text-xs text-slate-600">สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.</span>
+                    <span className="text-[10px] font-bold text-slate-700">สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.</span>
                 </div>
 
-                {/* Date + page number */}
-                <div className="text-right">
-                    <div className="text-xs text-orange-600 font-semibold">{dateStr}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">1 | Page</div>
+                {/* Center: page number */}
+                <div className="text-center text-[11px] text-slate-700 font-bold">
+                    1 | P a g e
+                </div>
+
+                {/* Right: warning + date */}
+                <div className="text-right flex flex-col items-end">
+                    <div className="text-[10px] text-red-600 font-bold leading-tight">ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม</div>
+                    <div className="text-[10px] text-red-600 font-bold leading-tight">{dateStr}</div>
                 </div>
             </div>
         </div>

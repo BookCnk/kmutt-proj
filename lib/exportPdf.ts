@@ -7,13 +7,20 @@ import { jsPDF } from 'jspdf';
 const A4_W_MM = 210;
 const A4_H_MM = 297;
 
+type ExportProgress = {
+    current: number;
+    total: number;
+    percent: number;
+};
+
 /**
  * Finds all elements matching selector (default: [data-a4-page]),
  * captures each with html2canvas, and saves as a single multi-page A4 PDF.
  */
 export async function exportAllPagesToPDF(
     filename: string,
-    selector = '[data-a4-page]'
+    selector = '[data-a4-page]',
+    onProgress?: (progress: ExportProgress) => void
 ): Promise<void> {
     const pages = Array.from(document.querySelectorAll<HTMLElement>(selector));
     if (pages.length === 0) {
@@ -22,8 +29,9 @@ export async function exportAllPagesToPDF(
     }
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const totalPages = pages.length;
 
-    for (let i = 0; i < pages.length; i++) {
+    for (let i = 0; i < totalPages; i++) {
         const el = pages[i];
         const prevOverflow = el.style.overflow;
         el.style.overflow = 'visible';
@@ -45,6 +53,12 @@ export async function exportAllPagesToPDF(
         } finally {
             el.style.overflow = prevOverflow;
         }
+
+        onProgress?.({
+            current: i + 1,
+            total: totalPages,
+            percent: Math.round(((i + 1) / totalPages) * 100),
+        });
     }
 
     pdf.save(`${filename}.pdf`);
