@@ -16,6 +16,7 @@ const A4_H = 1123;
 const PAGE_STYLE: React.CSSProperties = {
     width: A4_W,
     height: A4_H,
+    fontSize: 16,
     flexShrink: 0,
     backgroundColor: '#fff',
     boxShadow: '0 4px 24px rgba(0,0,0,0.18)',

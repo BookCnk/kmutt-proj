@@ -1,8 +1,9 @@
 // ─── Infographic CMS Builder — Multi-page PDF Export ─────────────────────────
 // Captures every .a4-page element in document order and saves as one PDF.
 
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { getTHSarabunFontEmbedCSS } from './thsarabun-font-face';
 
 const A4_W_MM = 210;
 const A4_H_MM = 297;
@@ -15,7 +16,7 @@ type ExportProgress = {
 
 /**
  * Finds all elements matching selector (default: [data-a4-page]),
- * captures each with html2canvas, and saves as a single multi-page A4 PDF.
+ * captures each with html-to-image, and saves as a single multi-page A4 PDF.
  */
 export async function exportAllPagesToPDF(
     filename: string,
@@ -30,28 +31,37 @@ export async function exportAllPagesToPDF(
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const totalPages = pages.length;
+    let fontEmbedCSS: string | undefined;
+
+    try {
+        fontEmbedCSS = await getTHSarabunFontEmbedCSS();
+    } catch (error) {
+        console.warn('exportAllPagesToPDF: failed to embed THSarabun fonts', error);
+    }
 
     for (let i = 0; i < totalPages; i++) {
         const el = pages[i];
-        const prevOverflow = el.style.overflow;
-        el.style.overflow = 'visible';
+        
+        // Hide box shadow during capture if needed
+        const prevBoxShadow = el.style.boxShadow;
+        el.style.boxShadow = 'none';
 
         try {
-            const canvas = await html2canvas(el, {
-                scale: 2,
-                useCORS: true,
+            // html-to-image is much more accurate with web fonts (like THSarabun) 
+            // because it uses the browser's native SVG rendering engine.
+            const dataUrl = await toPng(el, {
+                quality: 1.0,
+                pixelRatio: 2, // 2x resolution
                 backgroundColor: '#ffffff',
-                logging: false,
+                cacheBust: true, // Prevent cached fonts/images from breaking
+                fontEmbedCSS,
             });
 
-            const imgData = canvas.toDataURL('image/png');
-            const imgRatioH = (canvas.height * A4_W_MM) / canvas.width;
-            const imgH = Math.min(imgRatioH, A4_H_MM);
-
             if (i > 0) pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, 0, A4_W_MM, imgH);
+            // Keep every page pinned to the exact A4 frame
+            pdf.addImage(dataUrl, 'PNG', 0, 0, A4_W_MM, A4_H_MM, undefined, 'FAST');
         } finally {
-            el.style.overflow = prevOverflow;
+            el.style.boxShadow = prevBoxShadow;
         }
 
         onProgress?.({

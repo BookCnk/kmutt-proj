@@ -13,7 +13,7 @@ interface Props {
 }
 
 const ACCENT = '#c0392b'; // red-ish used in PDF header box border
-const ORANGE = '#d35400'; // orange banner
+const ORANGE = '#fa4616'; // orange banner
 
 export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
   const today = new Date();
@@ -24,7 +24,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
   return (
     <div
       className="w-full h-full flex flex-col bg-white overflow-hidden text-black"
-      style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 11 }}
+      style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 16 }}
     >
       {/* ── Header ── */}
       <div className="flex items-stretch mb-3" style={{ border: `2px solid ${ACCENT}`, minHeight: 60 }}>
@@ -99,7 +99,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ display: 'flex', gap: 2 }}>
             <div style={{ width: 12, height: 12, backgroundColor: '#c0392b', borderRadius: 2 }} />
-            <div style={{ width: 12, height: 12, backgroundColor: '#e67e22', borderRadius: 2 }} />
+            <div style={{ width: 12, height: 12, backgroundColor: '#fa4616', borderRadius: 2 }} />
           </div>
           <span style={{ color: '#555' }}>สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.</span>
         </div>

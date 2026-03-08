@@ -42,7 +42,8 @@ export default function InfographicBuilderPage() {
                 <button
                     onClick={handleExport}
                     disabled={exporting || majorGroups.length === 0}
-                    className="text-xs px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
+                    className="text-xs px-4 py-1.5 text-white rounded disabled:opacity-50 transition-colors font-semibold"
+                    style={{ backgroundColor: '#fa4616' }}
                 >
                     {exporting ? `กำลัง Export ${exportProgress.percent}%` : 'Export PDF ทั้งหมด'}
                 </button>
@@ -67,11 +68,11 @@ export default function InfographicBuilderPage() {
                         </p>
                         <div className="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                             <div
-                                className="h-full bg-blue-600 transition-[width] duration-200"
-                                style={{ width: `${exportProgress.percent}%` }}
+                                className="h-full transition-[width] duration-200"
+                                style={{ width: `${exportProgress.percent}%`, backgroundColor: '#fa4616' }}
                             />
                         </div>
-                        <p className="mt-2 text-right text-xs font-medium text-blue-700">{exportProgress.percent}%</p>
+                        <p className="mt-2 text-right text-xs font-medium" style={{ color: '#fa4616' }}>{exportProgress.percent}%</p>
                     </div>
                 </div>
             )}

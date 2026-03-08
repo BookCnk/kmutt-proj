@@ -56,7 +56,8 @@ export function SidebarTools() {
             {majorGroups.length > 0 && (
                 <button
                     onClick={() => scrollToFaculty('__toc__')}
-                    className="w-full text-left text-xs px-3 py-2 rounded font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors"
+                    className="w-full text-left text-xs px-3 py-2 rounded font-bold border transition-colors"
+                    style={{ backgroundColor: '#fff1ed', color: '#fa4616', borderColor: '#fa4616' }}
                 >
                     📋 สารบัญ (หน้า 1)
                 </button>

@@ -12,7 +12,7 @@ interface Props {
     pageNumber: number;
 }
 
-const ORANGE = '#d35400';
+const ORANGE = '#fa4616';
 const DARK = '#1a1a1a';
 
 function minLabel(row: AdmissionCriteriaRow): string {
@@ -64,12 +64,12 @@ export function MajorPage({ group, pageNumber }: Props) {
     return (
         <div
             className="w-full h-full flex flex-col bg-white overflow-hidden text-black"
-            style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 11 }}
+            style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 16 }}
         >
             {/* ── Header ── */}
             <div className="flex items-stretch mb-3" style={{ border: '2px solid #c0392b', minHeight: 60 }}>
                 <div className="flex items-center gap-2 px-3 py-1 bg-white" style={{ minWidth: 230 }}>
-                    <div style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#b91c1c,#d35400)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#b91c1c,#fa4616)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>K</span>
                     </div>
                     <div>
@@ -173,7 +173,7 @@ export function MajorPage({ group, pageNumber }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ display: 'flex', gap: 2 }}>
                         <div style={{ width: 12, height: 12, backgroundColor: '#c0392b', borderRadius: 2 }} />
-                        <div style={{ width: 12, height: 12, backgroundColor: '#e67e22', borderRadius: 2 }} />
+                        <div style={{ width: 12, height: 12, backgroundColor: '#fa4616', borderRadius: 2 }} />
                     </div>
                     <span style={{ color: '#555' }}>สำนักงานคัดเลือกและสรรหานักศึกษา มจธ. ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม</span>
                 </div>

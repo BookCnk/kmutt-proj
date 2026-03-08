@@ -21,10 +21,10 @@ export function FacultyTOC({ data }: Props) {
     const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
 
     return (
-        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'THSarabun, sans-serif', padding: '30px 40px' }}>
+        <div className="w-full h-full flex flex-col bg-white font-sans" style={{ fontFamily: 'THSarabun, sans-serif', padding: '30px 40px', fontSize: 16 }}>
 
             {/* ── Top header bar ── */}
-            <div className="flex items-stretch border-[1.5px] border-orange-500 rounded-sm overflow-hidden" style={{ minHeight: 70 }}>
+            <div className="flex items-stretch rounded-sm overflow-hidden" style={{ minHeight: 70, border: '1.5px solid #fa4616' }}>
                 {/* Logo / title block */}
                 <div className="flex items-center gap-4 px-4 py-2 bg-white" style={{ flex: '0 0 45%' }}>
                     {/* Official logo image */}
@@ -40,8 +40,8 @@ export function FacultyTOC({ data }: Props) {
 
                 {/* Orange banner block */}
                 <div
-                    className="flex-1 flex items-center justify-center text-white font-bold text-sm px-6 border-l-[1.5px] border-orange-500"
-                    style={{ backgroundColor: '#ea580c' }}
+                    className="flex-1 flex items-center justify-center text-white font-bold text-sm px-6"
+                    style={{ backgroundColor: '#fa4616', borderLeft: '1.5px solid #fa4616' }}
                 >
                     โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT
                 </div>
@@ -58,20 +58,28 @@ export function FacultyTOC({ data }: Props) {
                 {/* TOC entries */}
                 <div className="flex flex-col gap-5 px-6">
                     {data.entries.map((entry, i) => (
-                        <div key={i} className="flex items-baseline gap-0" style={{ fontSize: 16 }}>
-                            {/* Faculty name */}
-                            <span className="shrink-0 font-bold text-slate-800">{entry.faculty}</span>
-                            {/* Dotted leader */}
-                            <span
-                                className="flex-1 mx-1 overflow-hidden"
-                                style={{
-                                    borderBottom: '1.2px dotted #94a3b8',
-                                    marginBottom: 4,
-                                    minWidth: 40,
-                                }}
+                        <div key={i} className="relative flex items-end w-full" style={{ fontSize: 16 }}>
+                            {/* Faculty name with solid background to hide dots underneath */}
+                            <div className="pr-2 bg-white relative z-10 shrink-0">
+                                <span className="font-bold text-slate-800">{entry.faculty}</span>
+                            </div>
+                            
+                            {/* The dotted line spanning the whole width underneath */}
+                            <div 
+                                className="absolute left-0 right-0 bottom-1.5 z-0" 
+                                style={{ 
+                                    borderBottom: '1.5px dotted #94a3b8',
+                                    height: '1px'
+                                }} 
                             />
-                            {/* Page number */}
-                            <span className="shrink-0 font-bold text-slate-800 tabular-nums">{entry.startPage}</span>
+                            
+                            {/* Spacer to push the page number to the right */}
+                            <div className="flex-1" />
+
+                            {/* Page number with solid background to hide dots underneath */}
+                            <div className="pl-2 bg-white relative z-10 shrink-0">
+                                <span className="font-bold text-slate-800 tabular-nums">{entry.startPage}</span>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -82,8 +90,8 @@ export function FacultyTOC({ data }: Props) {
                 {/* Left: squares + office name */}
                 <div className="flex items-center gap-2">
                     <div className="flex gap-0.5">
-                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#ea580c' }} />
-                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#fb923c' }} />
+                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#fa4616' }} />
+                        <div className="w-3.5 h-3.5" style={{ backgroundColor: '#fa4616' }} />
                         <div className="w-3.5 h-3.5 bg-slate-200" />
                     </div>
                     <span className="text-[10px] font-bold text-slate-700">สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.</span>
