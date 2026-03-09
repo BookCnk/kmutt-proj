@@ -39,7 +39,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
       style={{
         fontFamily: "THSarabun, sans-serif",
         padding: "20px 30px 10px",
-        fontSize: 16,
+        fontSize: 18,
       }}>
       {/* Header */}
       <InfographicTopHeader className="mb-3" />
@@ -49,7 +49,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
         style={{
           textAlign: "center",
           fontWeight: 700,
-          fontSize: 14,
+          fontSize: 18,
           marginBottom: 8,
         }}>
         {faculty}
@@ -61,15 +61,16 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
           width: "100%",
           borderCollapse: "collapse",
           marginBottom: 8,
-          fontSize: 11,
+          fontSize: 18,
         }}>
         <thead>
-          <tr style={{ backgroundColor: "#a0522d" }}>
+          <tr>
             <th
               style={{
-                border: "1px solid #999",
+                border: "1px solid #333",
                 padding: "5px 8px",
-                color: "#fff",
+                backgroundColor: "#f4b083",
+                color: "#000",
                 textAlign: "center",
                 width: "55%",
                 fontWeight: 700,
@@ -78,9 +79,10 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
             </th>
             <th
               style={{
-                border: "1px solid #999",
+                border: "1px solid #333",
                 padding: "5px 8px",
-                color: "#fff",
+                backgroundColor: "#a6a6a6",
+                color: "#000",
                 textAlign: "center",
                 fontWeight: 700,
               }}>
@@ -90,9 +92,10 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
             </th>
             <th
               style={{
-                border: "1px solid #999",
+                border: "1px solid #333",
                 padding: "5px 8px",
-                color: "#fff",
+                backgroundColor: "#a6a6a6",
+                color: "#000",
                 textAlign: "center",
                 fontWeight: 700,
               }}>
@@ -104,20 +107,24 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
         </thead>
         <tbody>
           {majors.map((g, i) => (
-            <tr
-              key={i}
-              style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-              <td style={{ border: "1px solid #ccc", padding: "4px 8px" }}>
+            <tr key={i}>
+              <td
+                style={{
+                  border: "1px solid #333",
+                  padding: "4px 8px",
+                  backgroundColor: "#fbe4d5",
+                }}>
                 {g.admissionMajor}
               </td>
               <td
                 style={{
-                  border: "1px solid #ccc",
+                  border: "1px solid #333",
                   padding: "4px 8px",
                   textAlign: "center",
+                  backgroundColor: "#ffffff",
                 }}>
                 {g.examTotal === 0 ? (
-                  <span style={{ fontSize: 10 }}>
+                  <span style={{ fontSize: 18 }}>
                     อยู่ระหว่างปรับปรุงหลักสูตร*
                   </span>
                 ) : (
@@ -126,9 +133,10 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
               </td>
               <td
                 style={{
-                  border: "1px solid #ccc",
+                  border: "1px solid #333",
                   padding: "4px 8px",
                   textAlign: "center",
+                  backgroundColor: "#ffffff",
                 }}>
                 {g.limitApplicant === 0 ? "-" : g.limitApplicant}
               </td>
@@ -154,7 +162,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
           style={{
             color: ORANGE,
             fontWeight: 700,
-            fontSize: 12,
+            fontSize: 18,
             marginBottom: 4,
             textDecoration: "underline",
           }}>
@@ -191,7 +199,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
           alignItems: "flex-end",
           borderTop: "1px solid #ccc",
           paddingTop: 6,
-          fontSize: 9,
+          fontSize: 14,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ display: "flex", gap: 2 }}>
