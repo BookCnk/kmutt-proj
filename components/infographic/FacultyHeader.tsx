@@ -27,7 +27,7 @@ export function FacultyHeader({
                 className="w-full text-white text-center font-bold py-2 px-4"
                 style={{ backgroundColor: color, fontSize: fontSize + 2 }}
             >
-                เกณฑ์การรับสมัครนักศึกษา
+                เกณฑ์การรับสมัครนักศึกษา หกดหด
             </div>
             <div
                 className="w-full text-white text-center font-semibold py-1 px-4"

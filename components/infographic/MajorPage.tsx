@@ -6,6 +6,7 @@
 // เกณฑ์การพิจารณา table → หมายเหตุ → footer
 
 import type { AdmissionCriteriaRow, AdmissionMajorGroup } from '@/types/infographic';
+import { InfographicTopHeader } from './InfographicTopHeader';
 
 interface Props {
     group: AdmissionMajorGroup;
@@ -66,21 +67,8 @@ export function MajorPage({ group, pageNumber }: Props) {
             className="w-full h-full flex flex-col bg-white overflow-hidden text-black"
             style={{ fontFamily: 'THSarabun, sans-serif', padding: '20px 30px 10px', fontSize: 16 }}
         >
-            {/* ── Header ── */}
-            <div className="flex items-stretch mb-3" style={{ border: '2px solid #c0392b', minHeight: 60 }}>
-                <div className="flex items-center gap-2 px-3 py-1 bg-white" style={{ minWidth: 230 }}>
-                    <div style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#b91c1c,#fa4616)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>K</span>
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: 11 }}>เกณฑ์การรับสมัครนักศึกษา</div>
-                        <div style={{ fontSize: 10 }}>รอบที่ 2 (ปีการศึกษา 2569)</div>
-                    </div>
-                </div>
-                <div style={{ flex: 1, backgroundColor: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13, padding: '0 16px' }}>
-                    โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT
-                </div>
-            </div>
+            {/* Header */}
+            <InfographicTopHeader className="mb-3" />
 
             {/* Faculty (ต่อ) */}
             <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, marginBottom: 8, color: DARK }}>

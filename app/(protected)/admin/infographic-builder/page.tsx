@@ -5,6 +5,10 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { exportAllPagesToPDF } from '@/lib/exportPdf';
 import { SidebarTools } from '@/components/infographic/SidebarTools';
 import { A4Canvas } from '@/components/infographic/A4Canvas';
+import {
+    DEFAULT_FACULTY_TOC_CONTENT,
+    type FacultyTOCContent,
+} from '@/components/infographic/FacultyTOC';
 
 export default function InfographicBuilderPage() {
     const { majorGroups } = useEditorStore();
@@ -14,6 +18,9 @@ export default function InfographicBuilderPage() {
         total: 0,
         percent: 0,
     });
+    const [tocContent, setTocContent] = useState<FacultyTOCContent>(
+        DEFAULT_FACULTY_TOC_CONTENT
+    );
 
     async function handleExport() {
         setExporting(true);
@@ -28,8 +35,19 @@ export default function InfographicBuilderPage() {
         }
     }
 
+    function updateTocField(field: keyof FacultyTOCContent, value: string) {
+        setTocContent((prev) => ({ ...prev, [field]: value }));
+    }
+
     return (
-        <div className="relative flex flex-col h-[calc(100vh-64px)] overflow-hidden -mx-4 -my-8">
+        <div
+            className="relative flex flex-col h-[calc(100vh-64px)] overflow-hidden -my-8"
+            style={{
+                width: '100vw',
+                marginLeft: 'calc(50% - 50vw)',
+                marginRight: 'calc(50% - 50vw)',
+            }}
+        >
             <div className="flex items-center justify-between bg-white border-b px-4 py-2 shadow-sm flex-shrink-0">
                 <div>
                     <h1 className="text-base font-bold text-slate-800">Infographic Builder</h1>
@@ -55,8 +73,77 @@ export default function InfographicBuilderPage() {
                 </aside>
 
                 <main className="flex-1 overflow-hidden">
-                    <A4Canvas />
+                    <A4Canvas tocContent={tocContent} />
                 </main>
+
+                <aside className="w-80 flex-shrink-0 bg-white border-l overflow-y-auto p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-sm font-bold text-slate-800">แก้ไขหน้าแรก (TOC)</h2>
+                        <button
+                            type="button"
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+                            onClick={() => setTocContent(DEFAULT_FACULTY_TOC_CONTENT)}
+                        >
+                            Reset
+                        </button>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">หัวข้อซ้าย บรรทัด 1</label>
+                            <input
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.leftTitleLine1}
+                                onChange={(e) => updateTocField('leftTitleLine1', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">หัวข้อซ้าย บรรทัด 2</label>
+                            <input
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.leftTitleLine2}
+                                onChange={(e) => updateTocField('leftTitleLine2', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">ข้อความแถบส้ม</label>
+                            <textarea
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 min-h-16 resize-y focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.bannerText}
+                                onChange={(e) => updateTocField('bannerText', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">หัวข้อกลางหน้า</label>
+                            <input
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.sectionTitle}
+                                onChange={(e) => updateTocField('sectionTitle', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">ชื่อหน่วยงานฟุตเตอร์</label>
+                            <textarea
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 min-h-16 resize-y focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.officeName}
+                                onChange={(e) => updateTocField('officeName', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">ข้อความคำเตือน</label>
+                            <input
+                                className="w-full text-sm rounded border border-slate-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                value={tocContent.warningText}
+                                onChange={(e) => updateTocField('warningText', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </aside>
             </div>
 
             {exporting && (
@@ -72,7 +159,9 @@ export default function InfographicBuilderPage() {
                                 style={{ width: `${exportProgress.percent}%`, backgroundColor: '#fa4616' }}
                             />
                         </div>
-                        <p className="mt-2 text-right text-xs font-medium" style={{ color: '#fa4616' }}>{exportProgress.percent}%</p>
+                        <p className="mt-2 text-right text-xs font-medium" style={{ color: '#fa4616' }}>
+                            {exportProgress.percent}%
+                        </p>
                     </div>
                 </div>
             )}
