@@ -70,6 +70,7 @@ type Program = {
   degree_abbr: string;
   degree_req?: "bachelor" | "master";
   active?: boolean;
+  order?: number; // ✅ ลำดับการแสดงผล
 
   teaching_time?: string; // ข้อมูลเดิม/สำรองจากบางเรคคอร์ด
 };
@@ -162,6 +163,7 @@ export default function FacultyTable() {
   const [editingProgDegreeAbbr, setEditingProgDegreeAbbr] =
     useState<string>("");
   const [editingProgDegreeReq, setEditingProgDegreeReq] = useState<string>("");
+  const [editingProgOrder, setEditingProgOrder] = useState<number>(0);
 
   const [savingProgId, setSavingProgId] = useState<string | null>(null);
   const [deletingProgId, setDeletingProgId] = useState<string | null>(null);
@@ -374,6 +376,7 @@ export default function FacultyTable() {
     setEditingProgDegreeLevel("");
     setEditingProgDegreeReq("");
     setEditingProgDegreeAbbr("");
+    setEditingProgOrder(0);
     setSavingProgId(null);
     setDeletingProgId(null);
 
@@ -393,6 +396,7 @@ export default function FacultyTable() {
     setEditingProgId(p._id);
     setEditingProgTitle(p.title ?? "");
     setEditingProgTeachingTime(p.time ?? p.teaching_time ?? "");
+    setEditingProgOrder(p.order ?? 0);
 
     // ✅ NEW defaults
     const normalizedLevel = normalizeDegreeLevel(p.degree_level);
@@ -415,6 +419,7 @@ export default function FacultyTable() {
     setEditingProgDegreeLevel("");
     setEditingProgDegreeReq("");
     setEditingProgDegreeAbbr("");
+    setEditingProgOrder(0);
   };
 
   const saveEditProgram = async (p: Program) => {
@@ -455,6 +460,7 @@ export default function FacultyTable() {
         teaching_time: newTeachingTime,
         degree_level: newDegreeLevel,
         degree_abbr: newDegreeAbbr,
+        order: editingProgOrder,
 
         // ✅ ส่ง degree_req เฉพาะ doctoral
         ...(newDegreeLevel === "doctoral"
@@ -780,8 +786,8 @@ export default function FacultyTable() {
                 ไม่พบหลักสูตร/สาขาในภาคนี้
               </div>
             ) : (
-              <ul className="space-y-2">
-                {progRows.map((p) => {
+              <ul className="space-y-3">
+                {progRows.map((p, index) => {
                   const isEditing = editingProgId === p._id;
                   const isSaving = savingProgId === p._id;
                   const isDeleting = deletingProgId === p._id;
@@ -789,257 +795,184 @@ export default function FacultyTable() {
                   return (
                     <li
                       key={p._id}
-                      className="rounded-lg border px-3 py-2 flex items-center justify-between gap-3">
+                      className="rounded-lg border px-4 py-3 flex items-start justify-between gap-4 bg-white shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex-none pt-1">
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-600">
+                          {index + 1}
+                        </span>
+                      </div>
                       <div className="min-w-0 flex-1">
                         {isEditing ? (
-                          <>
-                            <input
-                              className="mb-2 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              value={editingProgTitle}
-                              onChange={(e) =>
-                                setEditingProgTitle(e.target.value)
-                              }
-                              disabled={isSaving || isDeleting}
-                              placeholder="ชื่อหลักสูตร/สาขา"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  saveEditProgram(p);
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-xs font-medium text-gray-500 mb-1 block">ชื่อหลักสูตร/สาขา</label>
+                              <input
+                                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                value={editingProgTitle}
+                                onChange={(e) =>
+                                  setEditingProgTitle(e.target.value)
                                 }
-                              }}
-                            />
-
-                            <textarea
-                              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                              rows={3}
-                              value={editingProgTeachingTime}
-                              onChange={(e) =>
-                                setEditingProgTeachingTime(e.target.value)
-                              }
-                              disabled={isSaving || isDeleting}
-                              placeholder="วัน-เวลาในการดำเนินการเรียนการสอน (เช่น จ.-พ. 09:00–12:00 ห้อง B201)"
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "Enter" &&
-                                  (e.ctrlKey || e.metaKey)
-                                ) {
-                                  e.preventDefault();
-                                  saveEditProgram(p);
-                                }
-                              }}
-                            />
-
-                            {/* ✅ NEW: degree_level */}
-                            <div className="mt-2">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className={`w-full rounded-md border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                      editingProgDegreeLevel
-                                        ? "text-gray-900"
-                                        : "text-gray-500"
-                                    }`}
-                                    disabled={isSaving || isDeleting}>
-                                    {editingProgDegreeLevel === "master"
-                                      ? "ปริญญาโท (master)"
-                                      : editingProgDegreeLevel === "doctoral"
-                                        ? "ปริญญาเอก (doctoral)"
-                                        : "เลือกระดับ"}
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="start"
-                                  className="w-56">
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditingProgDegreeLevel("");
-                                      setEditingProgDegreeReq("");
-                                    }}
-                                    className={
-                                      editingProgDegreeLevel === ""
-                                        ? "bg-blue-50 text-blue-600"
-                                        : ""
-                                    }>
-                                    ไม่ระบุ
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditingProgDegreeLevel("master");
-                                      setEditingProgDegreeReq("");
-                                    }}
-                                    className={
-                                      editingProgDegreeLevel === "master"
-                                        ? "bg-blue-50 text-blue-600"
-                                        : ""
-                                    }>
-                                    ปริญญาโท (master)
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      setEditingProgDegreeLevel("doctoral")
-                                    }
-                                    className={
-                                      editingProgDegreeLevel === "doctoral"
-                                        ? "bg-blue-50 text-blue-600"
-                                        : ""
-                                    }>
-                                    ปริญญาเอก (doctoral)
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                disabled={isSaving || isDeleting}
+                                placeholder="ชื่อหลักสูตร/สาขา"
+                              />
                             </div>
 
-                            {editingProgDegreeLevel === "doctoral" ? (
-                              <div className="mt-2">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">ลำดับ (Order)</label>
+                                <input
+                                  type="number"
+                                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  value={editingProgOrder}
+                                  onChange={(e) => setEditingProgOrder(Number(e.target.value))}
+                                  disabled={isSaving || isDeleting}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">วุฒิบัตร (Abbr.)</label>
+                                <input
+                                  className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  value={editingProgDegreeAbbr}
+                                  onChange={(e) =>
+                                    setEditingProgDegreeAbbr(e.target.value)
+                                  }
+                                  disabled={isSaving || isDeleting}
+                                  placeholder="เช่น วศ.ม."
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-medium text-gray-500 mb-1 block">วัน-เวลาในการดำเนินการเรียนการสอน</label>
+                              <textarea
+                                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                                rows={2}
+                                value={editingProgTeachingTime}
+                                onChange={(e) =>
+                                  setEditingProgTeachingTime(e.target.value)
+                                }
+                                disabled={isSaving || isDeleting}
+                                placeholder="เช่น จ.-พ. 09:00–12:00 ห้อง B201"
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-3">
+                              {/* ✅ Degree Level Dropdown */}
+                              <div>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">ระดับการศึกษา</label>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
                                       type="button"
-                                      className={`w-full rounded-md border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                        editingProgDegreeReq
+                                      className={`w-full rounded-md border px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        editingProgDegreeLevel
                                           ? "text-gray-900"
                                           : "text-gray-500"
                                       }`}
                                       disabled={isSaving || isDeleting}>
-                                      {editingProgDegreeReq === "bachelor"
-                                        ? "ผู้สมัครต้องจบปริญญาตรี"
-                                        : editingProgDegreeReq === "master"
-                                          ? "ผู้สมัครต้องจบปริญญาโท"
-                                          : "เลือกระดับวุฒิขั้นต่ำ"}
+                                      {editingProgDegreeLevel === "master"
+                                        ? "ปริญญาโท (master)"
+                                        : editingProgDegreeLevel === "doctoral"
+                                          ? "ปริญญาเอก (doctoral)"
+                                          : "เลือกระดับ"}
                                     </button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent
-                                    align="start"
-                                    className="w-56">
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        setEditingProgDegreeReq("")
-                                      }
-                                      className={
-                                        editingProgDegreeReq === ""
-                                          ? "bg-blue-50 text-blue-600"
-                                          : ""
-                                      }>
-                                      ไม่ระบุ
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        setEditingProgDegreeReq("bachelor")
-                                      }
-                                      className={
-                                        editingProgDegreeReq === "bachelor"
-                                          ? "bg-blue-50 text-blue-600"
-                                          : ""
-                                      }>
-                                      ผู้สมัครต้องจบปริญญาตรี (bachelor)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        setEditingProgDegreeReq("master")
-                                      }
-                                      className={
-                                        editingProgDegreeReq === "master"
-                                          ? "bg-blue-50 text-blue-600"
-                                          : ""
-                                      }>
-                                      ผู้สมัครต้องจบปริญญาโท (master)
-                                    </DropdownMenuItem>
+                                  <DropdownMenuContent align="start" className="w-56">
+                                    <DropdownMenuItem onClick={() => { setEditingProgDegreeLevel(""); setEditingProgDegreeReq(""); }}>ไม่ระบุ</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setEditingProgDegreeLevel("master"); setEditingProgDegreeReq(""); }}>ปริญญาโท (master)</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setEditingProgDegreeLevel("doctoral")}>ปริญญาเอก (doctoral)</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
-                                <p className="mt-1 text-xs text-gray-500">
-                                  ระบุวุฒิขั้นต่ำของผู้สมัครสำหรับหลักสูตรปริญญาเอก
-                                </p>
                               </div>
-                            ) : null}
 
-                            {/* ✅ NEW: degree_abbr */}
-                            <input
-                              className="mt-2 w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              value={editingProgDegreeAbbr}
-                              onChange={(e) =>
-                                setEditingProgDegreeAbbr(e.target.value)
-                              }
-                              disabled={isSaving || isDeleting}
-                              placeholder="วุฒิ (เช่น วศ.ม., วท.ม., ปร.ด.)"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  saveEditProgram(p);
-                                }
-                              }}
-                            />
-                          </>
+                              {editingProgDegreeLevel === "doctoral" && (
+                                <div>
+                                  <label className="text-xs font-medium text-gray-500 mb-1 block">วุฒิขั้นต่ำ</label>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className={`w-full rounded-md border px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                          editingProgDegreeReq
+                                            ? "text-gray-900"
+                                            : "text-gray-500"
+                                        }`}
+                                        disabled={isSaving || isDeleting}>
+                                        {editingProgDegreeReq === "bachelor"
+                                          ? "จบปริญญาตรี"
+                                          : editingProgDegreeReq === "master"
+                                            ? "จบปริญญาโท"
+                                            : "เลือกระดับวุฒิขั้นต่ำ"}
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-56">
+                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("")}>ไม่ระบุ</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("bachelor")}>จบปริญญาตรี (bachelor)</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("master")}>จบปริญญาโท (master)</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         ) : (
-                          <>
-                            <p className="font-medium break-words whitespace-normal">
-                              {p.title}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              {p.order !== undefined && (
+                                <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                  Order: {p.order}
+                                </span>
+                              )}
+                              <p className="font-bold text-gray-900 break-words whitespace-normal leading-snug">
+                                {p.title}
+                              </p>
+                            </div>
+
+                            <p className="text-xs text-blue-600 font-medium">
+                              {p.degree_abbr || "-"} • {p.degree_level === "master" ? "ปริญญาโท" : p.degree_level === "doctoral" ? "ปริญญาเอก" : p.degree_level || "-"}
+                              {p.degree_level === "doctoral" && p.degree_req && (
+                                <span className="ml-1 text-gray-500 font-normal">(วุฒิขั้นต่ำ: {p.degree_req === "master" ? "ป.โท" : "ป.ตรี"})</span>
+                              )}
                             </p>
 
-                            {p.time ? (
-                              <p className="text-sm text-gray-600 mt-0.5">
-                                วัน-เวลา: {p.time}
+                            <div className="mt-1 space-y-1">
+                              <p className="text-xs text-gray-500 flex items-start gap-1">
+                                <span className="font-medium text-gray-700 shrink-0">วัน-เวลา:</span>
+                                <span className="break-words">{p.time || p.teaching_time || "—"}</span>
                               </p>
-                            ) : p.teaching_time ? (
-                              <p className="text-sm text-gray-600 mt-0.5">
-                                วัน-เวลา: {p.teaching_time}
-                              </p>
-                            ) : (
-                              <p className="text-sm text-gray-400 mt-0.5">
-                                วัน-เวลา: —
-                              </p>
-                            )}
-                          </>
-                        )}
+                            </div>
 
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                          <span>ระดับ: {p.degree_level || "-"}</span>
-                          <span>•</span>
-                          <span>วุฒิ: {p.degree_abbr || "-"}</span>
-                          {p.degree_level === "doctoral" ? (
-                            <>
-                              <span>•</span>
-                              <span>
-                                วุฒิขั้นต่ำ:{" "}
-                                {p.degree_req === "master"
-                                  ? "ปริญญาโท"
-                                  : p.degree_req === "bachelor"
-                                    ? "ปริญญาตรี"
-                                    : "-"}
-                              </span>
-                            </>
-                          ) : null}
-                          <span>•</span>
-                          {p.active === false ? (
-                            <span className="rounded bg-gray-200 px-1.5 py-0.5 text-gray-700">
-                              inactive
-                            </span>
-                          ) : (
-                            <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
-                              active
-                            </span>
-                          )}
-                        </div>
+                            <div className="mt-2 text-xs">
+                              {p.active === false ? (
+                                <span className="rounded bg-gray-100 px-2 py-0.5 text-gray-500 border border-gray-200">
+                                  Inactive
+                                </span>
+                              ) : (
+                                <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 border border-emerald-100">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-2 shrink-0">
                         {isEditing ? (
                           <>
                             <Button
                               type="button"
                               size="sm"
-                              disabled={
-                                isSaving ||
-                                isDeleting ||
-                                !editingProgTitle.trim()
-                              }
+                              className="bg-blue-600 hover:bg-blue-700"
+                              disabled={isSaving || isDeleting || !editingProgTitle.trim()}
                               onClick={() => saveEditProgram(p)}>
-                              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+                              {isSaving ? "บันทึก..." : "ยืนยัน"}
                             </Button>
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
+                              className="text-gray-500 hover:bg-gray-100"
                               disabled={isSaving || isDeleting}
                               onClick={cancelEditProgram}>
                               ยกเลิก
@@ -1051,6 +984,7 @@ export default function FacultyTable() {
                               type="button"
                               size="sm"
                               variant="outline"
+                              className="border-gray-200 hover:border-blue-400 hover:text-blue-600 h-8"
                               disabled={isDeleting}
                               onClick={() => startEditProgram(p)}>
                               แก้ไข
@@ -1058,68 +992,35 @@ export default function FacultyTable() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="destructive"
-                              disabled={isSaving || isDeleting}
-                              onClick={() => confirmDeleteProgram(p)}>
-                              {isDeleting ? "กำลังลบ..." : "ลบ"}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={p.active ? "outline" : "default"}
-                              disabled={
-                                isSaving ||
-                                isDeleting ||
-                                togglingProgId === p._id
-                              }
+                              variant={p.active ? "ghost" : "secondary"}
+                              className={`h-8 ${p.active ? "text-gray-500" : "text-emerald-700"}`}
+                              disabled={isSaving || isDeleting || togglingProgId === p._id}
                               onClick={async () => {
                                 const prevActive = p.active;
                                 setTogglingProgId(p._id);
-
-                                setProgRows((prev) =>
-                                  prev.map((x) =>
-                                    x._id === p._id
-                                      ? { ...x, active: !x.active }
-                                      : x,
-                                  ),
-                                );
-
+                                setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: !x.active } : x));
                                 try {
-                                  const updatedProgram =
-                                    await toggleProgramActive(p._id);
-                                  const newActive =
-                                    (updatedProgram as any)?.active ??
-                                    !prevActive;
-
-                                  setProgRows((prev) =>
-                                    prev.map((x) =>
-                                      x._id === p._id
-                                        ? { ...x, active: newActive }
-                                        : x,
-                                    ),
-                                  );
+                                  const updatedProgram = await toggleProgramActive(p._id);
+                                  const newActive = (updatedProgram as any)?.active ?? !prevActive;
+                                  setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: newActive } : x));
                                 } catch (err) {
-                                  console.error(
-                                    "toggleProgramActive error:",
-                                    err,
-                                  );
-                                  setProgRows((prev) =>
-                                    prev.map((x) =>
-                                      x._id === p._id
-                                        ? { ...x, active: prevActive }
-                                        : x,
-                                    ),
-                                  );
+                                  console.error("toggleProgramActive error:", err);
+                                  setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: prevActive } : x));
                                   alert("ไม่สามารถเปลี่ยนสถานะหลักสูตรได้");
                                 } finally {
                                   setTogglingProgId(null);
                                 }
                               }}>
-                              {togglingProgId === p._id
-                                ? "กำลังเปลี่ยน..."
-                                : p.active
-                                  ? "ปิดใช้งาน"
-                                  : "เปิดใช้งาน"}
+                              {p.active ? "ปิด" : "เปิด"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8"
+                              disabled={isSaving || isDeleting}
+                              onClick={() => confirmDeleteProgram(p)}>
+                              ลบ
                             </Button>
                           </>
                         )}

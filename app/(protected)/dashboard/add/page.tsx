@@ -362,6 +362,7 @@ function CapsEditor() {
   const [degreeReq, setDegreeReq] = useState<"" | "bachelor" | "master">("");
   const degreeReqSelectValue = degreeReq === "" ? "none" : degreeReq;
   const [active, setActive] = useState(true);
+  const [order, setOrder] = useState<number>(0);
 
   // loading flags
   const [facLoading, setFacLoading] = useState(false);
@@ -501,12 +502,14 @@ function CapsEditor() {
         degree_abbr: string;
         active?: boolean;
         degree_req?: "bachelor" | "master";
+        order?: number;
       } = {
         faculty_id: facultyId,
         title: majorName.trim(),
         time: programTime.trim(), // 👈 map state → field time
         degree_level: degreeLevel,
         degree_abbr: degreeAbbr.trim(),
+        order: order,
       };
 
       if (!noDepartment && departmentId) {
@@ -523,6 +526,7 @@ function CapsEditor() {
       // reset name & time (หรือจะรีเซ็ตทั้งหมดก็ได้)
       setMajorName("");
       setProgramTime("");
+      setOrder(0);
       alert("บันทึกสาขาสำเร็จ");
     } catch (err) {
       console.error("createProgram error:", err);
@@ -623,13 +627,13 @@ function CapsEditor() {
         </div>
       </div>
 
-      {/* ชื่อสาขา + เวลา */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ชื่อสาขา + เวลา + ลำดับ (Order) */}
+      <div className="grid md:grid-cols-3 gap-4">
         <div>
           <label className="mb-1 block text-sm text-gray-600">ชื่อสาขา *</label>
           <input
             type="text"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={majorName}
             onChange={(e) => setMajorName(e.target.value)}
             placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
@@ -638,14 +642,25 @@ function CapsEditor() {
 
         <div>
           <label className="mb-1 block text-sm text-gray-600">
-            วัน - เวลาในการดำเนินการเรียนการสอน *
+            วัน-เวลาในการดำเนินการเรียนการสอน *
           </label>
           <input
             type="text"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={programTime}
             onChange={(e) => setProgramTime(e.target.value)}
-            placeholder='เช่น "sunday", "evening", "เสาร์ - อาทิตย์"'
+            placeholder='เช่น "sunday", "evening"'
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-gray-600">ลำดับ (Order)</label>
+          <input
+            type="number"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            value={order}
+            onChange={(e) => setOrder(Number(e.target.value))}
+            placeholder="0"
           />
         </div>
       </div>
