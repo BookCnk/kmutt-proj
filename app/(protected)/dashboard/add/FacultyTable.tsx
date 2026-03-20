@@ -18,6 +18,22 @@ import {
   updateProgram,
   toggleProgramActive,
 } from "@/api/programService";
+import { 
+  Edit2, 
+  Trash2, 
+  Eye, 
+  ChevronRight, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  GraduationCap, 
+  SortAsc,
+  AlertCircle,
+  Loader2,
+  Building2,
+  BookOpen
+} from "lucide-react";
+// removed motion and AnimatePresence import
 
 import {
   Dialog,
@@ -522,8 +538,11 @@ export default function FacultyTable() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-gray-500">
-                  กำลังโหลดข้อมูล...
+                <td colSpan={4} className="px-3 py-10 text-center text-gray-500">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <p className="text-sm font-medium">กำลังโหลดข้อมูล...</p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -535,8 +554,15 @@ export default function FacultyTable() {
                 const isDeleting = deletingFacId === f.id;
 
                 return (
-                  <tr key={f.id} className="hover:bg-gray-50">
-                    <td className="border-b px-3 py-2">
+                  <tr 
+                    key={f.id} 
+                    className="hover:bg-blue-50/50 transition-colors group"
+                  >
+                    <td className="border-b px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                          <Building2 size={18} />
+                        </div>
                       {isEditing ? (
                         <input
                           className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -548,49 +574,51 @@ export default function FacultyTable() {
                       ) : (
                         f.title
                       )}
+                      </div>
                     </td>
 
-                    <td className="border-b px-3 py-2">
+                    <td className="border-b px-4 py-3">
                       <button
                         type="button"
-                        className="text-blue-600 hover:underline disabled:text-gray-400"
+                        className="group/btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => openDeptModal(f.id, f.title)}
                         disabled={(f.departmentCount ?? 0) === 0}
-                        title={
-                          (f.departmentCount ?? 0) > 0
-                            ? "ดูรายชื่อสาขา (Department)"
-                            : "ไม่มีสาขา"
-                        }>
-                        {f.departmentCount ?? 0}
+                      >
+                        <span className="text-sm">{f.departmentCount ?? 0}</span>
+                        <ChevronRight size={14} className="group-hover/btn:translate-x-0.5 transition-transform" />
                       </button>
                     </td>
 
-                    <td className="border-b px-3 py-2">
+                    <td className="border-b px-4 py-3">
                       {f.active ? (
-                        <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                          active
-                        </span>
+                        <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full w-fit border border-emerald-100">
+                          <CheckCircle2 size={14} />
+                          <span className="text-xs font-semibold">Active</span>
+                        </div>
                       ) : (
-                        <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">
-                          inactive
-                        </span>
+                        <div className="flex items-center gap-1.5 text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full w-fit border border-gray-200">
+                          <XCircle size={14} />
+                          <span className="text-xs font-semibold">Inactive</span>
+                        </div>
                       )}
                     </td>
 
-                    <td className="border-b px-3 py-2 text-right">
+                    <td className="border-b px-4 py-3 text-right">
                       <div className="inline-flex gap-2">
                         {isEditing ? (
                           <>
                             <Button
                               type="button"
                               size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 shadow-sm"
                               disabled={
                                 isSaving ||
                                 isDeleting ||
                                 !editingFacTitle.trim()
                               }
                               onClick={() => saveEditFaculty(f)}>
-                              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+                              {isSaving ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : null}
+                              {isSaving ? "บันทึก..." : "บันทึก"}
                             </Button>
                             <Button
                               type="button"
@@ -606,17 +634,21 @@ export default function FacultyTable() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
+                              className="text-blue-600 hover:bg-blue-50 hover:text-blue-700 h-8 font-medium"
                               disabled={isDeleting}
                               onClick={() => startEditFaculty(f)}>
+                              <Edit2 size={14} className="mr-1.5" />
                               แก้ไข
                             </Button>
                             <Button
                               type="button"
                               size="sm"
-                              variant="destructive"
+                              variant="ghost"
+                              className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8 font-medium"
                               disabled={isSaving || isDeleting}
                               onClick={() => confirmDeleteFaculty(f)}>
+                              <Trash2 size={14} className="mr-1.5" />
                               {isDeleting ? "กำลังลบ..." : "ลบ"}
                             </Button>
                           </>
@@ -629,8 +661,11 @@ export default function FacultyTable() {
 
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-gray-500">
-                  ไม่มีข้อมูลคณะ
+                <td colSpan={4} className="px-3 py-20 text-center text-gray-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <AlertCircle size={32} strokeWidth={1.5} />
+                    <p>ไม่พบข้อมูลคณะ</p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -648,17 +683,23 @@ export default function FacultyTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[75vh] overflow-y-auto">
+          <div className="max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
             {deptLoading ? (
-              <div className="py-6 text-center text-gray-500">
-                กำลังโหลดรายชื่อภาค/สาขา...
+              <div className="py-20 text-center text-gray-500">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  <p className="text-sm font-medium">กำลังโหลดรายชื่อภาค/สาขา...</p>
+                </div>
               </div>
             ) : deptRows.length === 0 ? (
-              <div className="py-6 text-center text-gray-500">
-                ไม่พบภาค/สาขาในคณะนี้
+              <div className="py-20 text-center text-gray-400">
+                <div className="flex flex-col items-center gap-2">
+                  <AlertCircle size={32} strokeWidth={1.5} />
+                  <p>ไม่พบภาค/สาขาในคณะนี้</p>
+                </div>
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-2.5 p-1">
                 {deptRows.map((d) => {
                   const isEditing = editingDeptId === d._id;
                   const isSaving = savingDeptId === d._id;
@@ -667,7 +708,7 @@ export default function FacultyTable() {
                   return (
                     <li
                       key={d._id}
-                      className="rounded-lg border px-3 py-2 flex items-center justify-between gap-3">
+                      className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center justify-between gap-4 hover:border-blue-200 hover:bg-white hover:shadow-sm transition-all group">
                       <div className="flex-1 min-w-0">
                         {isEditing ? (
                           <input
@@ -685,12 +726,12 @@ export default function FacultyTable() {
 
                         <div className="mt-1 flex items-center gap-2">
                           {d.active === false ? (
-                            <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">
-                              inactive
+                            <span className="flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 border border-gray-200">
+                              Inactive
                             </span>
                           ) : (
-                            <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                              active
+                            <span className="flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 border border-emerald-100">
+                              Active
                             </span>
                           )}
 
@@ -698,32 +739,35 @@ export default function FacultyTable() {
                             type="button"
                             size="sm"
                             variant="link"
-                            className="px-0"
+                            className="h-auto p-0 text-blue-600 font-semibold hover:text-blue-700"
                             onClick={() => openProgramModal(d)}
                             disabled={isEditing || isSaving || isDeleting}>
+                            <Eye size={14} className="mr-1.5" />
                             ดูสาขา/หลักสูตร
                           </Button>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                         {isEditing ? (
                           <>
                             <Button
                               type="button"
                               size="sm"
+                              className="bg-blue-600"
                               disabled={
                                 isSaving ||
                                 isDeleting ||
                                 !editingDeptTitle.trim()
                               }
                               onClick={() => saveEditDept(d)}>
-                              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+                              {isSaving ? <Loader2 size={12} className="animate-spin mr-1"/> : null}
+                              บันทึก
                             </Button>
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               disabled={isSaving || isDeleting}
                               onClick={cancelEditDept}>
                               ยกเลิก
@@ -734,22 +778,24 @@ export default function FacultyTable() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
+                              className="w-8 h-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
                               disabled={isDeleting}
                               onClick={() => startEditDept(d)}>
-                              แก้ไข
+                              <Edit2 size={14} />
                             </Button>
                             <Button
                               type="button"
                               size="sm"
-                              variant="destructive"
+                              variant="ghost"
+                              className="w-8 h-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full"
                               disabled={isSaving || isDeleting}
                               onClick={() => confirmDeleteDept(d)}>
-                              {isDeleting ? "กำลังลบ..." : "ลบ"}
+                              <Trash2 size={14} />
                             </Button>
                           </>
                         )}
-                      </div>
+                        </div>
                     </li>
                   );
                 })}
@@ -776,17 +822,23 @@ export default function FacultyTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[75vh] overflow-y-auto">
+          <div className="max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
             {progLoading ? (
-              <div className="py-6 text-center text-gray-500">
-                กำลังโหลดรายการหลักสูตร/สาขา...
+              <div className="py-20 text-center text-gray-500">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  <p className="text-sm font-medium">กำลังโหลดรายการหลักสูตร/สาขา...</p>
+                </div>
               </div>
             ) : progRows.length === 0 ? (
-              <div className="py-6 text-center text-gray-500">
-                ไม่พบหลักสูตร/สาขาในภาคนี้
+              <div className="py-20 text-center text-gray-400">
+                <div className="flex flex-col items-center gap-2">
+                  <AlertCircle size={32} strokeWidth={1.5} />
+                  <p>ไม่พบหลักสูตร/สาขาในภาคนี้</p>
+                </div>
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-4 p-1">
                 {progRows.map((p, index) => {
                   const isEditing = editingProgId === p._id;
                   const isSaving = savingProgId === p._id;
@@ -795,7 +847,7 @@ export default function FacultyTable() {
                   return (
                     <li
                       key={p._id}
-                      className="rounded-lg border px-4 py-3 flex items-start justify-between gap-4 bg-white shadow-sm hover:shadow-md transition-shadow">
+                      className="rounded-xl border border-gray-100 px-5 py-4 flex items-start justify-between gap-5 bg-white shadow-sm hover:shadow-md transition-all group">
                       <div className="flex-none pt-1">
                         <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-600">
                           {index + 1}
@@ -919,7 +971,8 @@ export default function FacultyTable() {
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
                               {p.order !== undefined && (
-                                <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                <span className="flex items-center gap-1 bg-amber-50 text-amber-600 text-[10px] px-2 py-0.5 rounded-full border border-amber-100 font-bold uppercase tracking-wider">
+                                  <SortAsc size={10} />
                                   Order: {p.order}
                                 </span>
                               )}
@@ -928,17 +981,25 @@ export default function FacultyTable() {
                               </p>
                             </div>
 
-                            <p className="text-xs text-blue-600 font-medium">
-                              {p.degree_abbr || "-"} • {p.degree_level === "master" ? "ปริญญาโท" : p.degree_level === "doctoral" ? "ปริญญาเอก" : p.degree_level || "-"}
+                            <div className="flex items-center gap-3 text-sm text-blue-600 font-semibold">
+                              <div className="flex items-center gap-1">
+                                <GraduationCap size={14} />
+                                {p.degree_abbr || "-"}
+                              </div>
+                              <span className="text-gray-300">•</span>
+                              <div className="text-xs uppercase tracking-wide bg-blue-50 px-2 py-0.5 rounded">
+                                {p.degree_level === "master" ? "ปริญญาโท" : p.degree_level === "doctoral" ? "ปริญญาเอก" : p.degree_level || "-"}
+                              </div>
                               {p.degree_level === "doctoral" && p.degree_req && (
-                                <span className="ml-1 text-gray-500 font-normal">(วุฒิขั้นต่ำ: {p.degree_req === "master" ? "ป.โท" : "ป.ตรี"})</span>
+                                <span className="text-[11px] text-gray-500 font-normal italic">(วุฒิขั้นต่ำ: {p.degree_req === "master" ? "ป.โท" : "ป.ตรี"})</span>
                               )}
-                            </p>
+                            </div>
 
-                            <div className="mt-1 space-y-1">
-                              <p className="text-xs text-gray-500 flex items-start gap-1">
-                                <span className="font-medium text-gray-700 shrink-0">วัน-เวลา:</span>
-                                <span className="break-words">{p.time || p.teaching_time || "—"}</span>
+                            <div className="mt-2.5 p-2 rounded-lg bg-gray-50 border border-gray-100 space-y-1">
+                              <p className="text-xs text-gray-600 flex items-start gap-1.5 leading-relaxed">
+                                <Clock size={12} className="mt-0.5 text-gray-400 shrink-0" />
+                                <span className="font-semibold text-gray-700 shrink-0">วัน-เวลา:</span>
+                                <span className="break-words font-medium">{p.time || p.teaching_time || "—"}</span>
                               </p>
                             </div>
 
@@ -1024,7 +1085,7 @@ export default function FacultyTable() {
                             </Button>
                           </>
                         )}
-                      </div>
+                        </div>
                     </li>
                   );
                 })}

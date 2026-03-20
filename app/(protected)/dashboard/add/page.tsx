@@ -18,6 +18,20 @@ import {
   SelectItem,
   SelectContentSimple,
 } from "@/components/ui/select";
+import {
+  Building2,
+  Library,
+  GraduationCap,
+  CalendarClock,
+  ListOrdered,
+  Settings2,
+  PlusCircle,
+  Plus,
+  Home,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { CreateFacultyDto } from "@/types/faculty";
 
 export type Caps = { maxMasters: number; maxDoctoral: number };
@@ -76,14 +90,28 @@ const clamp = (n: number) =>
  * =========================== */
 function Section({
   title,
+  icon: Icon,
   children,
+  extra,
 }: {
   title: string;
+  icon?: any;
   children: React.ReactNode;
+  extra?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-lg font-medium">{title}</h2>
+    <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Icon size={20} />
+            </div>
+          )}
+          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+        </div>
+        {extra}
+      </div>
       {children}
     </section>
   );
@@ -122,25 +150,43 @@ function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
   };
 
   return (
-    <form className="w-full" onSubmit={(e) => e.preventDefault()}>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-gray-600">ชื่อคณะ (ไทย) *</label>
-        <input
-          className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="คณะวิศวกรรมศาสตร์"
-          value={nameTH}
-          onChange={(e) => setNameTH(e.target.value)}
-          aria-required
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        />
+    <form
+      className="w-full flex flex-col md:flex-row items-end gap-4"
+      onSubmit={(e) => e.preventDefault()}>
+      <div className="flex-1 flex flex-col gap-1.5 w-full">
+        <label className="text-sm font-semibold text-gray-700 ml-1">
+          ชื่อคณะ (ไทย) <span className="text-red-500">*</span>
+        </label>
+        <div className="relative group">
+          <Building2
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+            size={18}
+          />
+          <input
+            className="w-full rounded-2xl border border-gray-200 bg-gray-50/30 pl-11 pr-4 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+            placeholder="เช่น คณะวิศวกรรมศาสตร์"
+            value={nameTH}
+            onChange={(e) => setNameTH(e.target.value)}
+            aria-required
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
+        </div>
       </div>
 
-      <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
+      <div className="shrink-0">
         <button
           type="button"
           disabled={!canSubmit || loading}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-[46px] rounded-2xl bg-blue-600 px-6 py-2 text-white font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-all flex items-center gap-2 group"
           onClick={handleSubmit}>
+          {loading ? (
+            <Loader2 className="animate-spin" size={18} />
+          ) : (
+            <PlusCircle
+              size={18}
+              className="group-hover:scale-110 transition-transform"
+            />
+          )}
           {loading ? "กำลังบันทึก..." : "เพิ่มคณะ"}
         </button>
       </div>
@@ -171,7 +217,7 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
 
   // Faculties options (จาก props หรือ API)
   const [facOptions, setFacOptions] = useState<FacOption[]>(
-    (faculties ?? []).map(normalizeFaculty)
+    (faculties ?? []).map(normalizeFaculty),
   );
   const [facLoading, setFacLoading] = useState(false);
 
@@ -192,7 +238,7 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
       try {
         const res: any = await getFaculties();
         // รองรับทั้งกรณี API คืน array ตรง ๆ หรือ { data: [...] }
-        const arr = Array.isArray(res) ? res : res?.data ?? [];
+        const arr = Array.isArray(res) ? res : (res?.data ?? []);
         const mapped: FacOption[] = arr
           .map(normalizeFaculty)
           .filter((f: any) => f.id);
@@ -212,7 +258,7 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
 
   const canSubmit = useMemo(
     () => facultyId.trim().length > 0 && nameTH.trim().length > 0,
-    [facultyId, nameTH]
+    [facultyId, nameTH],
   );
 
   const handleSubmit = async () => {
@@ -249,28 +295,37 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
 
   return (
     <form
-      className="grid gap-4 md:grid-cols-2"
+      className="grid gap-6 md:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         handleSubmit();
       }}>
-      {/* Faculty Select */}
-      <div className="flex flex-col gap-1 md:col-span-1">
-        <label className="text-sm text-gray-600">เลือกคณะ *</label>
+      <div className="flex flex-col gap-1.5 md:col-span-1">
+        <label className="text-sm font-semibold text-gray-700 ml-1">
+          เลือกคณะ <span className="text-red-500">*</span>
+        </label>
         <Select value={facultyId} onValueChange={setFacultyId}>
-          <SelectTrigger className="rounded-xl" disabled={facLoading}>
-            <SelectValue
-              placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
-            />
+          <SelectTrigger
+            className="rounded-2xl border-gray-200 bg-gray-50/30 h-[46px] px-4 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+            disabled={facLoading}>
+            <div className="flex items-center gap-2 text-sm">
+              <Building2 size={16} className="text-gray-400" />
+              <SelectValue
+                placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
+              />
+            </div>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="rounded-2xl border-gray-100 shadow-xl ring-1 ring-black/5">
             {!facLoading && facOptions.length === 0 && (
-              <SelectItem value="__none__" disabled>
+              <SelectItem value="__none__" disabled className="text-xs">
                 ไม่มีข้อมูลคณะ
               </SelectItem>
             )}
             {facOptions.map((f) => (
-              <SelectItem key={f.id} value={f.id}>
+              <SelectItem
+                key={f.id}
+                value={f.id}
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700 cursor-pointer">
                 {f.nameTH}
               </SelectItem>
             ))}
@@ -278,26 +333,39 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
         </Select>
       </div>
 
-      {/* Department Name (TH) */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-gray-600">ชื่อภาค/สาขา (ไทย) *</label>
-        <input
-          className="rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="ภาควิชาวิศวกรรมคอมพิวเตอร์"
-          value={nameTH}
-          onChange={(e) => setNameTH(e.target.value)}
-          aria-required="true"
-        />
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-semibold text-gray-700 ml-1">
+          ชื่อภาค/สาขา (ไทย) <span className="text-red-500">*</span>
+        </label>
+        <div className="relative group">
+          <Library
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+            size={18}
+          />
+          <input
+            className="w-full rounded-2xl border border-gray-200 bg-gray-50/30 pl-11 pr-4 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+            placeholder="เช่น ภาควิชาวิศวกรรมคอมพิวเตอร์"
+            value={nameTH}
+            onChange={(e) => setNameTH(e.target.value)}
+            aria-required="true"
+          />
+        </div>
       </div>
 
-      {/* Submit */}
-      <div className="md:col-span-3 flex items-center justify-end gap-3 pt-2">
+      <div className="md:col-span-2 flex items-center justify-end">
         <button
           type="submit"
           disabled={!canSubmit || loading || facLoading}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          title={!canSubmit ? "กรุณาเลือกคณะและกรอกชื่อภาค/สาขา" : undefined}
+          className="rounded-2xl bg-blue-600 px-8 py-2.5 h-[46px] text-white font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 transition-all flex items-center gap-2 group"
           aria-disabled={!canSubmit || loading || facLoading}>
+          {loading ? (
+            <Loader2 className="animate-spin" size={18} />
+          ) : (
+            <PlusCircle
+              size={18}
+              className="group-hover:scale-110 transition-transform"
+            />
+          )}
           {loading ? "กำลังบันทึก..." : "เพิ่มภาควิชา"}
         </button>
       </div>
@@ -356,7 +424,7 @@ function CapsEditor() {
 
   // payload fields per CreateProgramDto
   const [degreeLevel, setDegreeLevel] = useState<"master" | "doctoral">(
-    "master"
+    "master",
   );
   const [degreeAbbr, setDegreeAbbr] = useState("วศ.ม."); // default for master
   const [degreeReq, setDegreeReq] = useState<"" | "bachelor" | "master">("");
@@ -390,7 +458,7 @@ function CapsEditor() {
       setFacLoading(true);
       try {
         const res: any = await getFaculties();
-        const arr = Array.isArray(res) ? res : res?.data ?? [];
+        const arr = Array.isArray(res) ? res : (res?.data ?? []);
         const mapped: Faculty[] = arr.map((f: any) => ({
           id: String(f.id ?? f._id),
           title: f.title ?? f.nameTH ?? "",
@@ -537,209 +605,276 @@ function CapsEditor() {
   };
 
   return (
-    <div className="rounded-xl border p-4 space-y-4">
-      <p className="font-medium">กำหนดสาขา (เลือกคณะ → ภาควิชา)</p>
-
-      {/* คณะ */}
-      <div>
-        <label className="mb-1 block text-sm text-gray-600">คณะ *</label>
-        <Select
-          value={facultyId}
-          onValueChange={setFacultyId}
-          disabled={facLoading}>
-          <SelectTrigger className="w-full rounded-xl">
-            <SelectValue
-              placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
-            />
-          </SelectTrigger>
-          <SelectContentSimple>
-            {!facLoading && faculties.length === 0 && (
-              <SelectItem value="__none__" disabled>
-                ไม่มีข้อมูลคณะ
-              </SelectItem>
-            )}
-            {faculties.map((f) => (
-              <SelectItem key={f.id} value={f.id}>
-                {f.title}
-              </SelectItem>
-            ))}
-          </SelectContentSimple>
-        </Select>
+    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-6">
+      <div className="flex items-center gap-2.5 text-blue-600 font-bold">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+          <Settings2 size={16} />
+        </div>
+        <p>กำหนดรายละเอียดสาขา (Program Mapping)</p>
       </div>
 
-      {/* ภาควิชา (optional) */}
-      <div className="grid grid-cols-1 gap-2">
-        <label className="mb-1 block text-sm text-gray-600">
-          ภาควิชา (ถ้ามี)
-        </label>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1">
-            <Select
-              value={departmentId}
-              onValueChange={setDepartmentId}
-              disabled={
-                noDepartment ||
-                !facultyId ||
-                deptLoading ||
-                departments.length === 0
-              }>
-              <SelectTrigger className="w-full rounded-xl">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* คณะ */}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            คณะ <span className="text-red-500">*</span>
+          </label>
+          <Select
+            value={facultyId}
+            onValueChange={setFacultyId}
+            disabled={facLoading}>
+            <SelectTrigger className="w-full rounded-2xl border-gray-200 bg-white h-[46px] px-4 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all">
+              <div className="flex items-center gap-2 text-sm">
+                <Building2 size={16} className="text-gray-400" />
+                <SelectValue
+                  placeholder={facLoading ? "กำลังโหลดคณะ..." : "— เลือกคณะ —"}
+                />
+              </div>
+            </SelectTrigger>
+            <SelectContentSimple className="rounded-2xl border-gray-100 shadow-xl">
+              {!facLoading && faculties.length === 0 && (
+                <SelectItem value="__none__" disabled className="text-xs">
+                  ไม่มีข้อมูลคณะ
+                </SelectItem>
+              )}
+              {faculties.map((f) => (
+                <SelectItem
+                  key={f.id}
+                  value={f.id}
+                  className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                  {f.title}
+                </SelectItem>
+              ))}
+            </SelectContentSimple>
+          </Select>
+        </div>
+
+        {/* ภาควิชา (optional) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <label className="block text-sm font-semibold text-gray-700">
+              ภาควิชา (ถ้ามี)
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 cursor-pointer hover:text-blue-600 transition-colors">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 rounded-full border-gray-300 text-blue-600 focus:ring-blue-500 transition-all"
+                checked={noDepartment}
+                onChange={(e) => {
+                  setNoDepartment(e.target.checked);
+                  if (e.target.checked) setDepartmentId("");
+                }}
+              />
+              ไม่มีภาควิชา
+            </label>
+          </div>
+          <Select
+            value={departmentId}
+            onValueChange={setDepartmentId}
+            disabled={
+              noDepartment ||
+              !facultyId ||
+              deptLoading ||
+              departments.length === 0
+            }>
+            <SelectTrigger className="w-full rounded-2xl border-gray-200 bg-white h-[46px] px-4 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all disabled:bg-gray-100">
+              <div className="flex items-center gap-2 text-sm">
+                <Library size={16} className="text-gray-400" />
                 <SelectValue
                   placeholder={
                     !facultyId
                       ? "— โปรดเลือกคณะก่อน —"
                       : deptLoading
-                      ? "กำลังโหลดภาควิชา..."
-                      : departments.length === 0
-                      ? "ไม่มีข้อมูลภาควิชา"
-                      : "— เลือกภาควิชา —"
+                        ? "กำลังโหลดภาควิชา..."
+                        : departments.length === 0
+                          ? "ไม่มีข้อมูลภาควิชา"
+                          : "— เลือกภาควิชา —"
                   }
                 />
-              </SelectTrigger>
-              <SelectContent>
-                {!deptLoading && departments.length === 0 ? (
-                  <SelectItem value="__none__" disabled>
-                    {facultyId ? "ไม่มีข้อมูลภาควิชา" : "โปรดเลือกคณะก่อน"}
+              </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
+              {!deptLoading && departments.length === 0 ? (
+                <SelectItem value="__none__" disabled className="text-xs">
+                  {facultyId ? "ไม่มีข้อมูลภาควิชา" : "โปรดเลือกคณะก่อน"}
+                </SelectItem>
+              ) : (
+                departments.map((d: any) => (
+                  <SelectItem
+                    key={d.id}
+                    value={d.id}
+                    className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                    {d.title}
                   </SelectItem>
-                ) : (
-                  departments.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.title}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300"
-              checked={noDepartment}
-              onChange={(e) => {
-                setNoDepartment(e.target.checked);
-                if (e.target.checked) setDepartmentId("");
-              }}
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            ชื่อสาขา <span className="text-red-500">*</span>
+          </label>
+          <div className="relative group">
+            <GraduationCap
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+              size={18}
             />
-            ไม่มีภาควิชา
+            <input
+              type="text"
+              className="w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all text-sm font-medium"
+              value={majorName}
+              onChange={(e) => setMajorName(e.target.value)}
+              placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            วัน-เวลาการเรียนการสอน <span className="text-red-500">*</span>
           </label>
+          <div className="relative group">
+            <CalendarClock
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+              size={18}
+            />
+            <input
+              type="text"
+              className="w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all text-sm font-medium"
+              value={programTime}
+              onChange={(e) => setProgramTime(e.target.value)}
+              placeholder='เช่น "sunday", "evening"'
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            ลำดับแสดงผล (Order)
+          </label>
+          <div className="relative group">
+            <ListOrdered
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+              size={18}
+            />
+            <input
+              type="number"
+              className="w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all text-sm font-medium"
+              value={order}
+              onChange={(e) => setOrder(Number(e.target.value))}
+              placeholder="0"
+            />
+          </div>
         </div>
       </div>
 
-      {/* ชื่อสาขา + เวลา + ลำดับ (Order) */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">ชื่อสาขา *</label>
-          <input
-            type="text"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={majorName}
-            onChange={(e) => setMajorName(e.target.value)}
-            placeholder="เช่น สาขาวิศวกรรมคอมพิวเตอร์"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">
-            วัน-เวลาในการดำเนินการเรียนการสอน *
-          </label>
-          <input
-            type="text"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={programTime}
-            onChange={(e) => setProgramTime(e.target.value)}
-            placeholder='เช่น "sunday", "evening"'
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">ลำดับ (Order)</label>
-          <input
-            type="number"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={order}
-            onChange={(e) => setOrder(Number(e.target.value))}
-            placeholder="0"
-          />
-        </div>
-      </div>
-
-      {/* ระดับปริญญา / ตัวย่อ / เงื่อนไขวุฒิ */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {/* degree_level */}
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">
-            ระดับปริญญา *
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            ระดับปริญญา <span className="text-red-500">*</span>
           </label>
           <Select
             value={degreeLevel}
             onValueChange={(v: "master" | "doctoral") => setDegreeLevel(v)}>
-            <SelectTrigger className="w-full rounded-xl">
+            <SelectTrigger className="w-full rounded-2xl border-gray-200 bg-white h-[46px] px-4 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-sm">
               <SelectValue placeholder="เลือกระดับปริญญา" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="master">ปริญญาโท (master)</SelectItem>
-              <SelectItem value="doctoral">ปริญญาเอก (doctoral)</SelectItem>
+            <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
+              <SelectItem
+                value="master"
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                ปริญญาโท (Master)
+              </SelectItem>
+              <SelectItem
+                value="doctoral"
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                ปริญญาเอก (Doctoral)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* degree_abbr */}
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">
-            ตัวย่อปริญญา (degree_abbr) *
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            ตัวย่อปริญญา (Abbr.) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
-            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all text-sm font-medium"
             value={degreeAbbr}
             onChange={(e) => setDegreeAbbr(e.target.value)}
             placeholder={degreeLevel === "master" ? "เช่น วศ.ม." : "เช่น ปร.ด."}
           />
         </div>
 
-        {/* degree_req (optional) */}
-        <div>
-          <label className="mb-1 block text-sm text-gray-600">
-            วุฒิขั้นต่ำที่ต้องจบ (ไม่บังคับ)
+        <div className="space-y-1.5">
+          <label className="block text-sm font-semibold text-gray-700 ml-1">
+            วุฒิขั้นต่ำ (ไม่บังคับ)
           </label>
           <Select
             value={degreeReqSelectValue}
             onValueChange={(v: "none" | "bachelor" | "master") =>
               setDegreeReq(v === "none" ? "" : v)
             }>
-            <SelectTrigger className="w-full rounded-xl">
+            <SelectTrigger className="w-full rounded-2xl border-gray-200 bg-white h-[46px] px-4 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-sm">
               <SelectValue placeholder="— ไม่ระบุ —" />
             </SelectTrigger>
-            <SelectContent>
-              {/* ⛔️ ห้ามใช้ value="" */}
-              <SelectItem value="none">— ไม่ระบุ —</SelectItem>
-              <SelectItem value="bachelor">ปริญญาตรี</SelectItem>
-              <SelectItem value="master">ปริญญาโท</SelectItem>
+            <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
+              <SelectItem
+                value="none"
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700 text-gray-500">
+                — ไม่ระบุ —
+              </SelectItem>
+              <SelectItem
+                value="bachelor"
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                ปริญญาตรี (Bachelor)
+              </SelectItem>
+              <SelectItem
+                value="master"
+                className="rounded-xl focus:bg-blue-50 focus:text-blue-700">
+                ปริญญาโท (Master)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Active toggle */}
-      <div className="flex items-center justify-between">
-        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-gray-300"
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
-          />
-          เปิดใช้งานสาขานี้ (active)
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2 border-t border-gray-100 mt-2">
+        <label className="relative inline-flex items-center gap-3 text-sm font-bold text-gray-700 cursor-pointer group">
+          <div className="relative">
+            <input
+              type="checkbox"
+              className="peer sr-only"
+              checked={active}
+              onChange={(e) => setActive(e.target.checked)}
+            />
+            <div className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-emerald-500"></div>
+            <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+          </div>
+          <span className="group-hover:text-blue-600 transition-colors">
+            เปิดใช้งานสาขานี้ (Active)
+          </span>
         </label>
 
         <button
           type="button"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full md:w-auto rounded-2xl bg-blue-600 px-8 py-3 text-white font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleSave}
           disabled={!canSave || saving || facLoading || deptLoading}>
-          {saving ? "กำลังบันทึก..." : "บันทึกสาขา"}
+          {saving ? (
+            <Loader2 className="animate-spin" size={20} />
+          ) : (
+            <CheckCircle2
+              size={20}
+              className="group-hover:scale-110 transition-transform"
+            />
+          )}
+          {saving ? "กำลังบันทึก..." : "ยืนยันบันทึกสาขา"}
         </button>
       </div>
     </div>
@@ -775,35 +910,53 @@ export default function FacultyAdminPage() {
   if (!isAuthorized(["admin"])) return null;
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">
-          จัดการคณะ / ภาค / รอบรับสมัคร
-        </h1>
-        <a href="/" className="text-sm text-blue-600 hover:underline">
-          กลับหน้าแรก
-        </a>
-      </header>
+    <main className="min-h-screen bg-gray-50/50 pb-20">
+      <div className="mx-auto max-w-6xl px-6 pt-10 space-y-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="md:col-span-2 lg:col-span-3">
+            <Section
+              title="ตั้งค่ารอบสัมภาษณ์"
+              icon={CalendarClock}
+              extra={
+                <button
+                  onClick={() => router.push("/")}
+                  className="flex h-11 px-5 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm font-bold text-sm group">
+                  <Home
+                    size={18}
+                    className="group-hover:scale-110 transition-transform"
+                  />
+                  กลับหน้าหลัก
+                </button>
+              }>
+              <RoundsEditor />
+            </Section>
+          </div>
 
-      <Section title="ตั้งค่ารอบสัมภาษณ์">
-        <RoundsEditor />
-      </Section>
+          <div className="md:col-span-2 lg:col-span-3">
+            <Section title="เพิ่มคณะ" icon={Plus}>
+              <FacultyForm />
+            </Section>
+          </div>
 
-      <Section title="เพิ่มคณะ">
-        <FacultyForm />
-      </Section>
+          <div className="md:col-span-2 lg:col-span-3">
+            <Section title="เพิ่มภาค" icon={Plus}>
+              <DepartmentForm faculties={[]} />
+            </Section>
+          </div>
 
-      <Section title="เพิ่มภาค">
-        <DepartmentForm />
-      </Section>
+          <div className="md:col-span-2 lg:col-span-3">
+            <Section title="เพิ่มสาขา (Mapping)" icon={Plus}>
+              <CapsEditor />
+            </Section>
+          </div>
 
-      <Section title="เพิ่มสาขา">
-        <CapsEditor />
-      </Section>
-
-      <Section title="รายการคณะ">
-        <FacultyTable />
-      </Section>
-    </div>
+          <div className="md:col-span-2 lg:col-span-3">
+            <Section title="รายการคณะและสาขาที่มีอยู่" icon={Library}>
+              <FacultyTable />
+            </Section>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }
