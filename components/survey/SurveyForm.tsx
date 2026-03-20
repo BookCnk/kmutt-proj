@@ -5,6 +5,12 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider } from "react-hook-form";
 import { toast } from "sonner";
+import {
+  GraduationCap,
+  ClipboardList,
+  UserCircle,
+  FileSignature,
+} from "lucide-react";
 import { MONTHS_TH } from "@/lib/date-utils";
 
 import { Form } from "@/components/ui/form";
@@ -103,10 +109,10 @@ const computeBannerFromAdmissions = (list: any[]) => {
 
   const now = Date.now();
   const bySort = [...list].sort(
-    (a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0)
+    (a, b) => (b.term?.sort_key ?? 0) - (a.term?.sort_key ?? 0),
   );
   const active = bySort.find((a) =>
-    within(now, a.application_window?.open_at, a.application_window?.close_at)
+    within(now, a.application_window?.open_at, a.application_window?.close_at),
   );
   const a = active ?? bySort[0];
 
@@ -172,19 +178,19 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
         if (
           !emailDomainAllowed(
             data.email,
-            intakeConfig.emailPolicy.allowedDomains
+            intakeConfig.emailPolicy.allowedDomains,
           )
         ) {
           ctx.addIssue({
             path: ["email"],
             code: z.ZodIssueCode.custom,
             message: `อีเมลต้องเป็นโดเมนที่อนุญาต: ${intakeConfig.emailPolicy.allowedDomains.join(
-              ", "
+              ", ",
             )}`,
           });
         }
       }),
-    []
+    [],
   );
 
   /* -------- Form -------- */
@@ -209,7 +215,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
   const isWindowOpen = isWithinApplyWindow(
     admissions.data[0]?.application_window.open_at,
-    admissions.data[0]?.application_window.close_at
+    admissions.data[0]?.application_window.close_at,
   );
 
   console.log("isWindowOpen:", isWindowOpen);
@@ -227,7 +233,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
   const banner = useMemo(
     () => computeBannerFromAdmissions(admissions.data),
-    [admissions.data]
+    [admissions.data],
   );
 
   /* -------- Rounds visibility (รองรับ array) -------- */
@@ -235,13 +241,13 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     const selected = new Set(intakeModeIds ?? []);
     if (selected.has("rounds")) {
       const cfg = intakeConfig.intakeModes.find(
-        (m) => "rounds" in m && m.id === "rounds"
+        (m) => "rounds" in m && m.id === "rounds",
       ) as { rounds: string[] } | undefined;
       return { showRounds: true, rounds: cfg?.rounds ?? [] };
     }
     if (selected.has("monthly")) {
       const cfg = intakeConfig.intakeModes.find(
-        (m) => "days" in m && m.id === "monthly"
+        (m) => "days" in m && m.id === "monthly",
       ) as { days: number[] } | undefined;
       return {
         showRounds: true,
@@ -402,7 +408,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
   /* -------- UI -------- */
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 animate-none">
       {/* ถ้าต้องการโชว์ banner จาก admissions จริง ให้เปลี่ยน props มาใช้ 'banner' ที่คำนวณไว้ */}
       <AnnouncementBanner
         term={banner?.term ?? "—"}
@@ -413,54 +419,108 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
 
       <WindowStatusAlert isOpen={isWindowOpen} />
 
-      <div className="bg-white p-8 rounded-lg shadow-sm border">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            แบบสำรวจการคัดเลือกนักศึกษา
-          </h2>
-          <p className="text-gray-600">กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง</p>
+      <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-sm border border-slate-200">
+        <div className="mb-10 flex items-start gap-5 border-b border-slate-100 pb-6">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+            <FileSignature className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2 mt-1">
+              แบบสำรวจการคัดเลือกนักศึกษา
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">
+              กรุณากรอกข้อมูลเพื่อกำหนดหลักสูตรและรอบการรับสมัครนักศึกษาใหม่
+            </p>
+          </div>
         </div>
 
         <FormProvider {...methods}>
           <Form {...methods}>
             <form
               onSubmit={methods.handleSubmit(handleSubmit, (errors) =>
-                console.warn("RHForm errors:", errors)
+                console.warn("RHForm errors:", errors),
               )}
-              className="space-y-6">
-              <FacultySelect
-                name="faculty"
-                options={faculties.data}
-                loading={faculties.loading}
-              />
-              <DepartmentSelect
-                name="department"
-                facultySelected={!!facultyId}
-                options={departments.data}
-                loading={departments.loading}
-              />
-              {/* ใช้ name="programs" ให้ตรงกับ schema */}
-              <ProgramSelect
-                name="programs"
-                departmentSelected={!!departmentId}
-                options={programs.data}
-                loading={programs.loading}
-              />
-              <Separator />
-              <IntakeModeRadios
-                name="intakeModes" // array field
-                admissions={admissions.data}
-              />
+              className="space-y-10">
+              {/* Section 1 */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    ส่วนที่ 1: ข้อมูลคณะและหลักสูตร
+                  </h3>
+                </div>
 
-              <Separator />
-              <CoordinatorField name="coordinator" />
-              <PhonesField name="phone" />
-              <EmailField name="email" />
-              <SubmitBar
-                onBack={onBack}
-                isSubmitting={isSubmitting}
-                disabled={!isWindowOpen}
-              />
+                <div className="pl-0 sm:pl-14 space-y-6">
+                  <FacultySelect
+                    name="faculty"
+                    options={faculties.data}
+                    loading={faculties.loading}
+                  />
+                  <DepartmentSelect
+                    name="department"
+                    facultySelected={!!facultyId}
+                    options={departments.data}
+                    loading={departments.loading}
+                  />
+                  <ProgramSelect
+                    name="programs"
+                    departmentSelected={!!departmentId}
+                    options={programs.data}
+                    loading={programs.loading}
+                  />
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 w-full" />
+
+              {/* Section 2 */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                    <ClipboardList className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    ส่วนที่ 2: รูปแบบการรับสมัครและกำหนดการ
+                  </h3>
+                </div>
+
+                <div className="pl-0 sm:pl-14 space-y-6">
+                  <IntakeModeRadios
+                    name="intakeModes"
+                    admissions={admissions.data}
+                  />
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 w-full" />
+
+              {/* Section 3 */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <UserCircle className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    ส่วนที่ 3: ข้อมูลผู้ประสานงาน
+                  </h3>
+                </div>
+
+                <div className="pl-0 sm:pl-14 space-y-6">
+                  <CoordinatorField name="coordinator" />
+                  <PhonesField name="phone" />
+                  <EmailField name="email" />
+                </div>
+              </div>
+
+              <div className="pt-6 mt-10 border-t border-slate-100">
+                <SubmitBar
+                  onBack={onBack}
+                  isSubmitting={isSubmitting}
+                  disabled={!isWindowOpen}
+                />
+              </div>
             </form>
           </Form>
         </FormProvider>

@@ -15,6 +15,16 @@ import {
   Printer,
   Trash2,
   Loader2,
+  AlertCircle,
+  Building,
+  Building2,
+  BookOpen,
+  UserCircle,
+  Mail,
+  Calendar,
+  Eye,
+  CalendarDays,
+  ListFilter
 } from "lucide-react";
 
 import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
@@ -748,19 +758,21 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 animate-none">
       {loadError && (
-        <div className="border rounded-lg bg-red-50 text-red-700 p-3 text-sm">
+        <div className="border border-red-200 rounded-2xl bg-red-50 text-red-700 p-4 text-sm font-bold shadow-sm flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500" />
           โหลดข้อมูลไม่สำเร็จ: {loadError}
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="flex flex-col sm:flex-row gap-2">
+      {/* Control Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row gap-5 justify-between items-start md:items-center">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <ExportGradIntakeButton admissionId={selectedYear} />
           <ExportAdmissionsExcelButton />
 
-          <Button onClick={onCreateNew} className="w-full sm:w-auto">
+          <Button onClick={onCreateNew} className="w-full sm:w-auto rounded-xl bg-blue-600 font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 text-white">
             <Plus className="mr-2 h-4 w-4" />
             กรอกข้อมูล
           </Button>
@@ -769,13 +781,13 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             variant="default"
             onClick={handleExportPdf}
             disabled={!selectedIds.length}
-            className="w-full sm:w-auto">
+            className="w-full sm:w-auto rounded-xl bg-emerald-600 font-bold hover:bg-emerald-700 shadow-md shadow-emerald-500/20 text-white disabled:bg-slate-300 disabled:shadow-none">
             <Printer className="mr-2 h-4 w-4" />
             Export PDF (Selected)
           </Button>
 
           {isAdmin && (
-            <Button asChild className="w-full sm:w-auto">
+            <Button asChild className="w-full sm:w-auto rounded-xl bg-blue-600 font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 text-white">
               <Link href="/dashboard/add">
                 <Plus className="mr-2 h-4 w-4" />
                 เพิ่มข้อมูล Master Data
@@ -784,65 +796,72 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <span className="text-sm text-gray-600">
-            เลือก ปีการศึกษา และภาคการศึกษา
-          </span>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full md:w-auto">
+          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center">
+               <CalendarDays className="w-3.5 h-3.5 mr-1" /> ปีการศึกษา
+             </span>
+             <Select
+               value={selectedYear}
+               onValueChange={(v) => {
+                 setSelectedYear(v);
+                 setCurrentPage(1);
+               }}>
+               <SelectTrigger className="w-full sm:w-48 rounded-xl border-slate-400 font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 bg-slate-50/50">
+                 <SelectValue placeholder="เลือกปี" />
+               </SelectTrigger>
+               <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                 <SelectItem value="ทั้งหมด" className="font-medium">ทั้งหมด</SelectItem>
+                 {years.map((y) => (
+                   <SelectItem key={y._id} value={y._id} className="font-medium">
+                     {(() => {
+                       const [semester, year] = String(y.label || "").split("/");
+                       return `ภาคเรียนที่ ${semester}/${year}`;
+                     })()}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+          </div>
 
-          <Select
-            value={selectedYear}
-            onValueChange={(v) => {
-              setSelectedYear(v);
-              setCurrentPage(1);
-            }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="เลือกปี" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ทั้งหมด">ทั้งหมด</SelectItem>
-              {years.map((y) => (
-                <SelectItem key={y._id} value={y._id}>
-                  {(() => {
-                    const [semester, year] = String(y.label || "").split("/");
-                    return `ปีการศึกษา ${year} ภาคเรียนที่ ${semester}`;
-                  })()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <span className="text-sm text-gray-600">ทั้งหมด {total} รายการ</span>
-
-          <Select
-            value={String(pageSize)}
-            onValueChange={(v) => {
-              setPageSize(parseInt(v, 10));
-              setCurrentPage(1);
-            }}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">แสดง 10</SelectItem>
-              <SelectItem value="25">แสดง 25</SelectItem>
-              <SelectItem value="50">แสดง 50</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center">
+              <ListFilter className="w-3.5 h-3.5 mr-1" /> แสดงผลหน้าละ
+             </span>
+             <div className="flex items-center gap-3 w-full sm:w-auto">
+               <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(parseInt(v, 10));
+                  setCurrentPage(1);
+                }}>
+                <SelectTrigger className="w-24 rounded-xl border-slate-400 font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 bg-slate-50/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                  <SelectItem value="10" className="font-medium">10 รายการ</SelectItem>
+                  <SelectItem value="25" className="font-medium">25 รายการ</SelectItem>
+                  <SelectItem value="50" className="font-medium">50 รายการ</SelectItem>
+                </SelectContent>
+               </Select>
+               <span className="text-sm font-bold text-slate-400 whitespace-nowrap bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">รวม {total}</span>
+             </div>
+          </div>
         </div>
       </div>
 
-      <div className="border rounded-lg overflow-hidden bg-white relative">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm relative mt-2">
         {loading && rows.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-white/70 backdrop-blur-sm px-3 py-2 border-b">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm text-gray-600">กำลังอัปเดตข้อมูล…</span>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-white/70 backdrop-blur-sm px-4 py-3 border-b border-slate-100">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="text-sm font-bold text-slate-600">กำลังอัปเดตข้อมูล…</span>
           </div>
         )}
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
+              <TableRow className="bg-slate-50/50 border-b border-slate-100/80">
                 <TableHead className="w-10 text-center">
                   <Checkbox
                     checked={
@@ -856,15 +875,15 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                     aria-label="เลือกทั้งหมดในหน้านี้"
                   />
                 </TableHead>
-                <TableHead className="w-12">#</TableHead>
+                <TableHead className="w-12 font-bold text-slate-700">#</TableHead>
 
                 <TableHead className="min-w-[150px]">
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 py-2">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort("faculty")}
-                      className="justify-start p-0 h-auto font-medium">
-                      คณะ <ArrowUpDown className="ml-2 h-3 w-3" />
+                      className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group flex items-center">
+                      <Building className="mr-2 h-4 w-4" /> คณะ <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                     </Button>
                     <Input
                       placeholder="ค้นหาคณะ..."
@@ -872,18 +891,18 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       onChange={(e) =>
                         handleFilterChange("faculty", e.target.value)
                       }
-                      className="h-8 text-xs"
+                      className="h-9 text-xs rounded-xl border-slate-400 bg-white font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400"
                     />
                   </div>
                 </TableHead>
 
                 <TableHead className="min-w-[180px]">
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 py-2">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort("department")}
-                      className="justify-start p-0 h-auto font-medium">
-                      ภาควิชา <ArrowUpDown className="ml-2 h-3 w-3" />
+                      className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group flex items-center">
+                      <Building2 className="mr-2 h-4 w-4" /> ภาควิชา <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                     </Button>
                     <Input
                       placeholder="ค้นหาภาควิชา..."
@@ -891,18 +910,18 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       onChange={(e) =>
                         handleFilterChange("department", e.target.value)
                       }
-                      className="h-8 text-xs"
+                      className="h-9 text-xs rounded-xl border-slate-400 bg-white font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400"
                     />
                   </div>
                 </TableHead>
 
                 <TableHead className="min-w-[200px]">
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 py-2">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort("program")}
-                      className="justify-start p-0 h-auto font-medium">
-                      สาขาวิชา <ArrowUpDown className="ml-2 h-3 w-3" />
+                      className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group flex items-center">
+                      <BookOpen className="mr-2 h-4 w-4" /> สาขาวิชา <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                     </Button>
                     <Input
                       placeholder="ค้นหาสาขาวิชา..."
@@ -910,18 +929,18 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       onChange={(e) =>
                         handleFilterChange("program", e.target.value)
                       }
-                      className="h-8 text-xs"
+                      className="h-9 text-xs rounded-xl border-slate-400 bg-white font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400"
                     />
                   </div>
                 </TableHead>
 
                 <TableHead className="min-w-[150px]">
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 py-2">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort("submitterName")}
-                      className="justify-start p-0 h-auto font-medium">
-                      ชื่อผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3" />
+                      className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group flex items-center">
+                      <UserCircle className="mr-2 h-4 w-4" /> ชื่อผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                     </Button>
                     <Input
                       placeholder="ค้นหาชื่อ..."
@@ -929,18 +948,18 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       onChange={(e) =>
                         handleFilterChange("submitterName", e.target.value)
                       }
-                      className="h-8 text-xs"
+                      className="h-9 text-xs rounded-xl border-slate-400 bg-white font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400"
                     />
                   </div>
                 </TableHead>
 
                 <TableHead className="min-w-[180px]">
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-2 py-2">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort("submitterEmail")}
-                      className="justify-start p-0 h-auto font-medium">
-                      อีเมลผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3" />
+                      className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group flex items-center">
+                      <Mail className="mr-2 h-4 w-4" /> อีเมลผู้กรอกฟอร์ม <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                     </Button>
                     <Input
                       placeholder="ค้นหาอีเมล..."
@@ -948,22 +967,26 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       onChange={(e) =>
                         handleFilterChange("submitterEmail", e.target.value)
                       }
-                      className="h-8 text-xs"
+                      className="h-9 text-xs rounded-xl border-slate-400 bg-white font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400"
                     />
                   </div>
                 </TableHead>
 
-                <TableHead className="min-w-[140px]">
+                <TableHead className="min-w-[140px] align-top py-4">
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("submittedAt")}
-                    className="justify-start p-0 h-auto font-medium">
-                    กรอกเมื่อวันที่ <ArrowUpDown className="ml-2 h-3 w-3" />
+                    className="justify-start p-0 h-auto font-bold text-slate-700 hover:bg-transparent hover:text-blue-600 group pt-2 flex items-center">
+                    <Calendar className="mr-2 h-4 w-4 text-slate-500" /> กรอกเมื่อวันที่ <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                   </Button>
                 </TableHead>
 
-                <TableHead className="w-28 text-center">ดู</TableHead>
-                <TableHead className="w-28 text-center">ลบ</TableHead>
+                <TableHead className="w-24 text-center align-top py-4 pt-6 font-bold text-slate-700">
+                  <div className="flex items-center justify-center gap-1.5"><Eye className="w-4 h-4" /> ดู</div>
+                </TableHead>
+                <TableHead className="w-24 text-center align-top py-4 pt-6 font-bold text-slate-700">
+                  <div className="flex items-center justify-center gap-1.5"><Trash2 className="w-4 h-4" /> ลบ</div>
+                </TableHead>
               </TableRow>
             </TableHeader>
 
@@ -972,22 +995,22 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                 <TableRow>
                   <TableCell
                     colSpan={10}
-                    className="p-6 text-center text-sm text-gray-600">
-                    <div className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    className="p-12 text-center text-sm font-bold text-slate-500 bg-slate-50/20">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
                       กำลังโหลดข้อมูล…
                     </div>
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="p-0">
+                  <TableCell colSpan={10} className="p-0 border-b-0">
                     <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((row, index) => (
-                  <TableRow key={row.id} className="hover:bg-gray-50">
+                  <TableRow key={row.id} className="hover:bg-slate-50 border-b border-slate-100 transition-colors">
                     <TableCell className="text-center">
                       <Checkbox
                         checked={selectedIds.includes(row.id)}
@@ -998,19 +1021,19 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       />
                     </TableCell>
 
-                    <TableCell className="font-medium">
+                    <TableCell className="font-bold text-slate-500">
                       {(currentPage - 1) * pageSize + index + 1}
                     </TableCell>
 
-                    <TableCell className="font-medium">{row.faculty}</TableCell>
-                    <TableCell>{row.department}</TableCell>
+                    <TableCell className="font-bold text-slate-800">{row.faculty}</TableCell>
+                    <TableCell className="font-medium text-slate-600">{row.department}</TableCell>
 
-                    <TableCell className="align-top">
+                    <TableCell className="align-top py-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="link"
-                            className="p-0 h-auto whitespace-normal text-left break-words"
+                            className="p-0 h-auto whitespace-normal text-left break-words font-semibold text-blue-600 hover:text-blue-800"
                             title="คลิกเพื่อดูสาขาทั้งหมด">
                             {row.program}
                           </Button>
@@ -1018,11 +1041,11 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
 
                         <DropdownMenuContent
                           align="start"
-                          className="w-[480px] max-w-[90vw] whitespace-normal">
-                          <DropdownMenuLabel>
-                            สาขาทั้งหมดในรายการนี้
+                          className="w-[480px] max-w-[90vw] whitespace-normal rounded-2xl border-slate-100 shadow-xl p-2">
+                          <DropdownMenuLabel className="font-bold text-slate-800 py-2">
+                            รายละเอียดสาขาทั้งหมดในรายการนี้
                           </DropdownMenuLabel>
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator className="bg-slate-100" />
 
                           {row.programs.map((p: any) => {
                             const noRound =
@@ -1037,27 +1060,30 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                             return (
                               <DropdownMenuItem
                                 key={p.programId}
-                                className="py-2 whitespace-normal break-words">
-                                <div className="space-y-1">
-                                  <div className="font-medium">{p.title}</div>
+                                className="py-2.5 px-3 whitespace-normal break-words rounded-xl focus:bg-slate-50 items-start cursor-default">
+                                <div className="space-y-1.5 w-full">
+                                  <div className="font-bold text-slate-800 text-sm">{p.title}</div>
 
                                   {(p.master || p.doctoral) && (
-                                    <div className="text-xs text-muted-foreground">
-                                      {p.master
-                                        ? `โท: ${p.master.amount ?? 0} คน`
-                                        : ""}
-                                      {p.master && p.doctoral ? " • " : ""}
-                                      {p.doctoral
-                                        ? `เอก: ${p.doctoral.amount ?? 0} คน`
-                                        : ""}
+                                    <div className="text-xs font-semibold text-slate-500 flex flex-wrap gap-2">
+                                      {p.master ? (
+                                        <div className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md">
+                                          ปริญญาโท: {p.master.amount ?? 0} คน
+                                        </div>
+                                      ) : null}
+                                      {p.doctoral ? (
+                                        <div className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded-md">
+                                          ปริญญาเอก: {p.doctoral.amount ?? 0} คน
+                                        </div>
+                                      ) : null}
                                     </div>
                                   )}
 
                                   {noRound && noMonthly && hasMsg && (
-                                    <div className="mt-1">
+                                    <div className="mt-2">
                                       <Badge
                                         variant="secondary"
-                                        className="whitespace-normal">
+                                        className="whitespace-normal bg-amber-50 text-amber-700 border border-amber-200">
                                         {p.message}
                                       </Badge>
                                     </div>
@@ -1067,23 +1093,25 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                             );
                           })}
 
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator className="bg-slate-100" />
                           <DropdownMenuItem
                             onSelect={(e) => {
                               e.preventDefault();
                               openView(row);
                             }}
-                            className="cursor-pointer">
+                            className="cursor-pointer font-bold text-blue-600 focus:text-blue-700 focus:bg-blue-50 rounded-xl justify-center py-2.5 mt-1">
                             <FileText className="mr-2 h-4 w-4" />{" "}
-                            ดูรายละเอียดทั้งหมด
+                            เปิดดูรายละเอียดฟอร์มเต็มแบบแยกหน้าจอ
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
 
-                    <TableCell>{row.submitterName}</TableCell>
+                    <TableCell className="font-semibold text-slate-700">
+                      {row.submitterName}
+                    </TableCell>
                     <TableCell>
-                      <span className="text-blue-600">
+                      <span className="text-blue-600 font-medium">
                         {(() => {
                           const name = String(row.submitterName || "").trim();
                           const email = String(row.submitterEmail || "").trim();
@@ -1095,16 +1123,17 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                       </span>
                     </TableCell>
 
-                    <TableCell className="text-sm text-gray-600">
+                    <TableCell className="text-sm font-semibold text-slate-500 whitespace-nowrap">
                       {formatDateTH(row.submittedAt)}
                     </TableCell>
 
                     <TableCell className="text-center">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
+                        className="rounded-xl border-slate-200 text-slate-600 hover:text-blue-600 hover:bg-blue-50 font-bold"
                         onClick={() => openView(row)}>
-                        <FileText className="h-4 w-4 mr-1" /> View
+                        <FileText className="h-4 w-4 mr-1.5" /> View
                       </Button>
                     </TableCell>
 
@@ -1113,8 +1142,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => confirmDelete(row.id)}
-                        className="text-red-600">
-                        <Trash2 className="h-4 w-4 mr-1" /> ลบ
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl font-bold">
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -1125,23 +1154,24 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="text-sm text-gray-600">
-          หน้า {currentPage} จาก {totalPages} (รวม {total} รายการ)
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div className="text-sm font-bold text-slate-500 pl-2">
+          หน้า <span className="text-slate-800">{currentPage}</span> จาก <span className="text-slate-800">{totalPages}</span> <span className="text-slate-400 mx-1">|</span> รวม {total} รายการ
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 pr-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => gotoPage(currentPage - 1)}
-            disabled={currentPage <= 1}>
+            disabled={currentPage <= 1}
+            className="rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50">
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
           {pageNumbers.map((p, i) =>
             p === "…" ? (
-              <span key={`dots-${i}`} className="px-2 text-gray-500">
+              <span key={`dots-${i}`} className="px-2 font-bold text-slate-300">
                 …
               </span>
             ) : (
@@ -1149,7 +1179,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                 key={`p-${p}`}
                 variant={p === currentPage ? "default" : "outline"}
                 size="sm"
-                onClick={() => gotoPage(p as number)}>
+                onClick={() => gotoPage(p as number)}
+                className={`rounded-xl font-bold min-w-[36px] ${p === currentPage ? 'bg-blue-600 shadow-md shadow-blue-500/20 text-white border-transparent' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 {p}
               </Button>
             ),
@@ -1159,7 +1190,8 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
             variant="outline"
             size="sm"
             onClick={() => gotoPage(currentPage + 1)}
-            disabled={currentPage >= totalPages}>
+            disabled={currentPage >= totalPages}
+            className="rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -1172,19 +1204,24 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
       />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>ยืนยันการลบ</DialogTitle>
-            <DialogDescription>
-              การดำเนินการนี้ไม่สามารถย้อนกลับได้
+        <DialogContent className="sm:max-w-md rounded-3xl border-slate-100 shadow-2xl p-6">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              ยืนยันการลบ
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-slate-500 pl-12 mt-1 -mb-2">
+              การดำเนินการนี้ไม่สามารถย้อนกลับได้ คุณแน่ใจหรือไม่ที่จะลบรายการนี้?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0 mt-6 pt-4 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} className="rounded-xl font-bold border-slate-200 text-slate-700 hover:bg-slate-50">
               ยกเลิก
             </Button>
-            <Button variant="destructive" onClick={doDelete}>
-              <Trash2 className="h-4 w-4 mr-1" /> ลบ
+            <Button variant="destructive" onClick={doDelete} className="rounded-xl font-bold bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/20">
+              <Trash2 className="h-4 w-4 mr-2" /> ลบรายการ
             </Button>
           </DialogFooter>
         </DialogContent>
