@@ -640,7 +640,7 @@ export default function FacultyTable() {
 
       {/* ====== Departments Modal ====== */}
       <Dialog open={deptModalOpen} onOpenChange={setDeptModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>รายชื่อภาค/สาขา (Department)</DialogTitle>
             <DialogDescription>
@@ -648,7 +648,7 @@ export default function FacultyTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div className="max-h-[75vh] overflow-y-auto">
             {deptLoading ? (
               <div className="py-6 text-center text-gray-500">
                 กำลังโหลดรายชื่อภาค/สาขา...
@@ -767,7 +767,7 @@ export default function FacultyTable() {
 
       {/* ====== Programs Modal (nested) ====== */}
       <Dialog open={progModalOpen} onOpenChange={setProgModalOpen}>
-        <DialogContent className="w-fit max-w-[90vw]">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl lg:max-w-6xl">
           <DialogHeader>
             รายการหลักสูตร/สาขา (Program)
             <DialogTitle></DialogTitle>
@@ -776,7 +776,7 @@ export default function FacultyTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[55vh] overflow-y-auto">
+          <div className="max-h-[75vh] overflow-y-auto">
             {progLoading ? (
               <div className="py-6 text-center text-gray-500">
                 กำลังโหลดรายการหลักสูตร/สาขา...
