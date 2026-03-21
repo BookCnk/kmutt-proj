@@ -539,7 +539,9 @@ async function addLogoIfAny(
   ws: ExcelJS.Worksheet,
   opts?: { width?: number; height?: number }
 ) {
-  const width = opts?.width ?? 220;
+  // Native image size of public/ICON.png is 160x187
+  // Scale it proportionally to fit 95px height => width: 81, height: 95
+  const width = opts?.width ?? 81;
   const height = opts?.height ?? 95;
 
   try {
@@ -608,8 +610,8 @@ async function buildSheetForRows(
     },
   });
 
-  // โลโก้ซ้ายบน
-  await addLogoIfAny(wb, ws, { width: 220, height: 95 });
+  // โลโก้ซ้ายบน (ใช้ขนาดสัดส่วนจริง ไม่บีบรูป)
+  await addLogoIfAny(wb, ws, { width: 81, height: 95 });
 
   // ====== Header dynamic จาก admission ======
   const term = admission?.term;
@@ -786,8 +788,7 @@ async function buildSheetForRows(
       r.phones, // I
     ]);
 
-    // สไตล์พื้นฐาน
-    row.height = 22;
+    // สไตล์พื้นฐาน (ไม่ฟิกซ์ความสูง เพื่อให้ wrap Text ได้เต็มที่)
     row.eachCell((cell, col) => {
       cell.font = { name: "TH SarabunPSK", size: 14 };
       cell.alignment = {
