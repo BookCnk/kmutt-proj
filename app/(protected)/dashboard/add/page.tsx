@@ -213,6 +213,7 @@ const normalizeFaculty = (f: any): FacOption => ({
 function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
   const [facultyId, setFacultyId] = useState("");
   const [nameTH, setNameTH] = useState("");
+  const [order, setOrder] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   // Faculties options (จาก props หรือ API)
@@ -277,12 +278,14 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
       await createDepartment({
         faculty_id: facultyId,
         title: nameTH, // ถ้า backend ใช้ titleTH ให้แก้เป็น titleTH
+        order: Number(order) || 0,
         active: true,
       });
 
       onSubmit?.(); // แจ้ง parent (เช่นให้รีเฟรชรายการ)
       setFacultyId(""); // reset form
       setNameTH("");
+      setOrder(0);
 
       alert("บันทึกสำเร็จ: เพิ่มภาควิชาเรียบร้อยแล้ว");
     } catch (err) {
@@ -295,12 +298,12 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
 
   return (
     <form
-      className="grid gap-6 md:grid-cols-2"
+      className="grid gap-6 md:grid-cols-6"
       onSubmit={(e) => {
         e.preventDefault();
         handleSubmit();
       }}>
-      <div className="flex flex-col gap-1.5 md:col-span-1">
+      <div className="flex flex-col gap-1.5 md:col-span-2">
         <label className="text-sm font-semibold text-gray-700 ml-1">
           เลือกคณะ <span className="text-red-500">*</span>
         </label>
@@ -333,7 +336,7 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
         </Select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 md:col-span-3">
         <label className="text-sm font-semibold text-gray-700 ml-1">
           ชื่อภาค/สาขา (ไทย) <span className="text-red-500">*</span>
         </label>
@@ -352,7 +355,26 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
         </div>
       </div>
 
-      <div className="md:col-span-2 flex items-center justify-end">
+      <div className="flex flex-col gap-1.5 md:col-span-1">
+        <label className="text-sm font-semibold text-gray-700 ml-1">
+          ลำดับ (Order)
+        </label>
+        <div className="relative group">
+          <ListOrdered
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+            size={18}
+          />
+          <input
+            type="number"
+            className="w-full rounded-2xl border border-gray-200 bg-gray-50/30 pl-11 pr-4 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+            value={order}
+            onChange={(e) => setOrder(Number(e.target.value))}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className="md:col-span-6 flex items-center justify-end">
         <button
           type="submit"
           disabled={!canSubmit || loading || facLoading}

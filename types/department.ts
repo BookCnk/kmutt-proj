@@ -5,6 +5,7 @@ export type Department = {
     title: string;
   };
   title: string;
+  order?: number;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -14,12 +15,14 @@ export type Department = {
 export type CreateDepartmentDto = {
   faculty_id: string;
   title: string;
+  order?: number;
   active?: boolean;
 };
 
 export type UpdateDepartmentDto = {
   faculty_id?: string;
   title?: string;
+  order?: number;
   active?: boolean;
 };
 

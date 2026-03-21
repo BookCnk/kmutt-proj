@@ -64,6 +64,7 @@ type FacultyRow = {
 type Department = {
   _id: string;
   title: string;
+  order?: number;
   active?: boolean;
 };
 
@@ -157,6 +158,7 @@ export default function FacultyTable() {
   // inline edit department
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
   const [editingDeptTitle, setEditingDeptTitle] = useState<string>("");
+  const [editingDeptOrder, setEditingDeptOrder] = useState<number>(0);
   const [savingDeptId, setSavingDeptId] = useState<string | null>(null);
   const [deletingDeptId, setDeletingDeptId] = useState<string | null>(null);
 
@@ -245,6 +247,7 @@ export default function FacultyTable() {
 
     setEditingDeptId(null);
     setEditingDeptTitle("");
+    setEditingDeptOrder(0);
     setSavingDeptId(null);
     setDeletingDeptId(null);
 
@@ -317,10 +320,12 @@ export default function FacultyTable() {
   const startEditDept = (dep: Department) => {
     setEditingDeptId(dep._id);
     setEditingDeptTitle(dep.title ?? "");
+    setEditingDeptOrder(dep.order ?? 0);
   };
   const cancelEditDept = () => {
     setEditingDeptId(null);
     setEditingDeptTitle("");
+    setEditingDeptOrder(0);
   };
   const saveEditDept = async (dep: Department) => {
     if (!editingDeptId || editingDeptId !== dep._id) return;
@@ -331,13 +336,14 @@ export default function FacultyTable() {
     }
     try {
       setSavingDeptId(dep._id);
-      await updateDepartment(dep._id, { title: newTitle });
+      await updateDepartment(dep._id, { title: newTitle, order: editingDeptOrder });
       setDeptRows((prev) =>
-        prev.map((d) => (d._id === dep._id ? { ...d, title: newTitle } : d)),
+        prev.map((d) => (d._id === dep._id ? { ...d, title: newTitle, order: editingDeptOrder } : d)),
       );
       if (progModalOpen && progDeptId === dep._id) setProgDeptTitle(newTitle);
       setEditingDeptId(null);
       setEditingDeptTitle("");
+      setEditingDeptOrder(0);
     } catch (err) {
       console.error("updateDepartment error:", err);
       alert("บันทึกไม่สำเร็จ");
@@ -369,6 +375,7 @@ export default function FacultyTable() {
       if (editingDeptId === dep._id) {
         setEditingDeptId(null);
         setEditingDeptTitle("");
+        setEditingDeptOrder(0);
       }
     } catch (err) {
       console.error("deleteDepartment error:", err);
@@ -711,17 +718,34 @@ export default function FacultyTable() {
                       className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 flex items-center justify-between gap-4 hover:border-blue-200 hover:bg-white hover:shadow-sm transition-all group">
                       <div className="flex-1 min-w-0">
                         {isEditing ? (
-                          <input
-                            className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={editingDeptTitle}
-                            onChange={(e) =>
-                              setEditingDeptTitle(e.target.value)
-                            }
-                            disabled={isSaving || isDeleting}
-                            placeholder="ชื่อภาค/สาขา"
-                          />
+                          <div className="flex gap-2 w-full">
+                            <input
+                              className="flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingDeptTitle}
+                              onChange={(e) =>
+                                setEditingDeptTitle(e.target.value)
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="ชื่อภาค/สาขา"
+                            />
+                            <input
+                              type="number"
+                              className="w-[80px] rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingDeptOrder}
+                              onChange={(e) =>
+                                setEditingDeptOrder(Number(e.target.value))
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="ลำดับ"
+                            />
+                          </div>
                         ) : (
-                          <p className="font-medium truncate">{d.title}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200" title="ลำดับการแสดงผล (Order)">
+                              [{d.order ?? 0}]
+                            </span>
+                            <p className="font-medium truncate">{d.title}</p>
+                          </div>
                         )}
 
                         <div className="mt-1 flex items-center gap-2">
