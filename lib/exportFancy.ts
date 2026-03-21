@@ -118,11 +118,15 @@ function parseScheduleFromProgramTitle(title: string): string | undefined {
   return undefined;
 }
 
-// ตัดส่วนกำกับเวลาออก เพื่อให้เหลือชื่อหลักสูตรสะอาด
+// ตัดส่วนกำกับเวลาและคำที่ไม่ต้องการออก เพื่อให้เหลือชื่อหลักสูตรสะอาด
 function stripScheduleFromTitle(title: string): string {
   if (!title) return title;
   let t = title.replace(/-\s*\([^)]+\)\s*$/, "").trim();
   t = t.replace(/\s*\([^)]+\)\s*$/, "").trim();
+  
+  // ตัด (ปร.ด.), (วศ.ด.) ตามที่ผู้ใช้รีเควส
+  t = t.replace(/\s*\((?:ปร\.ด\.|วศ\.ด\.)\)/g, "").trim();
+  
   return t;
 }
 
