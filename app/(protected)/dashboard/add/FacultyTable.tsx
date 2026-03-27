@@ -63,6 +63,7 @@ type FacultyRow = {
 
 type Department = {
   _id: string;
+  id?: string; // fallback
   title: string;
   order?: number;
   active?: boolean;
@@ -81,6 +82,7 @@ type DepartmentResponse = {
 
 type Program = {
   _id: string;
+  id?: string; // fallback
   title: string;
   time?: string; // ✅ ใช้เป็น source หลักที่ backend รองรับ
   degree_level: string;
@@ -193,6 +195,16 @@ export default function FacultyTable() {
   const [savingFacId, setSavingFacId] = useState<string | null>(null);
   const [deletingFacId, setDeletingFacId] = useState<string | null>(null);
 
+  /** ---------- Custom Delete Confirmation Modal ---------- */
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "faculty" | "department" | "program";
+    id: string;
+    title: string;
+    payload: any;
+  } | null>(null);
+  const [isDeletingTarget, setIsDeletingTarget] = useState(false);
+
   /** ---------- Load faculties & reliable department count ---------- */
   useEffect(() => {
     let cancelled = false;
@@ -254,8 +266,13 @@ export default function FacultyTable() {
     setProgModalOpen(false);
 
     try {
-      const res: DepartmentResponse = await getDepartmentsByFaculty(facultyId);
-      setDeptRows(res?.data ?? []);
+      const res: any = await getDepartmentsByFaculty(facultyId);
+      const arr = res?.data ?? [];
+      const normalized = arr.map((d: any) => ({
+        ...d,
+        _id: String(d._id ?? d.id),
+      }));
+      setDeptRows(normalized);
     } catch (e) {
       console.error("getDepartmentsByFaculty error:", e);
       setDeptRows([]);
@@ -297,17 +314,22 @@ export default function FacultyTable() {
       setSavingFacId(null);
     }
   };
-  const confirmDeleteFaculty = async (row: FacultyRow) => {
-    const ok = confirm(`ยืนยันลบคณะ: "${row.title}" ?`);
-    if (!ok) return;
+  const confirmDeleteFaculty = (row: FacultyRow) => {
+    setDeleteTarget({ type: "faculty", id: row.id, title: row.title, payload: row });
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteFaculty = async (row: FacultyRow) => {
     try {
       setDeletingFacId(row.id);
+      console.log("Deleting faculty:", row.id);
       await deleteFaculty(row.id);
       setRows((prev) => prev.filter((f) => f.id !== row.id));
       if (deptModalOpen && deptFacultyId === row.id) {
         setDeptModalOpen(false);
         setProgModalOpen(false);
       }
+      alert("ลบคณะสำเร็จ");
     } catch (err) {
       console.error("deleteFaculty error:", err);
       alert("ลบคณะไม่สำเร็จ");
@@ -351,11 +373,15 @@ export default function FacultyTable() {
       setSavingDeptId(null);
     }
   };
-  const confirmDeleteDept = async (dep: Department) => {
-    const ok = confirm(`ยืนยันลบภาค/สาขา: "${dep.title}" ?`);
-    if (!ok) return;
+  const confirmDeleteDept = (dep: Department) => {
+    setDeleteTarget({ type: "department", id: dep._id, title: dep.title, payload: dep });
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteDept = async (dep: Department) => {
     try {
       setDeletingDeptId(dep._id);
+      console.log("Deleting department:", dep._id);
       await deleteDepartment(dep._id);
       setDeptRows((prev) => prev.filter((d) => d._id !== dep._id));
       setRows((prev) =>
@@ -372,6 +398,7 @@ export default function FacultyTable() {
         setProgModalOpen(false);
         setProgRows([]);
       }
+      alert("ลบภาค/สาขาสำเร็จ");
       if (editingDeptId === dep._id) {
         setEditingDeptId(null);
         setEditingDeptTitle("");
@@ -405,7 +432,12 @@ export default function FacultyTable() {
 
     try {
       const res: any = await getProgramsByDepartment(department._id);
-      setProgRows(res?.data ?? []);
+      const arr = res?.data ?? [];
+      const normalized = arr.map((p: any) => ({
+        ...p,
+        _id: String(p._id ?? p.id),
+      }));
+      setProgRows(normalized);
     } catch (e) {
       console.error("getProgramsByDepartment error:", e);
       setProgRows([]);
@@ -514,19 +546,42 @@ export default function FacultyTable() {
     }
   };
 
-  const confirmDeleteProgram = async (program: Program) => {
-    const ok = confirm(`ยืนยันลบหลักสูตร/สาขา: "${program.title}" ?`);
-    if (!ok) return;
+  const confirmDeleteProgram = (program: Program) => {
+    setDeleteTarget({ type: "program", id: program._id, title: program.title, payload: program });
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteProgram = async (program: Program) => {
     try {
       setDeletingProgId(program._id);
+      console.log("Deleting program:", program._id);
       await deleteProgram(program._id);
       setProgRows((prev) => prev.filter((p) => p._id !== program._id));
+      alert("ลบหลักสูตร/สาขาสำเร็จ");
     } catch (err) {
       console.error("deleteProgram error:", err);
       alert("ลบหลักสูตร/สาขาไม่สำเร็จ");
     } finally {
       setDeletingProgId(null);
     }
+  };
+
+  /** ---------- Unified Execute Delete ---------- */
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeletingTarget(true);
+    
+    if (deleteTarget.type === "faculty") {
+      await executeDeleteFaculty(deleteTarget.payload);
+    } else if (deleteTarget.type === "department") {
+      await executeDeleteDept(deleteTarget.payload);
+    } else if (deleteTarget.type === "program") {
+      await executeDeleteProgram(deleteTarget.payload);
+    }
+    
+    setIsDeletingTarget(false);
+    setDeleteConfirmOpen(false);
+    setDeleteTarget(null);
   };
 
   return (
@@ -561,8 +616,8 @@ export default function FacultyTable() {
                 const isDeleting = deletingFacId === f.id;
 
                 return (
-                  <tr 
-                    key={f.id} 
+                  <tr
+                    key={f.id}
                     className="hover:bg-blue-50/50 transition-colors group"
                   >
                     <td className="border-b px-4 py-3">
@@ -654,7 +709,10 @@ export default function FacultyTable() {
                               variant="ghost"
                               className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8 font-medium"
                               disabled={isSaving || isDeleting}
-                              onClick={() => confirmDeleteFaculty(f)}>
+                              onClick={() => {
+                                console.log("CLICKED Delete Faculty:", f.id);
+                                confirmDeleteFaculty(f);
+                              }}>
                               <Trash2 size={14} className="mr-1.5" />
                               {isDeleting ? "กำลังลบ..." : "ลบ"}
                             </Button>
@@ -813,8 +871,12 @@ export default function FacultyTable() {
                               size="sm"
                               variant="ghost"
                               className="w-8 h-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full"
-                              disabled={isSaving || isDeleting}
-                              onClick={() => confirmDeleteDept(d)}>
+                               disabled={isSaving || isDeleting}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 console.log("CLICKED Delete Department:", d._id);
+                                 confirmDeleteDept(d);
+                               }}>
                               <Trash2 size={14} />
                             </Button>
                           </>
@@ -931,7 +993,7 @@ export default function FacultyTable() {
                                 placeholder="เช่น จ.-พ. 09:00–12:00 ห้อง B201"
                               />
                             </div>
-                            
+
                             <div className="grid grid-cols-1 gap-3">
                               {/* ✅ Degree Level Dropdown */}
                               <div>
@@ -1103,8 +1165,12 @@ export default function FacultyTable() {
                               size="sm"
                               variant="ghost"
                               className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8"
-                              disabled={isSaving || isDeleting}
-                              onClick={() => confirmDeleteProgram(p)}>
+                               disabled={isSaving || isDeleting}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 console.log("CLICKED Delete Program:", p._id);
+                                 confirmDeleteProgram(p);
+                               }}>
                               ลบ
                             </Button>
                           </>
@@ -1120,6 +1186,57 @@ export default function FacultyTable() {
           <DialogFooter>
             <Button type="button" onClick={() => setProgModalOpen(false)}>
               ปิด
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* ====== Custom Delete Confirmation Modal ====== */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle size={20} />
+              ยืนยันการลบ
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 mt-2 leading-relaxed">
+              คุณแน่ใจหรือไม่ว่าต้องการลบ{" "}
+              {deleteTarget?.type === "faculty" && "คณะ"}
+              {deleteTarget?.type === "department" && "ภาค/สาขา"}
+              {deleteTarget?.type === "program" && "หลักสูตร/สาขา"}
+              <br />
+              <span className="font-bold text-gray-900 mt-1 block">
+                &quot;{deleteTarget?.title}&quot;
+              </span>
+              <br />
+              <span className="text-red-500 text-xs">
+                * การกระทำนี้ไม่สามารถย้อนกลับได้
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={isDeletingTarget}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirmDelete}
+              disabled={isDeletingTarget}
+            >
+              {isDeletingTarget ? (
+                <>
+                  <Loader2 size={16} className="animate-spin mr-2" />
+                  กำลังลบ...
+                </>
+              ) : (
+                "ยืนยันการลบ"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
