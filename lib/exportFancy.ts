@@ -148,12 +148,15 @@ type ProgramInForm = {
   rounds: any[];
   monthly: any[];
   message?: string;
+  order?: number;
 };
 
 type SurveyRow = {
   id: string;
   faculty: string;
+  facultyOrder?: number;
   department: string;
+  departmentOrder?: number;
   program: string;
   programs: ProgramInForm[];
   submitterEmail: string;
@@ -247,6 +250,7 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
           rounds,
           monthly,
           message: "",
+          order: pid?.order ?? 9999,
         };
       })
     : [];
@@ -273,7 +277,9 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
   return {
     id,
     faculty,
+    facultyOrder: doc?.faculty_id?.order ?? 9999,
     department,
+    departmentOrder: doc?.department_id?.order ?? 9999,
     program: programSummary,
     programs: intakePrograms,
     submitterEmail,
@@ -389,6 +395,7 @@ function mergeActiveProgramsIntoRows(
       rounds: [],
       monthly: [],
       message: DIRECT_CONTACT_MESSAGE, // ✅ ตรง requirement
+      order: ap?.order ?? 9999,
     };
 
     const phones = normalizePhones(
@@ -398,7 +405,9 @@ function mergeActiveProgramsIntoRows(
     merged.push({
       id: normalizeId(ap?._id),
       faculty,
+      facultyOrder: ap?.faculty_id?.order ?? 9999,
       department,
+      departmentOrder: ap?.department_id?.order ?? 9999,
       program: cleanTitle,
       programs: [program],
       submitterEmail: "-",
@@ -423,6 +432,11 @@ function prepareSurveyRows(
 }
 
 // ===== รวมข้อมูลจาก SurveyRow[] -> FancyExportRow[] แยกตาม degree =====
+function resolveSortOrder(val: any) {
+  if (val == null || val === 0) return 9999;
+  return Number(val);
+}
+
 function buildFancyRowsByDegree(
   data: SurveyRow[],
   degreeLevel: "master" | "doctoral"
@@ -434,7 +448,11 @@ function buildFancyRowsByDegree(
     grouped.set(r.faculty, arr);
   });
 
-  const orderedFaculties = Array.from(grouped.entries()).sort(([fa], [fb]) => {
+  const orderedFaculties = Array.from(grouped.entries()).sort(([fa, rowsA], [fb, rowsB]) => {
+    const orderA = resolveSortOrder(rowsA[0]?.facultyOrder);
+    const orderB = resolveSortOrder(rowsB[0]?.facultyOrder);
+    if (orderA !== orderB) return orderA - orderB;
+
     const ra = getFacultyRank(fa);
     const rb = getFacultyRank(fb);
     if (ra !== rb) return ra - rb;
@@ -445,6 +463,10 @@ function buildFancyRowsByDegree(
 
   for (const [faculty, rowsRaw] of orderedFaculties) {
     const rows = [...rowsRaw].sort((a, b) => {
+      const orderA = resolveSortOrder(a.departmentOrder);
+      const orderB = resolveSortOrder(b.departmentOrder);
+      if (orderA !== orderB) return orderA - orderB;
+
       const da = a.department || "";
       const db = b.department || "";
       const cmp = da.localeCompare(db, "th");
@@ -472,9 +494,12 @@ function buildFancyRowsByDegree(
 
       if (!programsOfLevel.length) continue;
 
-      const sortedPrograms = [...programsOfLevel].sort((a, b) =>
-        (a.title || "").localeCompare(b.title || "", "th")
-      );
+      const sortedPrograms = [...programsOfLevel].sort((a, b) => {
+        const orderA = resolveSortOrder(a.order);
+        const orderB = resolveSortOrder(b.order);
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.title || "").localeCompare(b.title || "", "th");
+      });
 
       for (const p of sortedPrograms) {
         const amtRaw =

@@ -126,6 +126,7 @@ interface FacultyFormProps {
 }
 function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
   const [nameTH, setNameTH] = useState("");
+  const [order, setOrder] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(() => {
@@ -136,9 +137,10 @@ function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
     if (!canSubmit || loading) return;
     setLoading(true);
     try {
-      const payload = { title: nameTH.trim(), active: true };
+      const payload = { title: nameTH.trim(), order: Number(order) || 0, active: true };
       const created = await createFaculty(payload);
       setNameTH("");
+      setOrder(0);
       onCreated?.(created);
       alert("บันทึกสำเร็จ: เพิ่มคณะเรียบร้อยแล้ว");
     } catch (err) {
@@ -168,6 +170,26 @@ function FacultyForm({ onCreated, ddlValue }: FacultyFormProps) {
             value={nameTH}
             onChange={(e) => setNameTH(e.target.value)}
             aria-required
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
+        </div>
+      </div>
+
+      <div className="w-[120px] shrink-0 flex flex-col gap-1.5">
+        <label className="text-sm font-semibold text-gray-700 ml-1">
+          ลำดับ (Order)
+        </label>
+        <div className="relative group">
+          <ListOrdered
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+            size={18}
+          />
+          <input
+            type="number"
+            className="w-full rounded-2xl border border-gray-200 bg-gray-50/30 pl-11 pr-4 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+            placeholder="0"
+            value={order}
+            onChange={(e) => setOrder(Number(e.target.value))}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           />
         </div>

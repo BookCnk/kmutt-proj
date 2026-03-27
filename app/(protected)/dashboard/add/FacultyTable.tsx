@@ -51,10 +51,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-/* ========= Types ========= */
 type FacultyRow = {
   id: string;
   title: string;
+  order?: number;
   active: boolean;
   departmentCount?: number;
   created_at?: string;
@@ -192,6 +192,7 @@ export default function FacultyTable() {
   /** ---------- Faculty inline edit (table) ---------- */
   const [editingFacId, setEditingFacId] = useState<string | null>(null);
   const [editingFacTitle, setEditingFacTitle] = useState<string>("");
+  const [editingFacOrder, setEditingFacOrder] = useState<number>(0);
   const [savingFacId, setSavingFacId] = useState<string | null>(null);
   const [deletingFacId, setDeletingFacId] = useState<string | null>(null);
 
@@ -225,6 +226,7 @@ export default function FacultyTable() {
           mapped.push({
             id: fid,
             title: f.title ?? f.nameTH ?? "-",
+            order: f.order ?? 0,
             active: f.active !== false,
             departmentCount: deptCount ?? undefined,
             created_at: f.created_at,
@@ -285,10 +287,12 @@ export default function FacultyTable() {
   const startEditFaculty = (row: FacultyRow) => {
     setEditingFacId(row.id);
     setEditingFacTitle(row.title ?? "");
+    setEditingFacOrder(row.order ?? 0);
   };
   const cancelEditFaculty = () => {
     setEditingFacId(null);
     setEditingFacTitle("");
+    setEditingFacOrder(0);
   };
   const saveEditFaculty = async (row: FacultyRow) => {
     if (!editingFacId || editingFacId !== row.id) return;
@@ -299,14 +303,15 @@ export default function FacultyTable() {
     }
     try {
       setSavingFacId(row.id);
-      await updateFaculty(row.id, { title: newTitle });
+      await updateFaculty(row.id, { title: newTitle, order: editingFacOrder });
       setRows((prev) =>
-        prev.map((f) => (f.id === row.id ? { ...f, title: newTitle } : f)),
+        prev.map((f) => (f.id === row.id ? { ...f, title: newTitle, order: editingFacOrder } : f)),
       );
       if (deptModalOpen && deptFacultyId === row.id)
         setDeptFacultyTitle(newTitle);
       setEditingFacId(null);
       setEditingFacTitle("");
+      setEditingFacOrder(0);
     } catch (err) {
       console.error("updateFaculty error:", err);
       alert("บันทึกชื่อคณะไม่สำเร็จ");
@@ -626,15 +631,30 @@ export default function FacultyTable() {
                           <Building2 size={18} />
                         </div>
                       {isEditing ? (
-                        <input
-                          className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={editingFacTitle}
-                          onChange={(e) => setEditingFacTitle(e.target.value)}
-                          disabled={isSaving || isDeleting}
-                          placeholder="ชื่อคณะ"
-                        />
+                        <div className="flex gap-2 w-full">
+                          <input
+                            className="flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editingFacTitle}
+                            onChange={(e) => setEditingFacTitle(e.target.value)}
+                            disabled={isSaving || isDeleting}
+                            placeholder="ชื่อคณะ"
+                          />
+                          <input
+                            type="number"
+                            className="w-[80px] rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={editingFacOrder}
+                            onChange={(e) => setEditingFacOrder(Number(e.target.value))}
+                            disabled={isSaving || isDeleting}
+                            placeholder="ลำดับ"
+                          />
+                        </div>
                       ) : (
-                        f.title
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200" title="ลำดับการแสดงผล (Order)">
+                            [{f.order ?? 0}]
+                          </span>
+                          <span className="font-medium truncate">{f.title}</span>
+                        </div>
                       )}
                       </div>
                     </td>

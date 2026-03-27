@@ -1340,7 +1340,7 @@ export default function IntakeViewerWithAddModal() {
                     <div className="space-y-2">
                       <label className="text-[13px] font-bold text-slate-600 flex items-center gap-1.5 ml-1 uppercase tracking-tight">
                         <Clock className="w-4 h-4 text-slate-400" />
-                        วันที่เริ่มต้นรับสมัคร
+                        วันที่เริ่มต้นกรอกข้อมูล
                       </label>
                       <DatePickerField
                         valueISO={openAtDraft}
@@ -1351,7 +1351,7 @@ export default function IntakeViewerWithAddModal() {
                     <div className="space-y-2">
                       <label className="text-[13px] font-bold text-slate-600 flex items-center gap-1.5 ml-1 uppercase tracking-tight">
                         <CalendarIcon className="w-4 h-4 text-slate-400" />
-                        วันที่สิ้นสุดรับสมัคร
+                        วันที่สิ้นสุดกรอกข้อมูล
                       </label>
                       <DatePickerField
                         valueISO={closeAtDraft}

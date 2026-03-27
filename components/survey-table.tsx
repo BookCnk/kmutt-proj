@@ -842,6 +842,7 @@ export function SurveyTable({ onCreateNew }: SurveyTableProps) {
                   <SelectItem value="10" className="font-medium">10 รายการ</SelectItem>
                   <SelectItem value="25" className="font-medium">25 รายการ</SelectItem>
                   <SelectItem value="50" className="font-medium">50 รายการ</SelectItem>
+                  <SelectItem value="99999" className="font-medium">ทั้งหมด</SelectItem>
                 </SelectContent>
                </Select>
                <span className="text-sm font-bold text-slate-400 whitespace-nowrap bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">รวม {total}</span>
