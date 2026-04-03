@@ -21,6 +21,7 @@ const COL = {
     department: 21,
     limitApplicant: 28,
     examTotal: 29,
+    specialConditionRef: 30,
 } as const;
 
 function toNum(v: unknown): number | null {
@@ -72,6 +73,7 @@ export async function parseExcelToGroups(file: File): Promise<AdmissionMajorGrou
                         department: toStr(r[COL.department]),
                         limitApplicant: toNum(r[COL.limitApplicant]) ?? 0,
                         examTotal: toNum(r[COL.examTotal]) ?? 0,
+                        specialConditionRef: toNum(r[COL.specialConditionRef]),
                     }));
 
                 // Group by (faculty, admissionMajor)
@@ -85,6 +87,7 @@ export async function parseExcelToGroups(file: File): Promise<AdmissionMajorGrou
                             department: row.department,
                             limitApplicant: row.limitApplicant,
                             examTotal: row.examTotal,
+                            specialConditionRef: row.specialConditionRef,
                             criteria: [],
                         });
                     }

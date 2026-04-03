@@ -1,7 +1,6 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import Image from 'next/image';
 
 interface InfographicTopHeaderProps {
     className?: string;
@@ -9,6 +8,7 @@ interface InfographicTopHeaderProps {
     leftTitleLine1?: string;
     leftTitleLine2?: string;
     bannerText?: string;
+    logoUrl?: string;
 }
 
 const DEFAULT_LEFT_TITLE_LINE_1 = 'เกณฑ์การรับสมัครนักศึกษา';
@@ -21,6 +21,7 @@ export function InfographicTopHeader({
     leftTitleLine1 = DEFAULT_LEFT_TITLE_LINE_1,
     leftTitleLine2 = DEFAULT_LEFT_TITLE_LINE_2,
     bannerText = DEFAULT_BANNER_TEXT,
+    logoUrl = '/ICON.png',
 }: InfographicTopHeaderProps) {
     return (
         <div
@@ -33,7 +34,8 @@ export function InfographicTopHeader({
         >
             <div className="flex items-center gap-4 px-4 py-2 bg-white" style={{ flex: '0 0 45%' }}>
                 <div className="flex items-center pr-3 border-r border-slate-200">
-                    <Image src="/ICON.png" alt="KMUTT 65" width={80} height={52} className="object-contain" priority />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logoUrl} alt="KMUTT logo" width={80} height={52} style={{ objectFit: 'contain' }} />
                 </div>
                 <div className="text-slate-800 flex flex-col justify-center">
                     <div className="font-bold leading-tight" style={{ fontSize: 18 }}>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { FacultyTOCData } from "@/types/infographic";
 
 export interface FacultyTOCContent {
@@ -36,9 +35,10 @@ export const DEFAULT_FACULTY_TOC_CONTENT: FacultyTOCContent = {
 interface Props {
   data: FacultyTOCData;
   content?: Partial<FacultyTOCContent>;
+  logoUrl?: string;
 }
 
-export function FacultyTOC({ data, content }: Props) {
+export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
   const today = new Date();
   const thaiMonths = [
     "มกราคม",
@@ -75,14 +75,8 @@ export function FacultyTOC({ data, content }: Props) {
           className="flex items-center gap-4 px-4 py-2 bg-white"
           style={{ flex: "0 0 45%" }}>
           <div className="flex items-center pr-3 border-r border-slate-200">
-            <Image
-              src="/ICON.png"
-              alt="KMUTT 65"
-              width={80}
-              height={52}
-              className="object-contain"
-              priority
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt="KMUTT logo" width={80} height={52} style={{ objectFit: 'contain' }} />
           </div>
           <div className="text-slate-800 flex flex-col justify-center">
             <div
@@ -152,17 +146,8 @@ export function FacultyTOC({ data, content }: Props) {
 
       <div className="grid grid-cols-3 items-end pt-4 pb-2">
         <div className="flex items-center gap-2">
-          <div className="flex gap-0.5">
-            <div
-              className="w-3.5 h-3.5"
-              style={{ backgroundColor: "#fa4616" }}
-            />
-            <div
-              className="w-3.5 h-3.5"
-              style={{ backgroundColor: "#fa4616" }}
-            />
-            <div className="w-3.5 h-3.5 bg-slate-200" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoUrl} alt="logo" style={{ width: 36, height: 24, objectFit: 'contain' }} />
           <span
             className="font-bold text-slate-700"
             style={{ fontSize: tocContent.fontSizeFooter }}>

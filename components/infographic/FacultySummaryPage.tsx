@@ -4,18 +4,32 @@
 // Matches Criteria.pdf page 2 exactly:
 // Header → Faculty name → majors table → notes → เงื่อนไขพิเศษ → footer
 
+import { useLayoutEffect, useRef, useState } from "react";
 import type { AdmissionMajorGroup } from "@/types/infographic";
 import { InfographicTopHeader } from "./InfographicTopHeader";
+
+const A4_H = 1123;
 
 interface Props {
   faculty: string;
   majors: AdmissionMajorGroup[];
   pageNumber: number;
+  logoUrl?: string;
 }
 
 const ORANGE = "#fa4616"; // orange banner
 
-export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
+export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Props) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const h = el.scrollHeight;
+    if (h > A4_H) setScale(A4_H / h);
+  }, []);
+
   const today = new Date();
   const thaiMonths = [
     "มกราคม",
@@ -34,15 +48,23 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
   const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
 
   return (
+    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: 'white' }}>
     <div
-      className="w-full h-full flex flex-col bg-white overflow-hidden text-black"
+      ref={innerRef}
+      className="flex flex-col text-black"
       style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: scale < 1 ? `${100 / scale}%` : '100%',
+        transformOrigin: 'top left',
+        transform: `scale(${scale})`,
         fontFamily: "THSarabun, sans-serif",
         padding: "20px 30px 10px",
         fontSize: 18,
       }}>
       {/* Header */}
-      <InfographicTopHeader className="mb-3" />
+      <InfographicTopHeader className="mb-3" logoUrl={logoUrl} />
 
       {/* Faculty name */}
       <div
@@ -115,6 +137,9 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
                   backgroundColor: "#fbe4d5",
                 }}>
                 {g.admissionMajor}
+                {g.specialConditionRef != null && (
+                  <sup style={{ fontSize: 13, marginLeft: 1 }}>{g.specialConditionRef}</sup>
+                )}
               </td>
               <td
                 style={{
@@ -125,7 +150,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
                 }}>
                 {g.examTotal === 0 ? (
                   <span style={{ fontSize: 18 }}>
-                    อยู่ระหว่างปรับปรุงหลักสูตร*
+                    ทุกคนที่ผ่านเกณฑ์
                   </span>
                 ) : (
                   g.examTotal
@@ -146,47 +171,45 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
       </table>
 
       {/* Notes */}
-      <p style={{ marginBottom: 4 }}>
-        <strong>* สำหรับหลักสูตรปรับปรุง/ระงับการเปิดรับสมัครชั่วคราว</strong>{" "}
-        สามารถติดต่อสอบถามข้อมูลเพิ่มเติมได้ที่ คณะ/สาขาวิชา โดยตรง{" "}
-        <strong>โทร : 02-470-9014</strong>
-      </p>
       <p style={{ marginBottom: 8 }}>
         สอบคัดเลือก* หมายถึง สอบสัมภาษณ์ และ/หรือสอบทักษะขั้นพื้นฐาน
         เพื่อประเมินความถนัดทางวิชาชีพ/ความสามารถพิเศษ
       </p>
 
-      {/* เงื่อนไขพิเศษ */}
-      <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            color: ORANGE,
-            fontWeight: 700,
-            fontSize: 18,
-            marginBottom: 4,
-            textDecoration: "underline",
-          }}>
-          เงื่อนไขพิเศษ หรือคุณสมบัติพิเศษอื่น ๆ
+      {/* เงื่อนไขพิเศษ — Engineering only */}
+      {faculty.includes("วิศวกรรม") && (
+        <div style={{ marginBottom: 8 }}>
+          <div
+            style={{
+              color: ORANGE,
+              fontWeight: 700,
+              fontSize: 18,
+              marginBottom: 4,
+              textDecoration: "underline",
+            }}>
+            เงื่อนไขพิเศษ หรือคุณสมบัติพิเศษอื่น ๆ
+          </div>
+          <ol
+            style={{
+              paddingLeft: 20,
+              margin: 0,
+              color: ORANGE,
+              lineHeight: 1.7,
+              listStyleType: "decimal",
+            }}>
+            <li>
+              รับผู้มีภาวะตาบอดสี
+              แต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา
+              ตามแนวทางการตรวจตาบอดสีของราชวิทยาลัยจักษุแพทย์แห่งประเทศไทย
+            </li>
+            <li>รับผู้มีภาวะตาบอดสี</li>
+            <li>
+              <span style={{ textDecoration: "underline" }}>ไม่รับ</span>{" "}
+              ผู้มีภาวะตาบอดสี
+            </li>
+          </ol>
         </div>
-        <ol
-          style={{
-            paddingLeft: 20,
-            margin: 0,
-            color: ORANGE,
-            lineHeight: 1.7,
-          }}>
-          <li>
-            รับผู้มีภาวะตาบอดสี
-            แต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา
-            ตามแนวทางการตรวจตาบอดสีของราชวิทยาลัยจักษุแพทย์แห่งประเทศไทย
-          </li>
-          <li>รับผู้มีภาวะตาบอดสี</li>
-          <li>
-            <span style={{ textDecoration: "underline" }}>ไม่รับ</span>{" "}
-            ผู้มีภาวะตาบอดสี
-          </li>
-        </ol>
-      </div>
+      )}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
@@ -202,24 +225,8 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
           fontSize: 14,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ display: "flex", gap: 2 }}>
-            <div
-              style={{
-                width: 12,
-                height: 12,
-                backgroundColor: "#c0392b",
-                borderRadius: 2,
-              }}
-            />
-            <div
-              style={{
-                width: 12,
-                height: 12,
-                backgroundColor: "#fa4616",
-                borderRadius: 2,
-              }}
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 36, height: 24, objectFit: 'contain' }} />
           <span style={{ color: "#555" }}>
             สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.
           </span>
@@ -232,6 +239,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber }: Props) {
           <div style={{ color: "#555" }}>{pageNumber} | Page</div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

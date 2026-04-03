@@ -17,6 +17,7 @@ export interface AdmissionCriteriaRow {
     department: string;
     limitApplicant: number;
     examTotal: number;
+    specialConditionRef: number | null;
 }
 
 /** One infographic "page" = one admission major with all its criteria rows */
@@ -26,6 +27,7 @@ export interface AdmissionMajorGroup {
     department: string;
     limitApplicant: number;
     examTotal: number;
+    specialConditionRef: number | null;
     criteria: AdmissionCriteriaRow[];
 }
 

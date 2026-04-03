@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { exportAllPagesToPDF } from '@/lib/exportPdf';
+import { exportToDocx } from '@/lib/exportDocx';
 import { SidebarTools } from '@/components/infographic/SidebarTools';
 import { A4Canvas } from '@/components/infographic/A4Canvas';
 import {
@@ -11,8 +12,9 @@ import {
 } from '@/components/infographic/FacultyTOC';
 
 export default function InfographicBuilderPage() {
-    const { majorGroups } = useEditorStore();
+    const { majorGroups, logoUrl, setLogoUrl } = useEditorStore();
     const [exporting, setExporting] = useState(false);
+    const [exportingDocx, setExportingDocx] = useState(false);
     const [exportProgress, setExportProgress] = useState({
         current: 0,
         total: 0,
@@ -21,6 +23,7 @@ export default function InfographicBuilderPage() {
     const [tocContent, setTocContent] = useState<FacultyTOCContent>(
         DEFAULT_FACULTY_TOC_CONTENT
     );
+    const logoInputRef = useRef<HTMLInputElement>(null);
 
     async function handleExport() {
         setExporting(true);
@@ -33,6 +36,27 @@ export default function InfographicBuilderPage() {
         } finally {
             setExporting(false);
         }
+    }
+
+    async function handleExportDocx() {
+        if (majorGroups.length === 0) return;
+        setExportingDocx(true);
+        try {
+            await exportToDocx(majorGroups, 'KMUTT-Infographic-2569');
+        } finally {
+            setExportingDocx(false);
+        }
+    }
+
+    function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            if (ev.target?.result) setLogoUrl(ev.target.result as string);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
     }
 
     function updateTocField(field: keyof FacultyTOCContent, value: string) {
@@ -53,18 +77,28 @@ export default function InfographicBuilderPage() {
                     <h1 className="text-base font-bold text-slate-800">Infographic Builder</h1>
                     {majorGroups.length > 0 && (
                         <p className="text-xs text-slate-500">
-                            {majorGroups.length + 1} หน้า (สารบัญ + {majorGroups.length} คณะ)
+                            {majorGroups.length} สาขาวิชา
                         </p>
                     )}
                 </div>
-                <button
-                    onClick={handleExport}
-                    disabled={exporting || majorGroups.length === 0}
-                    className="text-xs px-4 py-1.5 text-white rounded disabled:opacity-50 transition-colors font-semibold"
-                    style={{ backgroundColor: '#fa4616' }}
-                >
-                    {exporting ? `กำลัง Export ${exportProgress.percent}%` : 'Export PDF ทั้งหมด'}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExportDocx}
+                        disabled={exportingDocx || majorGroups.length === 0}
+                        className="text-xs px-4 py-1.5 text-white rounded disabled:opacity-50 transition-colors font-semibold"
+                        style={{ backgroundColor: '#2563eb' }}
+                    >
+                        {exportingDocx ? 'กำลัง Export...' : 'Export Word'}
+                    </button>
+                    <button
+                        onClick={handleExport}
+                        disabled={exporting || majorGroups.length === 0}
+                        className="text-xs px-4 py-1.5 text-white rounded disabled:opacity-50 transition-colors font-semibold"
+                        style={{ backgroundColor: '#fa4616' }}
+                    >
+                        {exporting ? `กำลัง Export ${exportProgress.percent}%` : 'Export PDF ทั้งหมด'}
+                    </button>
+                </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
@@ -77,6 +111,32 @@ export default function InfographicBuilderPage() {
                 </main>
 
                 <aside className="w-80 flex-shrink-0 bg-white border-l overflow-y-auto p-4">
+                    {/* Logo Upload */}
+                    <div className="mb-4 pb-4 border-b border-slate-200">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-sm font-bold text-slate-800">โลโก้</h2>
+                            <button
+                                type="button"
+                                className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+                                onClick={() => setLogoUrl('/ICON.png')}
+                            >
+                                Reset
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={logoUrl} alt="logo preview" className="w-12 h-12 object-contain border rounded" />
+                            <button
+                                type="button"
+                                onClick={() => logoInputRef.current?.click()}
+                                className="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 text-slate-600 font-medium"
+                            >
+                                เปลี่ยนโลโก้
+                            </button>
+                            <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-sm font-bold text-slate-800">แก้ไขหน้าแรก (TOC)</h2>
                         <button
