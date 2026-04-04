@@ -20,14 +20,17 @@ interface Props {
 const ORANGE = "#fa4616"; // orange banner
 
 export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Props) {
-  const innerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el) return;
-    const h = el.scrollHeight;
-    if (h > A4_H) setScale(A4_H / h);
+    const content = contentRef.current;
+    const wrapper = wrapperRef.current;
+    if (!content || !wrapper) return;
+    const availableH = wrapper.offsetHeight;
+    const contentH = content.scrollHeight;
+    if (contentH > availableH) setScale(availableH / contentH);
   }, []);
 
   const today = new Date();
@@ -48,198 +51,207 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Pro
   const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: 'white' }}>
     <div
-      ref={innerRef}
-      className="flex flex-col text-black"
+      className="text-black"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: scale < 1 ? `${100 / scale}%` : '100%',
-        transformOrigin: 'top left',
-        transform: `scale(${scale})`,
-        fontFamily: "THSarabun, sans-serif",
-        padding: "20px 30px 10px",
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        background: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'THSarabun, sans-serif',
         fontSize: 18,
+        padding: '20px 30px 10px',
       }}>
-      {/* Header */}
-      <InfographicTopHeader className="mb-3" logoUrl={logoUrl} />
 
-      {/* Faculty name */}
-      <div
-        style={{
-          textAlign: "center",
-          fontWeight: 700,
-          fontSize: 18,
-          marginBottom: 8,
-        }}>
-        {faculty}
-      </div>
+      {/* Header — fixed size, never scaled */}
+      <InfographicTopHeader className="mb-6" logoUrl={logoUrl} />
 
-      {/* ── Majors table ── */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          marginBottom: 8,
-          fontSize: 18,
-        }}>
-        <thead>
-          <tr>
-            <th
-              style={{
-                border: "1px solid #333",
-                padding: "5px 8px",
-                backgroundColor: "#f4b083",
-                color: "#000",
-                textAlign: "center",
-                width: "55%",
-                fontWeight: 700,
-              }}>
-              สาขาวิชา
-            </th>
-            <th
-              style={{
-                border: "1px solid #333",
-                padding: "5px 8px",
-                backgroundColor: "#a6a6a6",
-                color: "#000",
-                textAlign: "center",
-                fontWeight: 700,
-              }}>
-              จำนวนเรียกสอบคัดเลือก*
-              <br />
-              (คน)
-            </th>
-            <th
-              style={{
-                border: "1px solid #333",
-                padding: "5px 8px",
-                backgroundColor: "#a6a6a6",
-                color: "#000",
-                textAlign: "center",
-                fontWeight: 700,
-              }}>
-              จำนวนรับเข้าศึกษา
-              <br />
-              (คน)
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {majors.map((g, i) => (
-            <tr key={i}>
-              <td
-                style={{
-                  border: "1px solid #333",
-                  padding: "4px 8px",
-                  backgroundColor: "#fbe4d5",
-                }}>
-                {g.admissionMajor}
-                {g.specialConditionRef != null && (
-                  <sup style={{ fontSize: 13, marginLeft: 1 }}>{g.specialConditionRef}</sup>
-                )}
-              </td>
-              <td
-                style={{
-                  border: "1px solid #333",
-                  padding: "4px 8px",
-                  textAlign: "center",
-                  backgroundColor: "#ffffff",
-                }}>
-                {g.examTotal === 0 ? (
-                  <span style={{ fontSize: 18 }}>
-                    ทุกคนที่ผ่านเกณฑ์
-                  </span>
-                ) : (
-                  g.examTotal
-                )}
-              </td>
-              <td
-                style={{
-                  border: "1px solid #333",
-                  padding: "4px 8px",
-                  textAlign: "center",
-                  backgroundColor: "#ffffff",
-                }}>
-                {g.limitApplicant === 0 ? "-" : g.limitApplicant}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Scalable content area */}
+      <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div
+          ref={contentRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: scale < 1 ? `${100 / scale}%` : '100%',
+            transformOrigin: 'top left',
+            transform: `scale(${scale})`,
+          }}>
 
-      {/* Notes */}
-      <p style={{ marginBottom: 8 }}>
-        สอบคัดเลือก* หมายถึง สอบสัมภาษณ์ และ/หรือสอบทักษะขั้นพื้นฐาน
-        เพื่อประเมินความถนัดทางวิชาชีพ/ความสามารถพิเศษ
-      </p>
-
-      {/* เงื่อนไขพิเศษ — Engineering only */}
-      {faculty.includes("วิศวกรรม") && (
-        <div style={{ marginBottom: 8 }}>
+          {/* Faculty name */}
           <div
             style={{
-              color: ORANGE,
+              textAlign: "center",
               fontWeight: 700,
               fontSize: 18,
-              marginBottom: 4,
-              textDecoration: "underline",
+              marginBottom: 8,
             }}>
-            เงื่อนไขพิเศษ หรือคุณสมบัติพิเศษอื่น ๆ
+            {faculty}
           </div>
-          <ol
+
+          {/* ── Majors table ── */}
+          <table
             style={{
-              paddingLeft: 20,
-              margin: 0,
-              color: ORANGE,
-              lineHeight: 1.7,
-              listStyleType: "decimal",
+              width: "100%",
+              borderCollapse: "collapse",
+              marginBottom: 8,
+              fontSize: 18,
             }}>
-            <li>
-              รับผู้มีภาวะตาบอดสี
-              แต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา
-              ตามแนวทางการตรวจตาบอดสีของราชวิทยาลัยจักษุแพทย์แห่งประเทศไทย
-            </li>
-            <li>รับผู้มีภาวะตาบอดสี</li>
-            <li>
-              <span style={{ textDecoration: "underline" }}>ไม่รับ</span>{" "}
-              ผู้มีภาวะตาบอดสี
-            </li>
-          </ol>
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    border: "1px solid #333",
+                    padding: "5px 8px",
+                    backgroundColor: "#f4b083",
+                    color: "#000",
+                    textAlign: "center",
+                    width: "55%",
+                    fontWeight: 700,
+                  }}>
+                  สาขาวิชา
+                </th>
+                <th
+                  style={{
+                    border: "1px solid #333",
+                    padding: "5px 8px",
+                    backgroundColor: "#a6a6a6",
+                    color: "#000",
+                    textAlign: "center",
+                    fontWeight: 700,
+                  }}>
+                  จำนวนเรียกสอบคัดเลือก*
+                  <br />
+                  (คน)
+                </th>
+                <th
+                  style={{
+                    border: "1px solid #333",
+                    padding: "5px 8px",
+                    backgroundColor: "#a6a6a6",
+                    color: "#000",
+                    textAlign: "center",
+                    fontWeight: 700,
+                  }}>
+                  จำนวนรับเข้าศึกษา
+                  <br />
+                  (คน)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {majors.map((g, i) => (
+                <tr key={i}>
+                  <td
+                    style={{
+                      border: "1px solid #333",
+                      padding: "4px 8px",
+                      backgroundColor: "#fbe4d5",
+                    }}>
+                    {g.admissionMajor}
+                    {g.specialConditionRef != null && (
+                      <sup style={{ fontSize: 13, marginLeft: 1 }}>{g.specialConditionRef}</sup>
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      border: "1px solid #333",
+                      padding: "4px 8px",
+                      textAlign: "center",
+                      backgroundColor: "#ffffff",
+                    }}>
+                    {g.examTotal === 0 ? (
+                      <span style={{ fontSize: 18 }}>
+                        ทุกคนที่ผ่านเกณฑ์
+                      </span>
+                    ) : (
+                      g.examTotal
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      border: "1px solid #333",
+                      padding: "4px 8px",
+                      textAlign: "center",
+                      backgroundColor: "#ffffff",
+                    }}>
+                    {g.limitApplicant === 0 ? "-" : g.limitApplicant}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Notes */}
+          <p style={{ marginBottom: 8 }}>
+            สอบคัดเลือก* หมายถึง สอบสัมภาษณ์ และ/หรือสอบทักษะขั้นพื้นฐาน
+            เพื่อประเมินความถนัดทางวิชาชีพ/ความสามารถพิเศษ
+          </p>
+
+          {/* เงื่อนไขพิเศษ — Engineering only */}
+          {faculty.includes("วิศวกรรม") && (
+            <div style={{ marginBottom: 8 }}>
+              <div
+                style={{
+                  color: ORANGE,
+                  fontWeight: 700,
+                  fontSize: 18,
+                  marginBottom: 4,
+                  textDecoration: "underline",
+                }}>
+                เงื่อนไขพิเศษ หรือคุณสมบัติพิเศษอื่น ๆ
+              </div>
+              <ol
+                style={{
+                  paddingLeft: 20,
+                  margin: 0,
+                  color: ORANGE,
+                  lineHeight: 1.7,
+                  listStyleType: "decimal",
+                }}>
+                <li>
+                  รับผู้มีภาวะตาบอดสี
+                  แต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา
+                  ตามแนวทางการตรวจตาบอดสีของราชวิทยาลัยจักษุแพทย์แห่งประเทศไทย
+                </li>
+                <li>รับผู้มีภาวะตาบอดสี</li>
+                <li>
+                  <span style={{ textDecoration: "underline" }}>ไม่รับ</span>{" "}
+                  ผู้มีภาวะตาบอดสี
+                </li>
+              </ol>
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      {/* ── Footer ── */}
+      {/* Footer — fixed size, never scaled */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",
           borderTop: "1px solid #ccc",
-          paddingTop: 6,
-          fontSize: 14,
+          paddingTop: 10,
+          fontSize: 18,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 36, height: 24, objectFit: 'contain' }} />
+          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
           <span style={{ color: "#555" }}>
             สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.
+            ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม
           </span>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ color: "#c0392b", fontWeight: 600 }}>
-            ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม
-          </div>
           <div style={{ color: "#c0392b", fontWeight: 600 }}>{dateStr}</div>
           <div style={{ color: "#555" }}>{pageNumber} | Page</div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

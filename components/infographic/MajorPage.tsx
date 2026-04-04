@@ -78,14 +78,17 @@ const tdBase: React.CSSProperties = {
 };
 
 export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
-  const innerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el) return;
-    const h = el.scrollHeight;
-    if (h > A4_H) setScale(A4_H / h);
+    const content = contentRef.current;
+    const wrapper = wrapperRef.current;
+    if (!content || !wrapper) return;
+    const availableH = wrapper.offsetHeight;
+    const contentH = content.scrollHeight;
+    if (contentH > availableH) setScale(availableH / contentH);
   }, []);
 
   const today = new Date();
@@ -123,265 +126,277 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
   const showRemarks = hasGpaNoMin || hasTgatTpat || isEngineering;
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: 'white' }}>
     <div
-      ref={innerRef}
-      className="flex flex-col text-black"
+      className="text-black"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: scale < 1 ? `${100 / scale}%` : '100%',
-        transformOrigin: 'top left',
-        transform: `scale(${scale})`,
-        fontFamily: "THSarabun, sans-serif",
-        padding: "20px 30px 10px",
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        background: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'THSarabun, sans-serif',
         fontSize: 18,
+        padding: '20px 30px 10px',
       }}>
-      {/* Header */}
-      <InfographicTopHeader className="mb-3" logoUrl={logoUrl} />
 
-      {/* Faculty (ต่อ) */}
-      <div
-        style={{
-          textAlign: "center",
-          fontWeight: 700,
-          fontSize: 18,
-          marginBottom: 8,
-          color: DARK,
-        }}>
-        {group.faculty} (ต่อ)
-      </div>
+      {/* Header — fixed size, never scaled */}
+      <InfographicTopHeader className="mb-6" logoUrl={logoUrl} />
 
-      {/* Major name — hidden in merged mode */}
-      {!isMerged && (
+      {/* Scalable content area */}
+      <div ref={wrapperRef} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <div
+          ref={contentRef}
           style={{
-            fontWeight: 600,
-            fontSize: 18,
-            marginBottom: 6,
-            color: DARK,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: scale < 1 ? `${100 / scale}%` : '100%',
+            transformOrigin: 'top left',
+            transform: `scale(${scale})`,
           }}>
-          {group.admissionMajor}
-        </div>
-      )}
 
-      {/* ── คุณสมบัติเบื้องต้น ── */}
-      <div style={{ marginBottom: 6 }}>
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: 18,
-            textDecoration: "underline",
-            marginBottom: 4,
-          }}>
-          คุณสมบัติเบื้องต้นในการสมัคร
-        </div>
-        <div style={{ paddingLeft: 16, lineHeight: 1.7 }}>
-          <div>- ผลการเรียน 5 - 6 ภาคการศึกษา</div>
-          <div>
-            - กำลังศึกษา/สำเร็จการศึกษาระดับชั้นมัธยมศึกษาปีที่ 6 หรือ ปวช.
+          {/* Faculty (ต่อ) */}
+          <div
+            style={{
+              textAlign: "center",
+              fontWeight: 700,
+              fontSize: 18,
+              marginBottom: 8,
+              color: DARK,
+            }}>
+            {group.faculty} (ต่อ)
           </div>
-          <div>- จำนวนหน่วยกิตขั้นต่ำของกลุ่มสาระการเรียนรู้</div>
-        </div>
-      </div>
 
-      {/* ── Credits table ── */}
-      {credits.length > 0 && (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginBottom: 8,
-            fontSize: 18,
-          }}>
-          <thead>
-            <tr>
-              <th
-                style={{
-                  ...thBase,
-                  backgroundColor: "#bfbfbf", // Changed from #6b6b6b
-                  textAlign: "left",
-                }}>
-                หน่วยกิตรวมของกลุ่มสาระการเรียนรู้
-              </th>
-              <th style={{ ...thBase, backgroundColor: "#bfbfbf", width: 120 }}> {/* Changed from #6b6b6b */}
-                หน่วยกิตขั้นต่ำ
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {credits.map((r, i) => (
-              <tr
-                key={i}
-                style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                <td style={tdBase}>{r.subjectName.trim()}</td>
-                <td style={{ ...tdBase, textAlign: "center" }}>
-                  {r.credits === 1 ? 'ไม่กำหนดขั้นต่ำ' : r.credits}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* ── เกณฑ์การพิจารณา heading ── */}
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: 18,
-          textDecoration: "underline",
-          marginBottom: 4,
-        }}>
-        เกณฑ์การพิจารณา
-      </div>
-
-      {/* ── Criteria table ── */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          marginBottom: 8,
-          fontSize: 18,
-        }}>
-        <thead>
-          <tr>
-            <th
-              rowSpan={2}
+          {/* Major name — hidden in merged mode */}
+          {!isMerged && (
+            <div
               style={{
-                ...thBase,
-                backgroundColor: "#bfbfbf",
-                textAlign: "left",
-                width: "30%",
+                fontWeight: 600,
+                fontSize: 18,
+                marginBottom: 6,
+                color: DARK,
               }}>
-              รายการ
-            </th>
+              {group.admissionMajor}
+            </div>
+          )}
 
-            <th style={{ ...thBase, backgroundColor: "#bfbfbf" }}>
-              เกณฑ์การรับสมัคร
-            </th>
-            <th style={{ ...thBase, backgroundColor: "#bfbfbf" }}>
-              เกณฑ์การเรียกสอบคัดเลือก
-            </th>
-            <th style={{ ...thBase, backgroundColor: "#a8d08d" }}>
-              เกณฑ์การรับเข้าศึกษา
-            </th>
-          </tr>
-          <tr>
-            <th style={{ ...thBase, backgroundColor: "#d9d9d9" }}>
-              เกรดเฉลี่ย / คะแนนขั้นต่ำ
-            </th>
-            <th style={{ ...thBase, backgroundColor: "#d9d9d9" }}>
-              ค่าน้ำหนัก (%)
-            </th>
-            <th style={{ ...thBase, backgroundColor: "#c5e0b3" }}>
-              ค่าน้ำหนัก (%)
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {criteria.map((row, i) => (
-            <tr
-              key={i}
-              style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-              <td style={tdBase}>{row.subjectName}</td>
-              <td style={{ ...tdBase, textAlign: "center" }}>
-                {minLabel(row)}
-              </td>
-              <td style={{ ...tdBase, textAlign: "center" }}>
-                {row.weightTest != null && row.weightTest > 0
-                  ? row.weightTest
-                  : "-"}
-              </td>
-              <td
-                style={{
-                  ...tdBase,
-                  textAlign: "center",
-                  backgroundColor: "#e2efd9",
-                }}>
-                {row.weightAdmission != null && row.weightAdmission > 0
-                  ? row.weightAdmission
-                  : "-"}
-              </td>
-            </tr>
-          ))}
-          {/* Totals row */}
-          <tr style={{ backgroundColor: "#f1f5f9", fontWeight: 700 }}>
-            <td
-              colSpan={2}
-              style={{ ...tdBase, textAlign: "right", fontWeight: 700 }}>
-              รวม
-            </td>
-            <td style={{ ...tdBase, textAlign: "center", fontWeight: 700 }}>
-              {totalTest > 0 ? totalTest : "-"}
-            </td>
-            <td
+          {/* ── คุณสมบัติเบื้องต้น ── */}
+          <div style={{ marginBottom: 6 }}>
+            <div
               style={{
-                ...tdBase,
-                textAlign: "center",
                 fontWeight: 700,
-                backgroundColor: "#e2efd9",
+                fontSize: 18,
+                textDecoration: "underline",
+                marginBottom: 4,
               }}>
-              {totalAdmission > 0 ? totalAdmission : "-"}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              คุณสมบัติเบื้องต้นในการสมัคร
+            </div>
+            <div style={{ paddingLeft: 16, lineHeight: 1.7 }}>
+              <div>- ผลการเรียน 5 - 6 ภาคการศึกษา</div>
+              <div>
+                - กำลังศึกษา/สำเร็จการศึกษาระดับชั้นมัธยมศึกษาปีที่ 6 หรือ ปวช.
+              </div>
+              <div>- จำนวนหน่วยกิตขั้นต่ำของกลุ่มสาระการเรียนรู้</div>
+            </div>
+          </div>
 
-      {/* ── หมายเหตุ (conditional) ── */}
-      {showRemarks && (
-        <div style={{ fontSize: 18, lineHeight: 1.6, marginBottom: 4 }}>
+          {/* ── Credits table ── */}
+          {credits.length > 0 && (
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginBottom: 8,
+                fontSize: 18,
+              }}>
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      ...thBase,
+                      backgroundColor: "#bfbfbf",
+                      textAlign: "left",
+                    }}>
+                    หน่วยกิตรวมของกลุ่มสาระการเรียนรู้
+                  </th>
+                  <th style={{ ...thBase, backgroundColor: "#bfbfbf", width: 120 }}>
+                    หน่วยกิตขั้นต่ำ
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {credits.map((r, i) => (
+                  <tr
+                    key={i}
+                    style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                    <td style={tdBase}>{r.subjectName.trim()}</td>
+                    <td style={{ ...tdBase, textAlign: "center" }}>
+                      {r.credits === 1 ? 'ไม่กำหนดขั้นต่ำ' : r.credits}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* ── เกณฑ์การพิจารณา heading ── */}
           <div
             style={{
               fontWeight: 700,
+              fontSize: 18,
               textDecoration: "underline",
-              marginBottom: 2,
+              marginBottom: 4,
             }}>
-            หมายเหตุ
+            เกณฑ์การพิจารณา
           </div>
-          {hasGpaNoMin && (
-            <div>
-              1. คะแนน GPA คณิตศาสตร์ และวิทยาศาสตร์ ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
-              หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
-              <span style={{ fontWeight: 700, textDecoration: "underline" }}>
-                จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
-              </span>
+
+          {/* ── Criteria table ── */}
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              marginBottom: 8,
+              fontSize: 18,
+            }}>
+            <thead>
+              <tr>
+                <th
+                  rowSpan={2}
+                  style={{
+                    ...thBase,
+                    backgroundColor: "#bfbfbf",
+                    textAlign: "left",
+                    width: "30%",
+                  }}>
+                  รายการ
+                </th>
+
+                <th style={{ ...thBase, backgroundColor: "#bfbfbf" }}>
+                  เกณฑ์การรับสมัคร
+                </th>
+                <th style={{ ...thBase, backgroundColor: "#bfbfbf" }}>
+                  เกณฑ์การเรียกสอบคัดเลือก
+                </th>
+                <th style={{ ...thBase, backgroundColor: "#a8d08d" }}>
+                  เกณฑ์การรับเข้าศึกษา
+                </th>
+              </tr>
+              <tr>
+                <th style={{ ...thBase, backgroundColor: "#d9d9d9" }}>
+                  เกรดเฉลี่ย / คะแนนขั้นต่ำ
+                </th>
+                <th style={{ ...thBase, backgroundColor: "#d9d9d9" }}>
+                  ค่าน้ำหนัก (%)
+                </th>
+                <th style={{ ...thBase, backgroundColor: "#c5e0b3" }}>
+                  ค่าน้ำหนัก (%)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {criteria.map((row, i) => (
+                <tr
+                  key={i}
+                  style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
+                  <td style={tdBase}>{row.subjectName}</td>
+                  <td style={{ ...tdBase, textAlign: "center" }}>
+                    {minLabel(row)}
+                  </td>
+                  <td style={{ ...tdBase, textAlign: "center" }}>
+                    {row.weightTest != null && row.weightTest > 0
+                      ? row.weightTest
+                      : "-"}
+                  </td>
+                  <td
+                    style={{
+                      ...tdBase,
+                      textAlign: "center",
+                      backgroundColor: "#e2efd9",
+                    }}>
+                    {row.weightAdmission != null && row.weightAdmission > 0
+                      ? row.weightAdmission
+                      : "-"}
+                  </td>
+                </tr>
+              ))}
+              {/* Totals row */}
+              <tr style={{ backgroundColor: "#f1f5f9", fontWeight: 700 }}>
+                <td
+                  colSpan={2}
+                  style={{ ...tdBase, textAlign: "right", fontWeight: 700 }}>
+                  รวม
+                </td>
+                <td style={{ ...tdBase, textAlign: "center", fontWeight: 700 }}>
+                  {totalTest > 0 ? totalTest : "-"}
+                </td>
+                <td
+                  style={{
+                    ...tdBase,
+                    textAlign: "center",
+                    fontWeight: 700,
+                    backgroundColor: "#e2efd9",
+                  }}>
+                  {totalAdmission > 0 ? totalAdmission : "-"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* ── หมายเหตุ (conditional) ── */}
+          {showRemarks && (
+            <div style={{ fontSize: 18, lineHeight: 1.6, marginBottom: 4 }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  textDecoration: "underline",
+                  marginBottom: 2,
+                }}>
+                หมายเหตุ
+              </div>
+              {hasGpaNoMin && (
+                <div>
+                  1. คะแนน GPA คณิตศาสตร์ และวิทยาศาสตร์ ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
+                  หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
+                  <span style={{ fontWeight: 700, textDecoration: "underline" }}>
+                    จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
+                  </span>
+                </div>
+              )}
+              {hasTgatTpat && (
+                <div>
+                  2. คะแนนทดสอบวิชา TGAT/TPAT ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน มหาวิทยาลัยฯ
+                  จะดึงคะแนนจากฐานข้อมูลเอง{" "}
+                  <span style={{ fontWeight: 700 }}>ผู้สมัครไม่ต้องกรอกคะแนน</span>
+                </div>
+              )}
+              {isEngineering && (
+                <div>
+                  4. สำหรับคณะวิศวกรรมศาสตร์ ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน
+                  CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า
+                  สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio)
+                  เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ
+                </div>
+              )}
             </div>
           )}
-          {hasTgatTpat && (
-            <div>
-              2. คะแนนทดสอบวิชา TGAT/TPAT ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน มหาวิทยาลัยฯ
-              จะดึงคะแนนจากฐานข้อมูลเอง{" "}
-              <span style={{ fontWeight: 700 }}>ผู้สมัครไม่ต้องกรอกคะแนน</span>
-            </div>
-          )}
-          {isEngineering && (
-            <div>
-              4. สำหรับคณะวิศวกรรมศาสตร์ ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน
-              CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า
-              สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio)
-              เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ
-            </div>
-          )}
+
         </div>
-      )}
+      </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      {/* ── Footer ── */}
+      {/* Footer — fixed size, never scaled */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",
           borderTop: "1px solid #ccc",
-          paddingTop: 6,
-          fontSize: 14,
+          paddingTop: 10,
+          fontSize: 18,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 36, height: 24, objectFit: 'contain' }} />
+          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
           <span style={{ color: "#555" }}>
             สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.
             ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม
@@ -392,7 +407,6 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
           <div style={{ color: "#555" }}>{pageNumber} | Page</div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

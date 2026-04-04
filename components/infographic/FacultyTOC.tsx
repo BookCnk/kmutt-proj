@@ -29,7 +29,7 @@ export const DEFAULT_FACULTY_TOC_CONTENT: FacultyTOCContent = {
   fontSizeSectionTitle: 18,
   fontSizeFacultyName: 18,
   fontSizePageNumber: 18,
-  fontSizeFooter: 10,
+  fontSizeFooter: 18,
 };
 
 interface Props {
@@ -62,7 +62,7 @@ export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
       className="w-full h-full flex flex-col bg-white font-sans"
       style={{
         fontFamily: "THSarabun, sans-serif",
-        padding: "30px 40px",
+        padding: "20px 30px 10px",
         fontSize: 16,
       }}>
       <div
@@ -144,10 +144,10 @@ export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 items-end pt-4 pb-2">
+      <div className="grid grid-cols-3 items-end" style={{ borderTop: '1px solid #ccc', paddingTop: 10 }}>
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt="logo" style={{ width: 36, height: 24, objectFit: 'contain' }} />
+          <img src={logoUrl} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
           <span
             className="font-bold text-slate-700"
             style={{ fontSize: tocContent.fontSizeFooter }}>
@@ -157,7 +157,7 @@ export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
 
         <div
           className="text-center text-slate-700 font-bold"
-          style={{ fontSize: 11 }}>
+          style={{ fontSize: 18 }}>
           1 | P a g e
         </div>
 
