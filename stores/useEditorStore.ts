@@ -54,18 +54,22 @@ interface EditorState {
     /** Faculty name to scroll to; null = scroll to top (TOC) */
     scrollTarget: string | null;
     logoUrl: string;
+    footerLogoUrl: string;
 
     setMajorGroups: (groups: AdmissionMajorGroup[]) => void;
     scrollToFaculty: (faculty: string | null) => void;
     setLogoUrl: (url: string) => void;
+    setFooterLogoUrl: (url: string) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
     majorGroups: [],
     scrollTarget: null,
     logoUrl: '/ICON.png',
+    footerLogoUrl: '/ICON.png',
 
     setMajorGroups: (groups) => set({ majorGroups: groups, scrollTarget: null }),
     scrollToFaculty: (faculty) => set({ scrollTarget: faculty }),
     setLogoUrl: (url) => set({ logoUrl: url }),
+    setFooterLogoUrl: (url) => set({ footerLogoUrl: url }),
 }));

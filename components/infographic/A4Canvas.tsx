@@ -25,7 +25,7 @@ interface A4CanvasProps {
 }
 
 export function A4Canvas({ tocContent }: A4CanvasProps) {
-    const { majorGroups, scrollTarget, scrollToFaculty, logoUrl } = useEditorStore();
+    const { majorGroups, scrollTarget, scrollToFaculty, logoUrl, footerLogoUrl } = useEditorStore();
     const containerRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -60,7 +60,7 @@ export function A4Canvas({ tocContent }: A4CanvasProps) {
         <div ref={containerRef} className="overflow-y-auto h-full bg-slate-300" style={{ padding: '24px 0' }}>
             <div className="flex flex-col items-center gap-6">
                 <div id="page-toc" data-a4-page="" style={PAGE_STYLE}>
-                    <FacultyTOC data={{ entries: tocEntries }} content={tocContent} logoUrl={logoUrl} />
+                    <FacultyTOC data={{ entries: tocEntries }} content={tocContent} logoUrl={logoUrl} footerLogoUrl={footerLogoUrl} />
                 </div>
 
                 {(() => {
@@ -77,21 +77,21 @@ export function A4Canvas({ tocContent }: A4CanvasProps) {
                                 id={`section-${faculty}`}
                             >
                                 <div id={`page-${summaryPg}`} data-a4-page="" style={PAGE_STYLE}>
-                                    <FacultySummaryPage faculty={faculty} majors={majors} pageNumber={summaryPg} logoUrl={logoUrl} />
+                                    <FacultySummaryPage faculty={faculty} majors={majors} pageNumber={summaryPg} logoUrl={logoUrl} footerLogoUrl={footerLogoUrl} />
                                 </div>
 
-                                {haveSameCriteria(majors) ? (() => {
+                                {(haveSameCriteria(majors) || faculty.includes('วิศวกรรม')) ? (() => {
                                     const mergedPg = pg++;
                                     return (
                                         <div key={`${faculty}-merged`} id={`page-${mergedPg}`} data-a4-page="" style={PAGE_STYLE}>
-                                            <MajorPage group={majors[0]} groups={majors} pageNumber={mergedPg} logoUrl={logoUrl} />
+                                            <MajorPage group={majors[0]} groups={majors} pageNumber={mergedPg} logoUrl={logoUrl} footerLogoUrl={footerLogoUrl} />
                                         </div>
                                     );
                                 })() : majors.map((group) => {
                                     const majorPg = pg++;
                                     return (
                                         <div key={group.admissionMajor} id={`page-${majorPg}`} data-a4-page="" style={PAGE_STYLE}>
-                                            <MajorPage group={group} pageNumber={majorPg} logoUrl={logoUrl} />
+                                            <MajorPage group={group} pageNumber={majorPg} logoUrl={logoUrl} footerLogoUrl={footerLogoUrl} />
                                         </div>
                                     );
                                 })}
@@ -101,7 +101,7 @@ export function A4Canvas({ tocContent }: A4CanvasProps) {
                 })()}
 
                 <p className="text-xs text-slate-500 pb-4">
-                    ทั้งหมด {1 + faculties.reduce((s, { majors }) => s + 1 + (haveSameCriteria(majors) ? 1 : majors.length), 0)} หน้า - A4 (210 x 297 mm)
+                    ทั้งหมด {1 + faculties.reduce((s, { faculty, majors }) => s + 1 + ((haveSameCriteria(majors) || faculty.includes('วิศวกรรม')) ? 1 : majors.length), 0)} หน้า - A4 (210 x 297 mm)
                 </p>
             </div>
         </div>

@@ -7,6 +7,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { AdmissionMajorGroup } from "@/types/infographic";
 import { InfographicTopHeader } from "./InfographicTopHeader";
+import { PageFooter } from "./PageFooter";
 
 const A4_H = 1123;
 
@@ -15,11 +16,12 @@ interface Props {
   majors: AdmissionMajorGroup[];
   pageNumber: number;
   logoUrl?: string;
+  footerLogoUrl?: string;
 }
 
 const ORANGE = "#fa4616"; // orange banner
 
-export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Props) {
+export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, footerLogoUrl }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -33,22 +35,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Pro
     if (contentH > availableH) setScale(availableH / contentH);
   }, []);
 
-  const today = new Date();
-  const thaiMonths = [
-    "มกราคม",
-    "กุมภาพันธ์",
-    "มีนาคม",
-    "เมษายน",
-    "พฤษภาคม",
-    "มิถุนายน",
-    "กรกฎาคม",
-    "สิงหาคม",
-    "กันยายน",
-    "ตุลาคม",
-    "พฤศจิกายน",
-    "ธันวาคม",
-  ];
-  const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
+
 
   return (
     <div
@@ -185,11 +172,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Pro
             </tbody>
           </table>
 
-          {/* Notes */}
-          <p style={{ marginBottom: 8 }}>
-            สอบคัดเลือก* หมายถึง สอบสัมภาษณ์ และ/หรือสอบทักษะขั้นพื้นฐาน
-            เพื่อประเมินความถนัดทางวิชาชีพ/ความสามารถพิเศษ
-          </p>
+          
 
           {/* เงื่อนไขพิเศษ — Engineering only */}
           {faculty.includes("วิศวกรรม") && (
@@ -230,28 +213,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl }: Pro
       </div>
 
       {/* Footer — fixed size, never scaled */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          borderTop: "1px solid #ccc",
-          paddingTop: 10,
-          fontSize: 18,
-        }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
-          <span style={{ color: "#555" }}>
-            สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.
-            ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม
-          </span>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ color: "#c0392b", fontWeight: 600 }}>{dateStr}</div>
-          <div style={{ color: "#555" }}>{pageNumber} | Page</div>
-        </div>
-      </div>
+      <PageFooter pageNumber={pageNumber} footerLogoUrl={footerLogoUrl} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type {
   AdmissionMajorGroup,
 } from "@/types/infographic";
 import { InfographicTopHeader } from "./InfographicTopHeader";
+import { PageFooter } from "./PageFooter";
 
 const A4_H = 1123;
 
@@ -20,6 +21,7 @@ interface Props {
   /** When provided (merged mode), skip individual major name */
   groups?: AdmissionMajorGroup[];
   logoUrl?: string;
+  footerLogoUrl?: string;
 }
 
 const ORANGE = "#fa4616";
@@ -65,7 +67,7 @@ function creditRows(criteria: AdmissionCriteriaRow[]) {
 
 const thBase: React.CSSProperties = {
   border: "1px solid #999",
-  padding: "4px 8px",
+  padding: "3px 8px",
   textAlign: "center",
   fontWeight: 700,
   color: "#000",
@@ -73,11 +75,11 @@ const thBase: React.CSSProperties = {
 };
 const tdBase: React.CSSProperties = {
   border: "1px solid #ccc",
-  padding: "3px 7px",
+  padding: "2px 7px",
   fontSize: 18,
 };
 
-export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
+export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -91,22 +93,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
     if (contentH > availableH) setScale(availableH / contentH);
   }, []);
 
-  const today = new Date();
-  const thaiMonths = [
-    "มกราคม",
-    "กุมภาพันธ์",
-    "มีนาคม",
-    "เมษายน",
-    "พฤษภาคม",
-    "มิถุนายน",
-    "กรกฎาคม",
-    "สิงหาคม",
-    "กันยายน",
-    "ตุลาคม",
-    "พฤศจิกายน",
-    "ธันวาคม",
-  ];
-  const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
+
 
   const isMerged = groups != null && groups.length > 1;
   const criteria = dedup(group.criteria);
@@ -117,13 +104,41 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
     0,
   );
 
-  // Conditional remark flags
+  // hasGpaNoMin: true when ANY criteria row has gpaMin === 1 (means "must have score, no minimum")
   const hasGpaNoMin = criteria.some((r) => r.gpaMin === 1);
   const hasTgatTpat = criteria.some(
     (r) => r.subjectName?.includes('TGAT') || r.subjectName?.includes('TPAT'),
   );
   const isEngineering = group.faculty.includes('วิศวกรรม');
   const showRemarks = hasGpaNoMin || hasTgatTpat || isEngineering;
+
+  // ── Criteria row classification ───────────────────────────────────────────
+  // Keywords match the RAW Excel subject names (no "GPA" prefix in the data).
+  // 'GPA ' is prepended for display only via displaySubjectName().
+  const MAIN_KW = ['GPAX', 'คณิต', 'วิทยา', 'ภาษา', 'TGAT', 'TPAT'];
+  const SPECIAL_KW = ['สอบสัมภาษณ์', 'แฟ้มสะสมผลงาน'];
+  // Rows that are GPA subjects need "GPA " prepended for display
+  const GPA_DISPLAY_KW = ['คณิต', 'วิทยา', 'ภาษา'];
+  function displaySubjectName(name: string): string {
+    if (
+      !name.includes('TGAT') && !name.includes('TPAT') && !name.includes('GPAX') &&
+      GPA_DISPLAY_KW.some((kw) => name.includes(kw))
+    ) {
+      return `GPA ${name}`;
+    }
+    return name;
+  }
+  const mainCriteria = criteria.filter((r) =>
+    MAIN_KW.some((kw) => r.subjectName?.includes(kw))
+  );
+  const specialCriteria = criteria.filter((r) =>
+    SPECIAL_KW.some((kw) => r.subjectName?.includes(kw))
+  );
+  // Combined admission weight for main rows → shown as a single merged cell
+  const mainAdmissionTotal = mainCriteria.reduce((s, r) => s + (r.weightAdmission ?? 0), 0);
+  const mainTestTotal = mainCriteria.reduce((s, r) => s + (r.weightTest ?? 0), 0);
+  const specialTestTotal = specialCriteria.reduce((s, r) => s + (r.weightTest ?? 0), 0);
+  const specialAdmissionTotal = specialCriteria.reduce((s, r) => s + (r.weightAdmission ?? 0), 0);
 
   return (
     <div
@@ -156,7 +171,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
             transform: `scale(${scale})`,
           }}>
 
-          {/* Faculty (ต่อ) */}
+          {/* Faculty (ต่อ) — always shown */}
           <div
             style={{
               textAlign: "center",
@@ -168,7 +183,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
             {group.faculty} (ต่อ)
           </div>
 
-          {/* Major name — hidden in merged mode */}
+          {/* Major name(s) — hidden in merged mode (already shown on summary page) */}
           {!isMerged && (
             <div
               style={{
@@ -182,17 +197,17 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
           )}
 
           {/* ── คุณสมบัติเบื้องต้น ── */}
-          <div style={{ marginBottom: 6 }}>
+          <div style={{ marginBottom: 4 }}>
             <div
               style={{
                 fontWeight: 700,
                 fontSize: 18,
                 textDecoration: "underline",
-                marginBottom: 4,
+                marginBottom: 2,
               }}>
               คุณสมบัติเบื้องต้นในการสมัคร
             </div>
-            <div style={{ paddingLeft: 16, lineHeight: 1.7 }}>
+            <div style={{ paddingLeft: 16, lineHeight: 1.4 }}>
               <div>- ผลการเรียน 5 - 6 ภาคการศึกษา</div>
               <div>
                 - กำลังศึกษา/สำเร็จการศึกษาระดับชั้นมัธยมศึกษาปีที่ 6 หรือ ปวช.
@@ -207,7 +222,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                marginBottom: 8,
+                marginBottom: 4,
                 fontSize: 18,
               }}>
               <thead>
@@ -246,7 +261,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
               fontWeight: 700,
               fontSize: 18,
               textDecoration: "underline",
-              marginBottom: 4,
+              marginBottom: 2,
             }}>
             เกณฑ์การพิจารณา
           </div>
@@ -256,7 +271,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              marginBottom: 8,
+              marginBottom: 4,
               fontSize: 18,
             }}>
             <thead>
@@ -295,18 +310,45 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
               </tr>
             </thead>
             <tbody>
-              {criteria.map((row, i) => (
+              {/* ── Main rows (6 subject groups) with merged admission cell ── */}
+              {mainCriteria.map((row, i) => (
                 <tr
-                  key={i}
+                  key={row.subjectName}
                   style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                  <td style={tdBase}>{row.subjectName}</td>
+                  <td style={tdBase}>{displaySubjectName(row.subjectName ?? '')}</td>
                   <td style={{ ...tdBase, textAlign: "center" }}>
                     {minLabel(row)}
                   </td>
                   <td style={{ ...tdBase, textAlign: "center" }}>
-                    {row.weightTest != null && row.weightTest > 0
-                      ? row.weightTest
-                      : "-"}
+                    {row.weightTest != null && row.weightTest > 0 ? row.weightTest : "-"}
+                  </td>
+                  {/* Admission weight — merged across ALL main rows on first row only */}
+                  {i === 0 && (
+                    <td
+                      rowSpan={mainCriteria.length}
+                      style={{
+                        ...tdBase,
+                        textAlign: "center",
+                        verticalAlign: "middle",
+                        backgroundColor: "#e2efd9",
+                        fontWeight: 700,
+                      }}>
+                      {mainAdmissionTotal > 0 ? mainAdmissionTotal : "-"}
+                    </td>
+                  )}
+                </tr>
+              ))}
+
+              {/* ── Special rows: สอบสัมภาษณ์ / แฟ้มสะสมผลงาน (merged first 2 cols) ── */}
+              {specialCriteria.map((row) => (
+                <tr key={row.subjectName} style={{ backgroundColor: "#fff" }}>
+                  <td
+                    colSpan={2}
+                    style={{ ...tdBase, textAlign: "center", color: "#374151" }}>
+                    {row.subjectName}
+                  </td>
+                  <td style={{ ...tdBase, textAlign: "center" }}>
+                    {row.weightTest != null && row.weightTest > 0 ? row.weightTest : "-"}
                   </td>
                   <td
                     style={{
@@ -320,6 +362,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
                   </td>
                 </tr>
               ))}
+
               {/* Totals row */}
               <tr style={{ backgroundColor: "#f1f5f9", fontWeight: 700 }}>
                 <td
@@ -328,7 +371,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
                   รวม
                 </td>
                 <td style={{ ...tdBase, textAlign: "center", fontWeight: 700 }}>
-                  {totalTest > 0 ? totalTest : "-"}
+                  {(mainTestTotal + specialTestTotal) > 0 ? (mainTestTotal + specialTestTotal) : "-"}
                 </td>
                 <td
                   style={{
@@ -337,7 +380,9 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
                     fontWeight: 700,
                     backgroundColor: "#e2efd9",
                   }}>
-                  {totalAdmission > 0 ? totalAdmission : "-"}
+                  {(mainAdmissionTotal + specialAdmissionTotal) > 0
+                    ? (mainAdmissionTotal + specialAdmissionTotal)
+                    : "-"}
                 </td>
               </tr>
             </tbody>
@@ -345,7 +390,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
 
           {/* ── หมายเหตุ (conditional) ── */}
           {showRemarks && (
-            <div style={{ fontSize: 18, lineHeight: 1.6, marginBottom: 4 }}>
+            <div style={{ fontSize: 18, lineHeight: 1.4, marginBottom: 4 }}>
               <div
                 style={{
                   fontWeight: 700,
@@ -354,30 +399,43 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
                 }}>
                 หมายเหตุ
               </div>
-              {hasGpaNoMin && (
-                <div>
-                  1. คะแนน GPA คณิตศาสตร์ และวิทยาศาสตร์ ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
-                  หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
-                  <span style={{ fontWeight: 700, textDecoration: "underline" }}>
-                    จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
-                  </span>
-                </div>
-              )}
-              {hasTgatTpat && (
-                <div>
-                  2. คะแนนทดสอบวิชา TGAT/TPAT ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน มหาวิทยาลัยฯ
-                  จะดึงคะแนนจากฐานข้อมูลเอง{" "}
-                  <span style={{ fontWeight: 700 }}>ผู้สมัครไม่ต้องกรอกคะแนน</span>
-                </div>
-              )}
-              {isEngineering && (
-                <div>
-                  4. สำหรับคณะวิศวกรรมศาสตร์ ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน
-                  CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า
-                  สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio)
-                  เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ
-                </div>
-              )}
+              <ol style={{ paddingLeft: 20, margin: 0, listStyleType: "decimal" }}>
+                {/* Item 1: show when gpaMin === 1 */}
+                {hasGpaNoMin && (
+                  <li>
+                    คะแนน GPA คณิตศาสตร์ และวิทยาศาสตร์ ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
+                    หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
+                    <span style={{ fontWeight: 700, textDecoration: "underline" }}>
+                      จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
+                    </span>
+                  </li>
+                )}
+                {/* Item 2: show when TGAT/TPAT subjects present */}
+                {hasTgatTpat && (
+                  <li>
+                    คะแนนทดสอบวิชา TGAT/TPAT ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน{" "}
+                    <span style={{ fontWeight: 700 }}>
+                      ผู้สมัครไม่ต้องกรอกคะแนน
+                    </span>{" "}
+                    มหาวิทยาลัยๆ จะดึงคะแนนจากฐานข้อมูลเอง
+                  </li>
+                )}
+                {/* Item 3: always shown when remarks block is visible */}
+                <li>
+                  เขต* หมายถึง สถานศึกษาในชั้น ม.6 ที่สังกัดตามเขตตรวจราชการ
+                  ระดับสำนักนายกรัฐมนตรี 18 เขต
+                </li>
+                {/* Item 4: Engineering only */}
+                {isEngineering && (
+                  <li>
+                    สำหรับคณะวิศวกรรมศาสตร์ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน
+                    CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า เช่น CU-TEP,
+                    TU-GET, TOEIC, IELTS, TOEFL iBT, TOEFL ITP และ TETET
+                    สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio)
+                    เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ
+                  </li>
+                )}
+              </ol>
             </div>
           )}
 
@@ -385,28 +443,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl }: Props) {
       </div>
 
       {/* Footer — fixed size, never scaled */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          borderTop: "1px solid #ccc",
-          paddingTop: 10,
-          fontSize: 18,
-        }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl ?? '/ICON.png'} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
-          <span style={{ color: "#555" }}>
-            สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.
-            ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม
-          </span>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ color: "#c0392b", fontWeight: 600 }}>{dateStr}</div>
-          <div style={{ color: "#555" }}>{pageNumber} | Page</div>
-        </div>
-      </div>
+      <PageFooter pageNumber={pageNumber} footerLogoUrl={footerLogoUrl} />
     </div>
   );
 }

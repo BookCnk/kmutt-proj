@@ -1,6 +1,7 @@
 "use client";
 
 import type { FacultyTOCData } from "@/types/infographic";
+import { PageFooter } from "./PageFooter";
 
 export interface FacultyTOCContent {
   leftTitleLine1: string;
@@ -20,7 +21,7 @@ export interface FacultyTOCContent {
 export const DEFAULT_FACULTY_TOC_CONTENT: FacultyTOCContent = {
   leftTitleLine1: "เกณฑ์การรับสมัครนักศึกษา",
   leftTitleLine2: "รอบที่ 2 (ปีการศึกษา 2569)",
-  bannerText: "โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT",
+  bannerText: "โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT (Admission Major Mapping)",
   sectionTitle: "คณะ/สถาบัน",
   officeName: "สำนักงานคัดเลือกและสรรหานักศึกษา มจธ.",
   warningText: "ข้อมูลอาจมีการเปลี่ยนแปลงตามความเหมาะสม",
@@ -36,25 +37,10 @@ interface Props {
   data: FacultyTOCData;
   content?: Partial<FacultyTOCContent>;
   logoUrl?: string;
+  footerLogoUrl?: string;
 }
 
-export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
-  const today = new Date();
-  const thaiMonths = [
-    "มกราคม",
-    "กุมภาพันธ์",
-    "มีนาคม",
-    "เมษายน",
-    "พฤษภาคม",
-    "มิถุนายน",
-    "กรกฎาคม",
-    "สิงหาคม",
-    "กันยายน",
-    "ตุลาคม",
-    "พฤศจิกายน",
-    "ธันวาคม",
-  ];
-  const dateStr = `ข้อมูล ณ วันที่ ${today.getDate()} ${thaiMonths[today.getMonth()]} ${today.getFullYear() + 543}`;
+export function FacultyTOC({ data, content, logoUrl = '/ICON.png', footerLogoUrl = '/ICON.png' }: Props) {
   const tocContent = { ...DEFAULT_FACULTY_TOC_CONTENT, ...content };
 
   return (
@@ -144,36 +130,7 @@ export function FacultyTOC({ data, content, logoUrl = '/ICON.png' }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 items-end" style={{ borderTop: '1px solid #ccc', paddingTop: 10 }}>
-        <div className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt="logo" style={{ width: 44, height: 30, objectFit: 'contain' }} />
-          <span
-            className="font-bold text-slate-700"
-            style={{ fontSize: tocContent.fontSizeFooter }}>
-            {tocContent.officeName}
-          </span>
-        </div>
-
-        <div
-          className="text-center text-slate-700 font-bold"
-          style={{ fontSize: 18 }}>
-          1 | P a g e
-        </div>
-
-        <div className="text-right flex flex-col items-end">
-          <div
-            className="text-red-600 font-bold leading-tight"
-            style={{ fontSize: tocContent.fontSizeFooter }}>
-            {tocContent.warningText}
-          </div>
-          <div
-            className="text-red-600 font-bold leading-tight"
-            style={{ fontSize: tocContent.fontSizeFooter }}>
-            {dateStr}
-          </div>
-        </div>
-      </div>
+      <PageFooter pageNumber={1} footerLogoUrl={footerLogoUrl} officeName={tocContent.officeName} warningText={tocContent.warningText} />
     </div>
   );
 }

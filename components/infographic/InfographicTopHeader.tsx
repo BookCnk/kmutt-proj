@@ -13,7 +13,7 @@ interface InfographicTopHeaderProps {
 
 const DEFAULT_LEFT_TITLE_LINE_1 = 'เกณฑ์การรับสมัครนักศึกษา';
 const DEFAULT_LEFT_TITLE_LINE_2 = 'รอบที่ 2 (ปีการศึกษา 2569)';
-const DEFAULT_BANNER_TEXT = 'โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT';
+const DEFAULT_BANNER_TEXT = 'โครงการคัดเลือกตรงโดยใช้คะแนน TGAT/TPAT (Admission Major Mapping)';
 
 export function InfographicTopHeader({
     className,

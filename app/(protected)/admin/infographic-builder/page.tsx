@@ -12,7 +12,7 @@ import {
 } from '@/components/infographic/FacultyTOC';
 
 export default function InfographicBuilderPage() {
-    const { majorGroups, logoUrl, setLogoUrl } = useEditorStore();
+    const { majorGroups, logoUrl, setLogoUrl, footerLogoUrl, setFooterLogoUrl } = useEditorStore();
     const [exporting, setExporting] = useState(false);
     const [exportingDocx, setExportingDocx] = useState(false);
     const [exportProgress, setExportProgress] = useState({
@@ -24,6 +24,7 @@ export default function InfographicBuilderPage() {
         DEFAULT_FACULTY_TOC_CONTENT
     );
     const logoInputRef = useRef<HTMLInputElement>(null);
+    const footerLogoInputRef = useRef<HTMLInputElement>(null);
 
     async function handleExport() {
         setExporting(true);
@@ -54,6 +55,17 @@ export default function InfographicBuilderPage() {
         const reader = new FileReader();
         reader.onload = (ev) => {
             if (ev.target?.result) setLogoUrl(ev.target.result as string);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }
+
+    function handleFooterLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            if (ev.target?.result) setFooterLogoUrl(ev.target.result as string);
         };
         reader.readAsDataURL(file);
         e.target.value = '';
@@ -111,10 +123,10 @@ export default function InfographicBuilderPage() {
                 </main>
 
                 <aside className="w-80 flex-shrink-0 bg-white border-l overflow-y-auto p-4">
-                    {/* Logo Upload */}
+                    {/* Header Logo Upload */}
                     <div className="mb-4 pb-4 border-b border-slate-200">
                         <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-sm font-bold text-slate-800">โลโก้</h2>
+                            <h2 className="text-sm font-bold text-slate-800">โลโก้หัวเรื่อง</h2>
                             <button
                                 type="button"
                                 className="text-xs font-semibold text-slate-500 hover:text-slate-700"
@@ -134,6 +146,32 @@ export default function InfographicBuilderPage() {
                                 เปลี่ยนโลโก้
                             </button>
                             <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                        </div>
+                    </div>
+
+                    {/* Footer Logo Upload */}
+                    <div className="mb-4 pb-4 border-b border-slate-200">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-sm font-bold text-slate-800">โลโก้ฟุตเตอร์</h2>
+                            <button
+                                type="button"
+                                className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+                                onClick={() => setFooterLogoUrl('/ICON.png')}
+                            >
+                                Reset
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={footerLogoUrl} alt="footer logo preview" className="w-12 h-12 object-contain border rounded" />
+                            <button
+                                type="button"
+                                onClick={() => footerLogoInputRef.current?.click()}
+                                className="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 text-slate-600 font-medium"
+                            >
+                                เปลี่ยนโลโก้
+                            </button>
+                            <input ref={footerLogoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFooterLogoChange} />
                         </div>
                     </div>
 
