@@ -344,7 +344,7 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
                 <tr key={row.subjectName} style={{ backgroundColor: "#fff" }}>
                   <td
                     colSpan={2}
-                    style={{ ...tdBase, textAlign: "center", color: "#374151" }}>
+                    style={{ ...tdBase, textAlign: "right", color: "#374151" }}>
                     {row.subjectName}
                   </td>
                   <td style={{ ...tdBase, textAlign: "center" }}>

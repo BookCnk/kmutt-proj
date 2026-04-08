@@ -8,6 +8,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { AdmissionMajorGroup } from "@/types/infographic";
 import { InfographicTopHeader } from "./InfographicTopHeader";
 import { PageFooter } from "./PageFooter";
+import { engineerReqData } from "@/lib/engineerReqData";
 
 const A4_H = 1123;
 
@@ -73,7 +74,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
             style={{
               textAlign: "center",
               fontWeight: 700,
-              fontSize: 18,
+              fontSize: 28,
               marginBottom: 8,
             }}>
             {faculty}
@@ -85,7 +86,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
               width: "100%",
               borderCollapse: "collapse",
               marginBottom: 8,
-              fontSize: 18,
+              fontSize: 20,
             }}>
             <thead>
               <tr>
@@ -135,18 +136,28 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
                   <td
                     style={{
                       border: "1px solid #333",
-                      padding: "4px 8px",
+                      padding: "0px 8px",
                       backgroundColor: "#fbe4d5",
                     }}>
-                    {g.admissionMajor}
-                    {g.specialConditionRef != null && (
-                      <sup style={{ fontSize: 13, marginLeft: 1 }}>{g.specialConditionRef}</sup>
-                    )}
+                      <p style={{
+                        position: "relative",
+                        width: "fit-content"
+                      }}>
+                        {g.admissionMajor.includes("(") ? g.admissionMajor.split(")")[0] + ")" : g.admissionMajor.split(" ")[0]}
+                        <span style={{
+                          position: "absolute",
+                          top: 0,
+                          right: -10,
+                          fontSize: 12,
+                        }}>
+                          {engineerReqData.find((item) => g.admissionMajor.includes(item.department))?.req}
+                        </span>
+                      </p>
                   </td>
                   <td
                     style={{
                       border: "1px solid #333",
-                      padding: "4px 8px",
+                      padding: "0px 8px",
                       textAlign: "center",
                       backgroundColor: "#ffffff",
                     }}>
@@ -161,7 +172,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
                   <td
                     style={{
                       border: "1px solid #333",
-                      padding: "4px 8px",
+                      padding: "0px 8px",
                       textAlign: "center",
                       backgroundColor: "#ffffff",
                     }}>
