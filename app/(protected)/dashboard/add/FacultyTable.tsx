@@ -18,20 +18,20 @@ import {
   updateProgram,
   toggleProgramActive,
 } from "@/api/programService";
-import { 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  ChevronRight, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  GraduationCap, 
+import {
+  Edit2,
+  Trash2,
+  Eye,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  GraduationCap,
   SortAsc,
   AlertCircle,
   Loader2,
   Building2,
-  BookOpen
+  BookOpen,
 } from "lucide-react";
 // removed motion and AnimatePresence import
 
@@ -305,7 +305,11 @@ export default function FacultyTable() {
       setSavingFacId(row.id);
       await updateFaculty(row.id, { title: newTitle, order: editingFacOrder });
       setRows((prev) =>
-        prev.map((f) => (f.id === row.id ? { ...f, title: newTitle, order: editingFacOrder } : f)),
+        prev.map((f) =>
+          f.id === row.id
+            ? { ...f, title: newTitle, order: editingFacOrder }
+            : f,
+        ),
       );
       if (deptModalOpen && deptFacultyId === row.id)
         setDeptFacultyTitle(newTitle);
@@ -320,7 +324,12 @@ export default function FacultyTable() {
     }
   };
   const confirmDeleteFaculty = (row: FacultyRow) => {
-    setDeleteTarget({ type: "faculty", id: row.id, title: row.title, payload: row });
+    setDeleteTarget({
+      type: "faculty",
+      id: row.id,
+      title: row.title,
+      payload: row,
+    });
     setDeleteConfirmOpen(true);
   };
 
@@ -363,9 +372,16 @@ export default function FacultyTable() {
     }
     try {
       setSavingDeptId(dep._id);
-      await updateDepartment(dep._id, { title: newTitle, order: editingDeptOrder });
+      await updateDepartment(dep._id, {
+        title: newTitle,
+        order: editingDeptOrder,
+      });
       setDeptRows((prev) =>
-        prev.map((d) => (d._id === dep._id ? { ...d, title: newTitle, order: editingDeptOrder } : d)),
+        prev.map((d) =>
+          d._id === dep._id
+            ? { ...d, title: newTitle, order: editingDeptOrder }
+            : d,
+        ),
       );
       if (progModalOpen && progDeptId === dep._id) setProgDeptTitle(newTitle);
       setEditingDeptId(null);
@@ -379,7 +395,12 @@ export default function FacultyTable() {
     }
   };
   const confirmDeleteDept = (dep: Department) => {
-    setDeleteTarget({ type: "department", id: dep._id, title: dep.title, payload: dep });
+    setDeleteTarget({
+      type: "department",
+      id: dep._id,
+      title: dep.title,
+      payload: dep,
+    });
     setDeleteConfirmOpen(true);
   };
 
@@ -552,7 +573,12 @@ export default function FacultyTable() {
   };
 
   const confirmDeleteProgram = (program: Program) => {
-    setDeleteTarget({ type: "program", id: program._id, title: program.title, payload: program });
+    setDeleteTarget({
+      type: "program",
+      id: program._id,
+      title: program.title,
+      payload: program,
+    });
     setDeleteConfirmOpen(true);
   };
 
@@ -575,7 +601,7 @@ export default function FacultyTable() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeletingTarget(true);
-    
+
     if (deleteTarget.type === "faculty") {
       await executeDeleteFaculty(deleteTarget.payload);
     } else if (deleteTarget.type === "department") {
@@ -583,7 +609,7 @@ export default function FacultyTable() {
     } else if (deleteTarget.type === "program") {
       await executeDeleteProgram(deleteTarget.payload);
     }
-    
+
     setIsDeletingTarget(false);
     setDeleteConfirmOpen(false);
     setDeleteTarget(null);
@@ -605,7 +631,9 @@ export default function FacultyTable() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="px-3 py-10 text-center text-gray-500">
+                <td
+                  colSpan={4}
+                  className="px-3 py-10 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                     <p className="text-sm font-medium">กำลังโหลดข้อมูล...</p>
@@ -623,39 +651,46 @@ export default function FacultyTable() {
                 return (
                   <tr
                     key={f.id}
-                    className="hover:bg-blue-50/50 transition-colors group"
-                  >
+                    className="hover:bg-blue-50/50 transition-colors group">
                     <td className="border-b px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
                           <Building2 size={18} />
                         </div>
-                      {isEditing ? (
-                        <div className="flex gap-2 w-full">
-                          <input
-                            className="flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={editingFacTitle}
-                            onChange={(e) => setEditingFacTitle(e.target.value)}
-                            disabled={isSaving || isDeleting}
-                            placeholder="ชื่อคณะ"
-                          />
-                          <input
-                            type="number"
-                            className="w-[80px] rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={editingFacOrder}
-                            onChange={(e) => setEditingFacOrder(Number(e.target.value))}
-                            disabled={isSaving || isDeleting}
-                            placeholder="ลำดับ"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200" title="ลำดับการแสดงผล (Order)">
-                            [{f.order ?? 0}]
-                          </span>
-                          <span className="font-medium truncate">{f.title}</span>
-                        </div>
-                      )}
+                        {isEditing ? (
+                          <div className="flex gap-2 w-full">
+                            <input
+                              className="flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingFacTitle}
+                              onChange={(e) =>
+                                setEditingFacTitle(e.target.value)
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="ชื่อคณะ"
+                            />
+                            <input
+                              type="number"
+                              className="w-[80px] rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={editingFacOrder}
+                              onChange={(e) =>
+                                setEditingFacOrder(Number(e.target.value))
+                              }
+                              disabled={isSaving || isDeleting}
+                              placeholder="ลำดับ"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200"
+                              title="ลำดับการแสดงผล (Order)">
+                              [{f.order ?? 0}]
+                            </span>
+                            <span className="font-medium truncate">
+                              {f.title}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -664,10 +699,14 @@ export default function FacultyTable() {
                         type="button"
                         className="group/btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => openDeptModal(f.id, f.title)}
-                        disabled={(f.departmentCount ?? 0) === 0}
-                      >
-                        <span className="text-sm">{f.departmentCount ?? 0}</span>
-                        <ChevronRight size={14} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                        disabled={(f.departmentCount ?? 0) === 0}>
+                        <span className="text-sm">
+                          {f.departmentCount ?? 0}
+                        </span>
+                        <ChevronRight
+                          size={14}
+                          className="group-hover/btn:translate-x-0.5 transition-transform"
+                        />
                       </button>
                     </td>
 
@@ -680,7 +719,9 @@ export default function FacultyTable() {
                       ) : (
                         <div className="flex items-center gap-1.5 text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full w-fit border border-gray-200">
                           <XCircle size={14} />
-                          <span className="text-xs font-semibold">Inactive</span>
+                          <span className="text-xs font-semibold">
+                            Inactive
+                          </span>
                         </div>
                       )}
                     </td>
@@ -699,7 +740,9 @@ export default function FacultyTable() {
                                 !editingFacTitle.trim()
                               }
                               onClick={() => saveEditFaculty(f)}>
-                              {isSaving ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : null}
+                              {isSaving ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : null}
                               {isSaving ? "บันทึก..." : "บันทึก"}
                             </Button>
                             <Button
@@ -746,7 +789,9 @@ export default function FacultyTable() {
 
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-20 text-center text-gray-400">
+                <td
+                  colSpan={4}
+                  className="px-3 py-20 text-center text-gray-400">
                   <div className="flex flex-col items-center gap-2">
                     <AlertCircle size={32} strokeWidth={1.5} />
                     <p>ไม่พบข้อมูลคณะ</p>
@@ -760,7 +805,7 @@ export default function FacultyTable() {
 
       {/* ====== Departments Modal ====== */}
       <Dialog open={deptModalOpen} onOpenChange={setDeptModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle>รายชื่อภาค/สาขา (Department)</DialogTitle>
             <DialogDescription>
@@ -773,7 +818,9 @@ export default function FacultyTable() {
               <div className="py-20 text-center text-gray-500">
                 <div className="flex flex-col items-center gap-2">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                  <p className="text-sm font-medium">กำลังโหลดรายชื่อภาค/สาขา...</p>
+                  <p className="text-sm font-medium">
+                    กำลังโหลดรายชื่อภาค/สาขา...
+                  </p>
                 </div>
               </div>
             ) : deptRows.length === 0 ? (
@@ -819,7 +866,9 @@ export default function FacultyTable() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200" title="ลำดับการแสดงผล (Order)">
+                            <span
+                              className="text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded-md bg-gray-100 border border-gray-200"
+                              title="ลำดับการแสดงผล (Order)">
                               [{d.order ?? 0}]
                             </span>
                             <p className="font-medium truncate">{d.title}</p>
@@ -850,7 +899,7 @@ export default function FacultyTable() {
                         </div>
                       </div>
 
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
                         {isEditing ? (
                           <>
                             <Button
@@ -863,7 +912,12 @@ export default function FacultyTable() {
                                 !editingDeptTitle.trim()
                               }
                               onClick={() => saveEditDept(d)}>
-                              {isSaving ? <Loader2 size={12} className="animate-spin mr-1"/> : null}
+                              {isSaving ? (
+                                <Loader2
+                                  size={12}
+                                  className="animate-spin mr-1"
+                                />
+                              ) : null}
                               บันทึก
                             </Button>
                             <Button
@@ -891,17 +945,20 @@ export default function FacultyTable() {
                               size="sm"
                               variant="ghost"
                               className="w-8 h-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full"
-                               disabled={isSaving || isDeleting}
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 console.log("CLICKED Delete Department:", d._id);
-                                 confirmDeleteDept(d);
-                               }}>
+                              disabled={isSaving || isDeleting}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log(
+                                  "CLICKED Delete Department:",
+                                  d._id,
+                                );
+                                confirmDeleteDept(d);
+                              }}>
                               <Trash2 size={14} />
                             </Button>
                           </>
                         )}
-                        </div>
+                      </div>
                     </li>
                   );
                 })}
@@ -933,7 +990,9 @@ export default function FacultyTable() {
               <div className="py-20 text-center text-gray-500">
                 <div className="flex flex-col items-center gap-2">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                  <p className="text-sm font-medium">กำลังโหลดรายการหลักสูตร/สาขา...</p>
+                  <p className="text-sm font-medium">
+                    กำลังโหลดรายการหลักสูตร/สาขา...
+                  </p>
                 </div>
               </div>
             ) : progRows.length === 0 ? (
@@ -963,7 +1022,9 @@ export default function FacultyTable() {
                         {isEditing ? (
                           <div className="space-y-3">
                             <div>
-                              <label className="text-xs font-medium text-gray-500 mb-1 block">ชื่อหลักสูตร/สาขา</label>
+                              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                ชื่อหลักสูตร/สาขา
+                              </label>
                               <input
                                 className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 value={editingProgTitle}
@@ -977,17 +1038,23 @@ export default function FacultyTable() {
 
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className="text-xs font-medium text-gray-500 mb-1 block">ลำดับ (Order)</label>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                  ลำดับ (Order)
+                                </label>
                                 <input
                                   type="number"
                                   className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   value={editingProgOrder}
-                                  onChange={(e) => setEditingProgOrder(Number(e.target.value))}
+                                  onChange={(e) =>
+                                    setEditingProgOrder(Number(e.target.value))
+                                  }
                                   disabled={isSaving || isDeleting}
                                 />
                               </div>
                               <div>
-                                <label className="text-xs font-medium text-gray-500 mb-1 block">วุฒิบัตร (Abbr.)</label>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                  วุฒิบัตร (Abbr.)
+                                </label>
                                 <input
                                   className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   value={editingProgDegreeAbbr}
@@ -1001,7 +1068,9 @@ export default function FacultyTable() {
                             </div>
 
                             <div>
-                              <label className="text-xs font-medium text-gray-500 mb-1 block">วัน-เวลาในการดำเนินการเรียนการสอน</label>
+                              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                วัน-เวลาในการดำเนินการเรียนการสอน
+                              </label>
                               <textarea
                                 className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                                 rows={2}
@@ -1017,7 +1086,9 @@ export default function FacultyTable() {
                             <div className="grid grid-cols-1 gap-3">
                               {/* ✅ Degree Level Dropdown */}
                               <div>
-                                <label className="text-xs font-medium text-gray-500 mb-1 block">ระดับการศึกษา</label>
+                                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                  ระดับการศึกษา
+                                </label>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <button
@@ -1035,17 +1106,38 @@ export default function FacultyTable() {
                                           : "เลือกระดับ"}
                                     </button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="w-56">
-                                    <DropdownMenuItem onClick={() => { setEditingProgDegreeLevel(""); setEditingProgDegreeReq(""); }}>ไม่ระบุ</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setEditingProgDegreeLevel("master"); setEditingProgDegreeReq(""); }}>ปริญญาโท (master)</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setEditingProgDegreeLevel("doctoral")}>ปริญญาเอก (doctoral)</DropdownMenuItem>
+                                  <DropdownMenuContent
+                                    align="start"
+                                    className="w-56">
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingProgDegreeLevel("");
+                                        setEditingProgDegreeReq("");
+                                      }}>
+                                      ไม่ระบุ
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingProgDegreeLevel("master");
+                                        setEditingProgDegreeReq("");
+                                      }}>
+                                      ปริญญาโท (master)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setEditingProgDegreeLevel("doctoral")
+                                      }>
+                                      ปริญญาเอก (doctoral)
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
 
                               {editingProgDegreeLevel === "doctoral" && (
                                 <div>
-                                  <label className="text-xs font-medium text-gray-500 mb-1 block">วุฒิขั้นต่ำ</label>
+                                  <label className="text-xs font-medium text-gray-500 mb-1 block">
+                                    วุฒิขั้นต่ำ
+                                  </label>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <button
@@ -1063,10 +1155,27 @@ export default function FacultyTable() {
                                             : "เลือกระดับวุฒิขั้นต่ำ"}
                                       </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="w-56">
-                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("")}>ไม่ระบุ</DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("bachelor")}>จบปริญญาตรี (bachelor)</DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => setEditingProgDegreeReq("master")}>จบปริญญาโท (master)</DropdownMenuItem>
+                                    <DropdownMenuContent
+                                      align="start"
+                                      className="w-56">
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setEditingProgDegreeReq("")
+                                        }>
+                                        ไม่ระบุ
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setEditingProgDegreeReq("bachelor")
+                                        }>
+                                        จบปริญญาตรี (bachelor)
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          setEditingProgDegreeReq("master")
+                                        }>
+                                        จบปริญญาโท (master)
+                                      </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
@@ -1094,18 +1203,36 @@ export default function FacultyTable() {
                               </div>
                               <span className="text-gray-300">•</span>
                               <div className="text-xs uppercase tracking-wide bg-blue-50 px-2 py-0.5 rounded">
-                                {p.degree_level === "master" ? "ปริญญาโท" : p.degree_level === "doctoral" ? "ปริญญาเอก" : p.degree_level || "-"}
+                                {p.degree_level === "master"
+                                  ? "ปริญญาโท"
+                                  : p.degree_level === "doctoral"
+                                    ? "ปริญญาเอก"
+                                    : p.degree_level || "-"}
                               </div>
-                              {p.degree_level === "doctoral" && p.degree_req && (
-                                <span className="text-[11px] text-gray-500 font-normal italic">(วุฒิขั้นต่ำ: {p.degree_req === "master" ? "ป.โท" : "ป.ตรี"})</span>
-                              )}
+                              {p.degree_level === "doctoral" &&
+                                p.degree_req && (
+                                  <span className="text-[11px] text-gray-500 font-normal italic">
+                                    (วุฒิขั้นต่ำ:{" "}
+                                    {p.degree_req === "master"
+                                      ? "ป.โท"
+                                      : "ป.ตรี"}
+                                    )
+                                  </span>
+                                )}
                             </div>
 
                             <div className="mt-2.5 p-2 rounded-lg bg-gray-50 border border-gray-100 space-y-1">
                               <p className="text-xs text-gray-600 flex items-start gap-1.5 leading-relaxed">
-                                <Clock size={12} className="mt-0.5 text-gray-400 shrink-0" />
-                                <span className="font-semibold text-gray-700 shrink-0">วัน-เวลา:</span>
-                                <span className="break-words font-medium">{p.time || p.teaching_time || "—"}</span>
+                                <Clock
+                                  size={12}
+                                  className="mt-0.5 text-gray-400 shrink-0"
+                                />
+                                <span className="font-semibold text-gray-700 shrink-0">
+                                  วัน-เวลา:
+                                </span>
+                                <span className="break-words font-medium">
+                                  {p.time || p.teaching_time || "—"}
+                                </span>
                               </p>
                             </div>
 
@@ -1131,7 +1258,11 @@ export default function FacultyTable() {
                               type="button"
                               size="sm"
                               className="bg-blue-600 hover:bg-blue-700"
-                              disabled={isSaving || isDeleting || !editingProgTitle.trim()}
+                              disabled={
+                                isSaving ||
+                                isDeleting ||
+                                !editingProgTitle.trim()
+                              }
                               onClick={() => saveEditProgram(p)}>
                               {isSaving ? "บันทึก..." : "ยืนยัน"}
                             </Button>
@@ -1161,18 +1292,46 @@ export default function FacultyTable() {
                               size="sm"
                               variant={p.active ? "ghost" : "secondary"}
                               className={`h-8 ${p.active ? "text-gray-500" : "text-emerald-700"}`}
-                              disabled={isSaving || isDeleting || togglingProgId === p._id}
+                              disabled={
+                                isSaving ||
+                                isDeleting ||
+                                togglingProgId === p._id
+                              }
                               onClick={async () => {
                                 const prevActive = p.active;
                                 setTogglingProgId(p._id);
-                                setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: !x.active } : x));
+                                setProgRows((prev) =>
+                                  prev.map((x) =>
+                                    x._id === p._id
+                                      ? { ...x, active: !x.active }
+                                      : x,
+                                  ),
+                                );
                                 try {
-                                  const updatedProgram = await toggleProgramActive(p._id);
-                                  const newActive = (updatedProgram as any)?.active ?? !prevActive;
-                                  setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: newActive } : x));
+                                  const updatedProgram =
+                                    await toggleProgramActive(p._id);
+                                  const newActive =
+                                    (updatedProgram as any)?.active ??
+                                    !prevActive;
+                                  setProgRows((prev) =>
+                                    prev.map((x) =>
+                                      x._id === p._id
+                                        ? { ...x, active: newActive }
+                                        : x,
+                                    ),
+                                  );
                                 } catch (err) {
-                                  console.error("toggleProgramActive error:", err);
-                                  setProgRows((prev) => prev.map((x) => x._id === p._id ? { ...x, active: prevActive } : x));
+                                  console.error(
+                                    "toggleProgramActive error:",
+                                    err,
+                                  );
+                                  setProgRows((prev) =>
+                                    prev.map((x) =>
+                                      x._id === p._id
+                                        ? { ...x, active: prevActive }
+                                        : x,
+                                    ),
+                                  );
                                   alert("ไม่สามารถเปลี่ยนสถานะหลักสูตรได้");
                                 } finally {
                                   setTogglingProgId(null);
@@ -1185,17 +1344,17 @@ export default function FacultyTable() {
                               size="sm"
                               variant="ghost"
                               className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8"
-                               disabled={isSaving || isDeleting}
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 console.log("CLICKED Delete Program:", p._id);
-                                 confirmDeleteProgram(p);
-                               }}>
+                              disabled={isSaving || isDeleting}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log("CLICKED Delete Program:", p._id);
+                                confirmDeleteProgram(p);
+                              }}>
                               ลบ
                             </Button>
                           </>
                         )}
-                        </div>
+                      </div>
                     </li>
                   );
                 })}
@@ -1239,16 +1398,14 @@ export default function FacultyTable() {
               type="button"
               variant="outline"
               onClick={() => setDeleteConfirmOpen(false)}
-              disabled={isDeletingTarget}
-            >
+              disabled={isDeletingTarget}>
               ยกเลิก
             </Button>
             <Button
               type="button"
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={handleConfirmDelete}
-              disabled={isDeletingTarget}
-            >
+              disabled={isDeletingTarget}>
               {isDeletingTarget ? (
                 <>
                   <Loader2 size={16} className="animate-spin mr-2" />

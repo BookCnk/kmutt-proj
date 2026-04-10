@@ -2,9 +2,24 @@ import api from "@/lib/api";
 
 const BASE = "/admin/user";
 
+export type UserSortField =
+  | "name"
+  | "email"
+  | "role"
+  | "created_at"
+  | "updated_at";
+
+export type GetUsersParams = {
+  limit?: number;
+  page?: number;
+  name?: string;
+  sort?: 1 | -1;
+  sort_option?: UserSortField;
+};
+
 /** GET /api/admin/user/ — Get all users */
 // userService.ts
-export const getUsers = async (params?: any): Promise<any> => {
+export const getUsers = async (params?: GetUsersParams): Promise<any> => {
   const qs = new URLSearchParams(
     Object.entries(params || {}).reduce((o, [k, v]) => {
       if (v === undefined || v === null) return o;

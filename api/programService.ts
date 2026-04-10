@@ -47,6 +47,13 @@ export const getProgramsByDepartment = async (
     `/admin${BASE}/department/${departmentId}`
   );
 
+export const getPublicProgramsByDepartment = async (
+  departmentId: string
+): Promise<ProgramResponse> =>
+  api.get<ProgramResponse, ProgramResponse>(
+    `${BASE}/department/${departmentId}`
+  );
+
 export const getProgramsByDegree = async (
   degreeLevel: string
 ): Promise<ProgramResponse> =>

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { ProgramOption, LoadingState } from "../types";
-import { getProgramsByDepartment } from "@/api/programService";
+import { getPublicProgramsByDepartment } from "@/api/programService";
 
 function pickProgramArray(res: any): any[] {
   const d = res?.data ?? res;
@@ -33,7 +33,7 @@ export function useProgramsOptions(departmentId: string | undefined) {
           return;
         }
 
-        const res = await getProgramsByDepartment(String(departmentId));
+        const res = await getPublicProgramsByDepartment(String(departmentId));
         const arr = pickProgramArray(res);
 
         const mapped: ProgramOption[] = arr.map((p: any) => ({

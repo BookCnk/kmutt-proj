@@ -12,6 +12,9 @@ import {
   MoreVertical,
   Trash2,
   ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import {
@@ -22,7 +25,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { getUsers, updateUserRole } from "@/api/userService";
+import {
+  getUsers,
+  updateUserRole,
+  type UserSortField,
+} from "@/api/userService";
 
 /* ---------- Types ---------- */
 type Role = "admin" | "user" | string;
@@ -51,6 +58,8 @@ type UsersResponse = {
   data: UserDoc[];
 };
 
+type SortDirection = 1 | -1;
+
 /* ---------- Utils ---------- */
 function formatDateTime(input?: string | number) {
   if (!input) return "-";
@@ -78,6 +87,21 @@ function useDebounce<T>(value: T, delay = 400) {
   return debounced;
 }
 
+function SortIcon({
+  active,
+  direction,
+}: {
+  active: boolean;
+  direction: SortDirection;
+}) {
+  if (!active) return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+  return direction === 1 ? (
+    <ArrowUp className="h-4 w-4 text-blue-600" />
+  ) : (
+    <ArrowDown className="h-4 w-4 text-blue-600" />
+  );
+}
+
 /* ---------- Page ---------- */
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -98,6 +122,23 @@ export default function AdminUsersPage() {
   // server-side search
   const [q, setQ] = React.useState("");
   const debouncedName = useDebounce(q, 400);
+  const [sortField, setSortField] = React.useState<UserSortField>("name");
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>(1);
+
+  const toggleSort = React.useCallback(
+    (field: UserSortField) => {
+      setPage(1);
+
+      if (sortField === field) {
+        setSortDirection(sortDirection === 1 ? -1 : 1);
+        return;
+      }
+
+      setSortField(field);
+      setSortDirection(field === "created_at" || field === "updated_at" ? -1 : 1);
+    },
+    [sortDirection, sortField]
+  );
 
   const fetchUsers = React.useCallback(async () => {
     setLoading(true);
@@ -108,6 +149,8 @@ export default function AdminUsersPage() {
         limit,
         page,
         name: debouncedName || undefined,
+        sort: sortDirection,
+        sort_option: sortField,
       })) as UsersResponse | any;
 
       // normalize response
@@ -166,7 +209,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [limit, page, debouncedName]);
+  }, [limit, page, debouncedName, sortDirection, sortField]);
 
   React.useEffect(() => {
     fetchUsers();
@@ -187,6 +230,34 @@ export default function AdminUsersPage() {
       toast.error(e?.message || "อัปเดตบทบาทไม่สำเร็จ");
       fetchUsers(); // rollback
     }
+  };
+
+  const renderSortableHeader = (
+    label: string,
+    field: UserSortField,
+    align: "left" | "right" = "left"
+  ) => {
+    const active = sortField === field;
+    const directionLabel = sortDirection === 1 ? "ASC" : "DESC";
+
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(field)}
+        title={`Sort by ${label} (${active ? directionLabel : "toggle"})`}
+        aria-label={`Sort by ${label} ${active ? directionLabel : ""}`.trim()}
+        className={`inline-flex items-center gap-2 rounded-md px-1 py-1 transition hover:text-blue-600 hover:bg-blue-50 ${
+          align === "right" ? "ml-auto" : ""
+        } ${active ? "text-blue-700" : ""}`}>
+        <span>{label}</span>
+        <SortIcon active={active} direction={sortDirection} />
+        {active && (
+          <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-blue-700">
+            {directionLabel}
+          </span>
+        )}
+      </button>
+    );
   };
 
   return (
@@ -315,19 +386,19 @@ export default function AdminUsersPage() {
                   #
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  ผู้ใช้
+                  {renderSortableHeader("ผู้ใช้", "name")}
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  อีเมล
+                  {renderSortableHeader("อีเมล", "email")}
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  บทบาท
+                  {renderSortableHeader("บทบาท", "role")}
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  สร้างเมื่อ
+                  {renderSortableHeader("สร้างเมื่อ", "created_at")}
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  อัปเดตล่าสุด
+                  {renderSortableHeader("อัปเดตล่าสุด", "updated_at")}
                 </th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
                   การกระทำ

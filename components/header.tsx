@@ -33,6 +33,7 @@ function getInitials(name?: string, email?: string) {
 export function Header({ onLogout }: HeaderProps) {
   const router = useRouter();
   const { user, clear, setSession } = useAuthStore();
+  const isAdmin = user?.role === "admin";
 
   // hydrate user จาก localStorage (เผื่อโปรเจกต์เดิมยังเก็บไว้)
   React.useEffect(() => {
@@ -124,7 +125,7 @@ export function Header({ onLogout }: HeaderProps) {
                   <DropdownMenuSeparator />
 
                   {/* ตัวอย่างเมนู (โชว์สำหรับ admin เท่านั้น) */}
-                  {user.role === "admin" && (
+                  {isAdmin && (
                     <>
                       <DropdownMenuItem asChild>
                         <Link href="/admin/users" className="w-full">
@@ -136,7 +137,8 @@ export function Header({ onLogout }: HeaderProps) {
                     </>
                   )}
 
-                  <>
+                  {isAdmin && (
+                    <>
                     <DropdownMenuItem asChild>
                       <Link href="/admin/export" className="w-full">
                         <File className="mr-2 h-4 w-4" />
@@ -144,9 +146,11 @@ export function Header({ onLogout }: HeaderProps) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                  </>
+                    </>
+                  )}
 
-                  <>
+                  {isAdmin && (
+                    <>
                     <DropdownMenuItem asChild>
                       <Link href="/admin/infographic-builder" className="w-full">
                         <LayoutTemplate className="mr-2 h-4 w-4" />
@@ -154,7 +158,8 @@ export function Header({ onLogout }: HeaderProps) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                  </>
+                    </>
+                  )}
 
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />

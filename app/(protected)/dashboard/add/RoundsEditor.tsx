@@ -1230,15 +1230,18 @@ export default function IntakeViewerWithAddModal() {
                           <div className="grid gap-5 md:grid-cols-12">
                             <div className="md:col-span-4">
                               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-tight mb-1.5 block ml-1">
-                                วันสัมภาษณ์
+                                ชื่อรอบ (Optional)
                               </label>
-                              <DatePickerField
-                                valueISO={m.interview_date}
-                                onChangeISO={(iso) =>
+                              <input
+                                className="w-full rounded-xl border-slate-400 bg-white px-3 py-2 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none"
+                                type="text"
+                                value={m.title ?? ""}
+                                placeholder="เช่น รอบมกราคม"
+                                onChange={(e) =>
                                   setMonthlyDraft((arr) =>
                                     arr.map((it, i) =>
                                       i === idx
-                                        ? { ...it, interview_date: iso }
+                                        ? { ...it, title: e.target.value }
                                         : it,
                                     ),
                                   )
@@ -1264,18 +1267,15 @@ export default function IntakeViewerWithAddModal() {
                             </div>
                             <div className="md:col-span-3">
                               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-tight mb-1.5 block ml-1">
-                                ชื่อรอบ (Optional)
+                                วันสัมภาษณ์
                               </label>
-                              <input
-                                className="w-full rounded-xl border-slate-400 bg-white px-3 py-2 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none"
-                                type="text"
-                                value={m.title ?? ""}
-                                placeholder="เช่น รอบมกราคม"
-                                onChange={(e) =>
+                              <DatePickerField
+                                valueISO={m.interview_date}
+                                onChangeISO={(iso) =>
                                   setMonthlyDraft((arr) =>
                                     arr.map((it, i) =>
                                       i === idx
-                                        ? { ...it, title: e.target.value }
+                                        ? { ...it, interview_date: iso }
                                         : it,
                                     ),
                                   )
