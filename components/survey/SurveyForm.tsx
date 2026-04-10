@@ -76,7 +76,7 @@ const intakeConfig: IntakeConfig = {
 /* ------------------------------------------------------------------ */
 function isWithinApplyWindow(startISO: string, endISO: string) {
   const now = Date.now();
-  console.log("Checking apply window:", { now, startISO, endISO });
+
   return now >= Date.parse(startISO) && now <= Date.parse(endISO);
 }
 
@@ -96,7 +96,7 @@ const within = (now: number, startISO?: string, endISO?: string) => {
 };
 
 const computeBannerFromAdmissions = (list: any[]) => {
-  console.log("This is list", list);
+
 
   if (!list?.length) {
     return {
@@ -218,8 +218,7 @@ export default function SurveyForm({ onSubmit, onBack }: Props) {
     admissions.data[0]?.application_window.close_at,
   );
 
-  console.log("isWindowOpen:", isWindowOpen);
-  console.log("intakeConfig:", intakeConfig);
+
 
   /* -------- Watch (cascading selects) -------- */
   const facultyId = methods.watch("faculty");

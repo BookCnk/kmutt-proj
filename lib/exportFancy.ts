@@ -904,8 +904,7 @@ export async function exportExcelFancy(
   allFormsRaw: any[],
   meta?: ExportFancyMeta,
 ) {
-  console.log("allFormsRaw", allFormsRaw);
-  console.log("meta", meta);
+
   const admission = meta?.admission;
   const activePrograms = meta?.activePrograms ?? [];
 

@@ -164,7 +164,7 @@ export default function AdminExportPage() {
       const res = await getTemplates();
       const items = (res as any)?.data;
       setTemplates(items);
-      console.log("Loaded templates:", items);
+
     } catch (error) {
       console.error("Failed to load templates", error);
       toast.error("โหลด Template ไม่สำเร็จ");

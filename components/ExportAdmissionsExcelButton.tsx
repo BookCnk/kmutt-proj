@@ -23,7 +23,7 @@ export default function ExportAdmissionsExcelButton({
       // ✅ ดึงข้อมูลทั้งหมดจาก API
       const list = await adminListForms({ page: 1, limit: 99999 });
       const items = (list as any)?.items ?? (list as any)?.data ?? list ?? [];
-      console.log("Exporting items:", items);
+
 
       // ✅ เรียกฟังก์ชัน exportExcel แบบธรรมดา
       await exportExcel(items);

@@ -57,7 +57,7 @@ export default function DatePickerField({
 }) {
   /** ===== Debug logger ===== */
   const debug = true;
-  const log = (...args: any[]) => debug && console.log("[DatePicker]", ...args);
+  const log = (...args: any[]) => {};
 
   const [open, setOpen] = React.useState(false);
   const date = toLocalDateOnly(valueISO);

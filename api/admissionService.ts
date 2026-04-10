@@ -17,7 +17,7 @@ export const getAdmissionYears = async (): Promise<
   { _id: string; label: string }[]
 > => {
   const res = await api.get<any, any>(`${BASE}`);
-  console.log("res getAdmissionYears", res);
+
 
   const data: any = Object.values(res).filter(
     (v: any) => v && typeof v === "object" && "label" in v

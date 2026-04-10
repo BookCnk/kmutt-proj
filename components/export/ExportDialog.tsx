@@ -32,7 +32,7 @@ export function ExportDialog({
   );
   const [format, setFormat] = React.useState<ExportFormat>("excel");
 
-  console.log("First row in ExportDialog:", firstRow);
+
 
   // ✅ NEW: ตอน dialog เปิด ให้ดึงค่าจากแถวแรกมาเติม (เอาแค่แถวเดียว)
   React.useEffect(() => {

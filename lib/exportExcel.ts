@@ -167,6 +167,6 @@ export async function exportExcel(rawData: any[]) {
   } else {
     const fs = require("fs");
     fs.writeFileSync(fileName, Buffer.from(buf));
-    console.log(`✅ สร้างไฟล์ ${fileName} สำเร็จ`);
+
   }
 }

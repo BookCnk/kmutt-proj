@@ -336,7 +336,7 @@ export default function FacultyTable() {
   const executeDeleteFaculty = async (row: FacultyRow) => {
     try {
       setDeletingFacId(row.id);
-      console.log("Deleting faculty:", row.id);
+
       await deleteFaculty(row.id);
       setRows((prev) => prev.filter((f) => f.id !== row.id));
       if (deptModalOpen && deptFacultyId === row.id) {
@@ -407,7 +407,7 @@ export default function FacultyTable() {
   const executeDeleteDept = async (dep: Department) => {
     try {
       setDeletingDeptId(dep._id);
-      console.log("Deleting department:", dep._id);
+
       await deleteDepartment(dep._id);
       setDeptRows((prev) => prev.filter((d) => d._id !== dep._id));
       setRows((prev) =>
@@ -585,7 +585,7 @@ export default function FacultyTable() {
   const executeDeleteProgram = async (program: Program) => {
     try {
       setDeletingProgId(program._id);
-      console.log("Deleting program:", program._id);
+
       await deleteProgram(program._id);
       setProgRows((prev) => prev.filter((p) => p._id !== program._id));
       alert("ลบหลักสูตร/สาขาสำเร็จ");
@@ -773,7 +773,7 @@ export default function FacultyTable() {
                               className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8 font-medium"
                               disabled={isSaving || isDeleting}
                               onClick={() => {
-                                console.log("CLICKED Delete Faculty:", f.id);
+
                                 confirmDeleteFaculty(f);
                               }}>
                               <Trash2 size={14} className="mr-1.5" />
@@ -948,10 +948,7 @@ export default function FacultyTable() {
                               disabled={isSaving || isDeleting}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log(
-                                  "CLICKED Delete Department:",
-                                  d._id,
-                                );
+
                                 confirmDeleteDept(d);
                               }}>
                               <Trash2 size={14} />
@@ -1347,7 +1344,7 @@ export default function FacultyTable() {
                               disabled={isSaving || isDeleting}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log("CLICKED Delete Program:", p._id);
+
                                 confirmDeleteProgram(p);
                               }}>
                               ลบ

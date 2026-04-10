@@ -226,10 +226,10 @@ export default function GoogleOneTap({
         window.google.accounts.id.prompt((notification: any) => {
           if (notification.isNotDisplayed()) {
             const reason = notification.getNotDisplayedReason();
-            debug && console.log("One Tap not displayed:", reason);
+
           } else if (notification.isSkippedMoment()) {
             const reason = notification.getSkippedReason();
-            debug && console.log("One Tap skipped:", reason);
+
           }
         });
         hasPrompted.current = true;
@@ -241,7 +241,6 @@ export default function GoogleOneTap({
     autoPrompt,
     buttonContainerId,
     clientId,
-    debug,
     handleCredentialResponse,
     report,
     showButton,

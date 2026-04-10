@@ -338,7 +338,7 @@ export default function EditTemplatePage() {
   };
 
   const selectedRows = rows.filter((r) => r.selected);
-  console.log("selectedRows", selectedRows[0]);
+
 
   // === columns (เหมือนหน้า AdminExportPage) ===
   const columnsV1: ColumnDef<DataRow>[] = [
