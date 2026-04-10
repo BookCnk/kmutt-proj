@@ -13,40 +13,11 @@ const BRAND_ORANGE = "FFFF4616"; // #FA4616 (ARGB)
 const TITLE_RED = "FFCC0000"; // สีแดงสำหรับหัวบรรทัดแรก
 const DIRECT_CONTACT_MESSAGE = "ติดต่อสมัครโดยตรงที่สาขาวิชา";
 
-const FACULTY_ORDER = [
-  "คณะวิศวกรรมศาสตร์",
-  "คณะวิทยาศาสตร์",
-  "คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี",
-  "คณะพลังงานสิ่งแวดล้อมและวัสดุ",
-  "คณะทรัพยากรชีวภาพและเทคโนโลยี",
-  "คณะศิลปศาสตร์",
-  "คณะสถาปัตยกรรมศาสตร์และการออกแบบ",
-  "สถาบันวิทยาการหุ่นยนต์ภาคสนาม",
-  "คณะเทคโนโลยีสารสนเทศ",
-  "บัณฑิตวิทยาลัยร่วมด้านพลังงานและสิ่งแวดล้อม",
-  "บัณฑิตวิทยาลัยการจัดการและนวัตกรรม",
-] as const;
-
 function normText(s: string) {
   return (s || "")
     .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/[()\-–—]/g, "");
-}
-
-function getFacultyRank(facultyName: string): number {
-  const f = normText(facultyName);
-
-  for (let i = 0; i < FACULTY_ORDER.length; i++) {
-    const o = normText(FACULTY_ORDER[i]);
-    if (!o) continue;
-    if (f.includes(o) || o.includes(f)) return i;
-  }
-
-  if (f.includes("jgsee")) return FACULTY_ORDER.length - 2;
-  if (f.includes("gmi")) return FACULTY_ORDER.length - 1;
-
-  return 999;
 }
 
 // ===== Helpers =====
@@ -93,8 +64,8 @@ function formatThaiDate(iso?: string): string {
   return `${day} ${month} ${year}`;
 }
 
-const normalizeId = (v: any) => (typeof v === "string" ? v : v?._id ?? "");
-const asText = (v: any) => (typeof v === "string" ? v : v?.title ?? "");
+const normalizeId = (v: any) => (typeof v === "string" ? v : (v?._id ?? ""));
+const asText = (v: any) => (typeof v === "string" ? v : (v?.title ?? ""));
 
 // ดึง "วัน-เวลาเรียน" จากท้ายชื่อ
 function parseScheduleFromProgramTitle(title: string): string | undefined {
@@ -123,10 +94,10 @@ function stripScheduleFromTitle(title: string): string {
   if (!title) return title;
   let t = title.replace(/-\s*\([^)]+\)\s*$/, "").trim();
   t = t.replace(/\s*\([^)]+\)\s*$/, "").trim();
-  
+
   // ตัด (ปร.ด.), (วศ.ด.) ตามที่ผู้ใช้รีเควส
   t = t.replace(/\s*\((?:ปร\.ด\.|วศ\.ด\.)\)/g, "").trim();
-  
+
   return t;
 }
 
@@ -148,15 +119,12 @@ type ProgramInForm = {
   rounds: any[];
   monthly: any[];
   message?: string;
-  order?: number;
 };
 
 type SurveyRow = {
   id: string;
   faculty: string;
-  facultyOrder?: number;
   department: string;
-  departmentOrder?: number;
   program: string;
   programs: ProgramInForm[];
   submitterEmail: string;
@@ -250,7 +218,6 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
           rounds,
           monthly,
           message: "",
-          order: pid?.order ?? 9999,
         };
       })
     : [];
@@ -259,8 +226,8 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
     intakePrograms.length === 0
       ? "-"
       : intakePrograms.length === 1
-      ? intakePrograms[0].title
-      : `${intakePrograms[0].title} +${intakePrograms.length - 1}`;
+        ? intakePrograms[0].title
+        : `${intakePrograms[0].title} +${intakePrograms.length - 1}`;
 
   const submitterName = doc?.submitter?.name ?? "-";
   const submitterEmail = doc?.submitter?.email ?? "-";
@@ -268,8 +235,8 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
   const phone: string[] = Array.isArray(doc?.submitter?.phone)
     ? doc.submitter.phone
     : doc?.submitter?.phone
-    ? [String(doc.submitter.phone)]
-    : [];
+      ? [String(doc.submitter.phone)]
+      : [];
 
   const submittedAt =
     doc?.created_at ?? doc?.updated_at ?? new Date().toISOString();
@@ -277,9 +244,7 @@ function mapFormToSurveyRow_New(doc: any): SurveyRow {
   return {
     id,
     faculty,
-    facultyOrder: doc?.faculty_id?.order ?? 9999,
     department,
-    departmentOrder: doc?.department_id?.order ?? 9999,
     program: programSummary,
     programs: intakePrograms,
     submitterEmail,
@@ -325,7 +290,7 @@ function normalizePhones(value: any): string[] {
 
 function mergeActiveProgramsIntoRows(
   normalized: SurveyRow[],
-  activePrograms: any[]
+  activePrograms: any[],
 ): SurveyRow[] {
   if (!activePrograms?.length) return normalized;
 
@@ -339,7 +304,7 @@ function mergeActiveProgramsIntoRows(
           title: prog.title,
           degree_level: prog.degree_level,
           degree_abbr: prog.degree_abbr,
-        })
+        }),
       );
     });
   });
@@ -395,19 +360,16 @@ function mergeActiveProgramsIntoRows(
       rounds: [],
       monthly: [],
       message: DIRECT_CONTACT_MESSAGE, // ✅ ตรง requirement
-      order: ap?.order ?? 9999,
     };
 
     const phones = normalizePhones(
-      ap?.contact_phone ?? ap?.phones ?? ap?.phone
+      ap?.contact_phone ?? ap?.phones ?? ap?.phone,
     );
 
     merged.push({
       id: normalizeId(ap?._id),
       faculty,
-      facultyOrder: ap?.faculty_id?.order ?? 9999,
       department,
-      departmentOrder: ap?.department_id?.order ?? 9999,
       program: cleanTitle,
       programs: [program],
       submitterEmail: "-",
@@ -423,7 +385,7 @@ function mergeActiveProgramsIntoRows(
 
 function prepareSurveyRows(
   allFormsRaw: any[],
-  options?: PrepareSurveyRowsOptions
+  options?: PrepareSurveyRowsOptions,
 ): SurveyRow[] {
   const baseRows: SurveyRow[] = (allFormsRaw || []).map(mapFormToSurveyRow_New);
   const activePrograms = options?.activePrograms ?? [];
@@ -432,105 +394,88 @@ function prepareSurveyRows(
 }
 
 // ===== รวมข้อมูลจาก SurveyRow[] -> FancyExportRow[] แยกตาม degree =====
-function resolveSortOrder(val: any) {
-  if (val == null || val === 0) return 9999;
-  return Number(val);
-}
+type FancyProgramEntry = {
+  faculty: string;
+  department: string;
+  program: ProgramInForm;
+  phones: string;
+};
 
 function buildFancyRowsByDegree(
   data: SurveyRow[],
-  degreeLevel: "master" | "doctoral"
+  degreeLevel: "master" | "doctoral",
 ): FancyExportRow[] {
-  const grouped = new Map<string, SurveyRow[]>();
-  data.forEach((r) => {
-    const arr = grouped.get(r.faculty) ?? [];
-    arr.push(r);
-    grouped.set(r.faculty, arr);
+  const entries: FancyProgramEntry[] = [];
+
+  data.forEach((row) => {
+    const programsOfLevel = row.programs.filter((p) => {
+      const lvl = (p.degree_level || "").toLowerCase();
+      if (lvl === degreeLevel) return true;
+
+      const hasMaster = !!p.master;
+      const hasDoctoral = !!p.doctoral;
+      if (degreeLevel === "master" && hasMaster && !hasDoctoral) return true;
+      if (degreeLevel === "doctoral" && hasDoctoral && !hasMaster) return true;
+      return false;
+    });
+
+    for (const program of programsOfLevel) {
+      entries.push({
+        faculty: row.faculty,
+        department: row.department,
+        program,
+        phones: (row.phone || []).filter(Boolean).join(" / "),
+      });
+    }
   });
 
-  const orderedFaculties = Array.from(grouped.entries()).sort(([fa, rowsA], [fb, rowsB]) => {
-    const orderA = resolveSortOrder(rowsA[0]?.facultyOrder);
-    const orderB = resolveSortOrder(rowsB[0]?.facultyOrder);
-    if (orderA !== orderB) return orderA - orderB;
+  const sortedEntries = entries;
 
-    const ra = getFacultyRank(fa);
-    const rb = getFacultyRank(fb);
-    if (ra !== rb) return ra - rb;
-    return (fa || "").localeCompare(fb || "", "th");
+  const grouped = new Map<string, FancyProgramEntry[]>();
+  sortedEntries.forEach((entry) => {
+    const arr = grouped.get(entry.faculty) ?? [];
+    arr.push(entry);
+    grouped.set(entry.faculty, arr);
   });
+
+  const orderedFaculties = Array.from(grouped.entries());
 
   const out: FancyExportRow[] = [];
 
-  for (const [faculty, rowsRaw] of orderedFaculties) {
-    const rows = [...rowsRaw].sort((a, b) => {
-      const orderA = resolveSortOrder(a.departmentOrder);
-      const orderB = resolveSortOrder(b.departmentOrder);
-      if (orderA !== orderB) return orderA - orderB;
-
-      const da = a.department || "";
-      const db = b.department || "";
-      const cmp = da.localeCompare(db, "th");
-      if (cmp !== 0) return cmp;
-      const pa = a.program || "";
-      const pb = b.program || "";
-      return pa.localeCompare(pb, "th");
-    });
-
+  for (const [faculty, facultyEntries] of orderedFaculties) {
     let sum = 0;
     const facultyRows: FancyExportRow[] = [];
 
-    for (const r of rows) {
-      const programsOfLevel = r.programs.filter((p) => {
-        const lvl = (p.degree_level || "").toLowerCase();
-        if (lvl === degreeLevel) return true;
+    for (const entry of facultyEntries) {
+      const p = entry.program;
+      const amtRaw =
+        degreeLevel === "master"
+          ? (p.master?.amount ?? 0)
+          : (p.doctoral?.amount ?? 0);
 
-        const hasMaster = !!p.master;
-        const hasDoctoral = !!p.doctoral;
-        if (degreeLevel === "master" && hasMaster && !hasDoctoral) return true;
-        if (degreeLevel === "doctoral" && hasDoctoral && !hasMaster)
-          return true;
-        return false;
+      const subtotal = Number.isFinite(amtRaw) ? Number(amtRaw) : 0;
+      sum += subtotal;
+
+      const hasRounds = Array.isArray(p.rounds) && p.rounds.length > 0;
+      const hasMonthly = Array.isArray(p.monthly) && p.monthly.length > 0;
+      const isOpen = subtotal > 0 || hasRounds || hasMonthly;
+
+      const admissionText = (p.message || "").trim();
+      const isActiveOnly = admissionText === DIRECT_CONTACT_MESSAGE;
+
+      facultyRows.push({
+        faculty,
+        degreeAbbr: p.degree_abbr || guessDegreeAbbrFromProgramTitle(p.title),
+        programTitle: p.title,
+        schedule: p.schedule ?? "",
+        openFlag: isOpen ? "P" : "X",
+        amount: subtotal || "",
+        isRounds: hasRounds,
+        isMonthly: hasMonthly,
+        phones: entry.phones,
+        admissionText,
+        isActiveOnly,
       });
-
-      if (!programsOfLevel.length) continue;
-
-      const sortedPrograms = [...programsOfLevel].sort((a, b) => {
-        const orderA = resolveSortOrder(a.order);
-        const orderB = resolveSortOrder(b.order);
-        if (orderA !== orderB) return orderA - orderB;
-        return (a.title || "").localeCompare(b.title || "", "th");
-      });
-
-      for (const p of sortedPrograms) {
-        const amtRaw =
-          degreeLevel === "master"
-            ? p.master?.amount ?? 0
-            : p.doctoral?.amount ?? 0;
-
-        const subtotal = Number.isFinite(amtRaw) ? Number(amtRaw) : 0;
-        sum += subtotal;
-
-        const hasRounds = Array.isArray(p.rounds) && p.rounds.length > 0;
-        const hasMonthly = Array.isArray(p.monthly) && p.monthly.length > 0;
-        const isOpen = subtotal > 0 || hasRounds || hasMonthly;
-
-        const admissionText = (p.message || "").trim();
-        const isActiveOnly = admissionText === DIRECT_CONTACT_MESSAGE;
-
-        facultyRows.push({
-          faculty,
-          degreeAbbr: p.degree_abbr || guessDegreeAbbrFromProgramTitle(p.title),
-          programTitle: p.title,
-          schedule: p.schedule ?? "",
-          openFlag: isOpen ? "P" : "X",
-          amount: subtotal || "",
-          isRounds: hasRounds,
-          isMonthly: hasMonthly,
-          phones: (r.phone || []).filter(Boolean).join(" / "),
-          admissionText,
-          isActiveOnly,
-        });
-      }
     }
 
     if (facultyRows.length > 0) {
@@ -562,7 +507,7 @@ const NO = "✗";
 async function addLogoIfAny(
   wb: ExcelJS.Workbook,
   ws: ExcelJS.Worksheet,
-  opts?: { width?: number; height?: number }
+  opts?: { width?: number; height?: number },
 ) {
   // Native image size of public/ICON.png is 160x187
   // Scale it proportionally to fit 95px height => width: 81, height: 95
@@ -593,7 +538,7 @@ async function addLogoIfAny(
               for (let i = 0; i < bytes.length; i += chunkSize) {
                 binary += String.fromCharCode.apply(
                   null,
-                  bytes.subarray(i, i + chunkSize) as any
+                  bytes.subarray(i, i + chunkSize) as any,
                 );
               }
               return btoa(binary);
@@ -614,7 +559,7 @@ async function buildSheetForRows(
   sheetName: string,
   rows: FancyExportRow[],
   admission?: AdmissionMeta,
-  degreeLabel?: string
+  degreeLabel?: string,
 ) {
   const ws = wb.addWorksheet(sheetName, {
     views: [{ state: "frozen", ySplit: 4 }],
@@ -659,7 +604,7 @@ async function buildSheetForRows(
     noticeLines[1] ||
     (aw?.open_at && aw?.close_at
       ? `สมัครเข้าศึกษา ตั้งแต่วันที่ ${formatThaiDate(
-          aw.open_at
+          aw.open_at,
         )} ถึง วันที่ ${formatThaiDate(aw.close_at)}`
       : "");
 
@@ -838,7 +783,7 @@ async function buildSheetForRows(
       cell.value = YES;
       cell.font = {
         name: "TH SarabunPSK",
-        size: 14,
+        size: 8,
         bold: true,
         color: { argb: "FF0E7A0D" },
       };
@@ -849,7 +794,7 @@ async function buildSheetForRows(
       cell.value = NO;
       cell.font = {
         name: "TH SarabunPSK",
-        size: 14,
+        size: 8,
         bold: true,
         color: { argb: "FFB00020" },
       };
@@ -957,8 +902,10 @@ async function buildSheetForRows(
 // ===== Main exporter =====
 export async function exportExcelFancy(
   allFormsRaw: any[],
-  meta?: ExportFancyMeta
+  meta?: ExportFancyMeta,
 ) {
+  console.log("allFormsRaw", allFormsRaw);
+  console.log("meta", meta);
   const admission = meta?.admission;
   const activePrograms = meta?.activePrograms ?? [];
 
@@ -978,7 +925,7 @@ export async function exportExcelFancy(
       "จำนวนประกาศรับ_ปริญญาโท",
       masterRows,
       admission,
-      "ปริญญาโท"
+      "ปริญญาโท",
     );
   }
   if (doctoralRows.length) {
@@ -987,7 +934,7 @@ export async function exportExcelFancy(
       "จำนวนประกาศรับ_ปริญญาเอก",
       doctoralRows,
       admission,
-      "ปริญญาเอก"
+      "ปริญญาเอก",
     );
   }
 
@@ -1001,20 +948,20 @@ export async function exportExcelFancy(
       new Blob([buf], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }),
-      `จำนวนประกาศรับ_${thaiMonthYearNow()}.xlsx`
+      `จำนวนประกาศรับ_${thaiMonthYearNow()}.xlsx`,
     );
   } else {
     const fs = require("fs");
     fs.writeFileSync(
       `จำนวนประกาศรับ_${thaiMonthYearNow()}.xlsx`,
-      Buffer.from(buf)
+      Buffer.from(buf),
     );
   }
 }
 
 export async function buildExcelFancyBuffer(
   allFormsRaw: any[],
-  meta?: ExportFancyMeta
+  meta?: ExportFancyMeta,
 ): Promise<ArrayBuffer | undefined> {
   const admission = meta?.admission;
   const activePrograms = meta?.activePrograms ?? [];
@@ -1035,7 +982,7 @@ export async function buildExcelFancyBuffer(
       "จำนวนประกาศรับ_ปริญญาโท",
       masterRows,
       admission,
-      "ปริญญาโท"
+      "ปริญญาโท",
     );
   }
   if (doctoralRows.length) {
@@ -1044,7 +991,7 @@ export async function buildExcelFancyBuffer(
       "จำนวนประกาศรับ_ปริญญาเอก",
       doctoralRows,
       admission,
-      "ปริญญาเอก"
+      "ปริญญาเอก",
     );
   }
 

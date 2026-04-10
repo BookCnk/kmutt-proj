@@ -31,7 +31,6 @@ import SurveyDetailsDialog from "@/components/survey/SurveyDetailsDialog";
 import ExportGradIntakeButton from "@/components/ExportGradIntakeButton";
 import ExportAdmissionsExcelButton from "@/components/ExportAdmissionsExcelButton";
 import { getAdmissionYears } from "@/api/admissionService";
-import { exportExcelFancy } from "@/lib/exportFancy";
 import {
   exportAdmissionsPdf,
   type SurveyRow,
