@@ -98,19 +98,30 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
   const isMerged = groups != null && groups.length > 1;
   const criteria = dedup(group.criteria);
   const credits = creditRows(group.criteria);
-  const totalTest = criteria.reduce((s, r) => s + (r.weightTest ?? 0), 0);
-  const totalAdmission = criteria.reduce(
-    (s, r) => s + (r.weightAdmission ?? 0),
-    0,
-  );
 
-  // hasGpaNoMin: true when ANY criteria row has gpaMin === 1 (means "must have score, no minimum")
-  const hasGpaNoMin = criteria.some((r) => r.gpaMin === 1);
+  // gpaNoMinRows: GPA-only rows (คณิต/วิทยา/ภาษา) where gpaMin === 1 — excludes GPAX, TGAT, TPAT
+  const gpaNoMinRows = criteria.filter((r) =>
+    r.gpaMin === 1 &&
+    ['คณิต', 'วิทยา', 'ภาษา'].some((kw) => r.subjectName?.includes(kw) 
+      && !r.subjectName?.includes('TGAT') 
+      && !r.subjectName?.includes('TPAT')
+      && !r.subjectName?.includes('GPAX')
+    )
+  );
+  const hasGpaNoMin = gpaNoMinRows.length > 0;
   const hasTgatTpat = criteria.some(
     (r) => r.subjectName?.includes('TGAT') || r.subjectName?.includes('TPAT'),
   );
   const isEngineering = group.faculty.includes('วิศวกรรม');
   const showRemarks = hasGpaNoMin || hasTgatTpat || isEngineering;
+
+  // Education level flags — driven by subjectGroupMap column values
+  const hasMathayom6 = group.criteria.some((r) => r.subjectGroupMap?.includes('มัธยม'));
+  const hasPawCho    = group.criteria.some((r) => r.subjectGroupMap?.includes('ปวช.'));
+  const educationLevelParts = [
+    hasMathayom6 ? 'มัธยมศึกษาปีที่ 6' : null,
+    hasPawCho    ? 'ปวช.'              : null,
+  ].filter(Boolean).join(' หรือ ');
 
   // ── Criteria row classification ───────────────────────────────────────────
   // Keywords match the RAW Excel subject names (no "GPA" prefix in the data).
@@ -128,6 +139,23 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
     }
     return name;
   }
+  // Build a Thai-joined label: "X", "X และ Y", or "X, Y และ Z"
+  const gpaNoMinLabel = (() => {
+    const names = gpaNoMinRows.map((r) => r.subjectName ?? '');
+    if (names.length === 0) return '';
+    if (names.length === 1) return names[0];
+    return names.slice(0, -1).join(', ') + ' และ ' + names[names.length - 1];
+  })();
+  // tgatTpatRows: criteria rows that are TGAT or TPAT subjects
+  const tgatTpatRows = criteria.filter((r) =>
+    r.subjectName?.includes('TGAT') || r.subjectName?.includes('TPAT')
+  );
+  const tgatTpatLabel = (() => {
+    const names = tgatTpatRows.map((r) => r.subjectName ?? '');
+    if (names.length === 0) return 'TGAT/TPAT';
+    if (names.length === 1) return names[0];
+    return names.slice(0, -1).join(', ') + ' และ ' + names[names.length - 1];
+  })();
   const mainCriteria = criteria.filter((r) =>
     MAIN_KW.some((kw) => r.subjectName?.includes(kw))
   );
@@ -208,11 +236,14 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
               คุณสมบัติเบื้องต้นในการสมัคร
             </div>
             <div style={{ paddingLeft: 16, lineHeight: 1.4 }}>
-              <div>- ผลการเรียน 5 - 6 ภาคการศึกษา</div>
               <div>
-                - กำลังศึกษา/สำเร็จการศึกษาระดับชั้นมัธยมศึกษาปีที่ 6 หรือ ปวช.
+                - ผลการเรียน 5 - 6 ภาคการศึกษา
               </div>
-              <div>- จำนวนหน่วยกิตขั้นต่ำของกลุ่มสาระการเรียนรู้</div>
+              {educationLevelParts && (
+                <div>
+                  - กำลังศึกษา/สำเร็จการศึกษาระดับชั้น{educationLevelParts}
+                </div>
+              )}
             </div>
           </div>
 
@@ -400,32 +431,27 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
                 หมายเหตุ
               </div>
               <ol style={{ paddingLeft: 20, margin: 0, listStyleType: "decimal" }}>
-                {/* Item 1: show when gpaMin === 1 */}
+                {/* Item 1: single <li> listing all GPA subjects (not GPAX/TGAT/TPAT) with gpaMin === 1 */}
                 {hasGpaNoMin && (
                   <li>
-                    คะแนน GPA คณิตศาสตร์ และวิทยาศาสตร์ ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
+                    คะแนน {gpaNoMinLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
                     หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
                     <span style={{ fontWeight: 700, textDecoration: "underline" }}>
                       จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
                     </span>
                   </li>
                 )}
-                {/* Item 2: show when TGAT/TPAT subjects present */}
+                {/* Item 2: dynamic TGAT/TPAT subject list */}
                 {hasTgatTpat && (
                   <li>
-                    คะแนนทดสอบวิชา TGAT/TPAT ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน{" "}
+                    คะแนนทดสอบวิชา {tgatTpatLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน{" "}
                     <span style={{ fontWeight: 700 }}>
                       ผู้สมัครไม่ต้องกรอกคะแนน
                     </span>{" "}
                     มหาวิทยาลัยๆ จะดึงคะแนนจากฐานข้อมูลเอง
                   </li>
                 )}
-                {/* Item 3: always shown when remarks block is visible */}
-                <li>
-                  เขต* หมายถึง สถานศึกษาในชั้น ม.6 ที่สังกัดตามเขตตรวจราชการ
-                  ระดับสำนักนายกรัฐมนตรี 18 เขต
-                </li>
-                {/* Item 4: Engineering only */}
+                {/* Item 3: Engineering only */}
                 {isEngineering && (
                   <li>
                     สำหรับคณะวิศวกรรมศาสตร์ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน

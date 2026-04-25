@@ -97,7 +97,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
                     backgroundColor: "#f4b083",
                     color: "#000",
                     textAlign: "center",
-                    width: "55%",
+                    width: "60%",
                     fontWeight: 700,
                   }}>
                   สาขาวิชา
@@ -143,7 +143,7 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
                         position: "relative",
                         width: "fit-content"
                       }}>
-                        {g.admissionMajor.includes("(") ? g.admissionMajor.split(")")[0] + ")" : g.admissionMajor.split(" ")[0]}
+                        {g.admissionMajor}
                         <span style={{
                           position: "absolute",
                           top: 0,
@@ -183,7 +183,15 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
             </tbody>
           </table>
 
-          
+          <div style={{ marginBottom: 8 }}>
+            <div 
+              style={{ 
+                fontSize: 18 
+              }}
+            >
+              สอบคัดเลือก* หมายถึง สอบสัมภาษณ์และ/หรือสอบทักษะพื้นฐาน เพื่อประเมินความถนัดทางวิชาชีพ/ความสามารถพิเศษ
+            </div>  
+          </div>
 
           {/* เงื่อนไขพิเศษ — Engineering only */}
           {faculty.includes("วิศวกรรม") && (
@@ -203,12 +211,11 @@ export function FacultySummaryPage({ faculty, majors, pageNumber, logoUrl, foote
                   paddingLeft: 20,
                   margin: 0,
                   color: ORANGE,
-                  lineHeight: 1.7,
+                  lineHeight: 1.1,
                   listStyleType: "decimal",
                 }}>
                 <li>
-                  รับผู้มีภาวะตาบอดสี
-                  แต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา
+                  รับผู้มีภาวะตาบอดสีแต่ต้องไม่มีภาวะตาบอดสีขั้นรุนแรงอันเป็นอุปสรรคต่อการศึกษา <br />
                   ตามแนวทางการตรวจตาบอดสีของราชวิทยาลัยจักษุแพทย์แห่งประเทศไทย
                 </li>
                 <li>รับผู้มีภาวะตาบอดสี</li>
