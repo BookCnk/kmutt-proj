@@ -159,14 +159,22 @@ const monthLabelFromDateLike = (v: string) => {
   const dd = v.includes("T") ? new Date(v) : parseISODateLocal(v);
   return MONTHS_TH[dd.getMonth()];
 };
+const monthNumberFromDateLike = (v: string) => {
+  const dd = v.includes("T") ? new Date(v) : parseISODateLocal(v);
+  return dd.getMonth() + 1;
+};
 
 const fillMonthly = (rows: MonthlyRow[]) =>
   rows.map((m) => {
-    const d = m.interview_date.includes("T")
-      ? new Date(m.interview_date)
-      : parseISODateLocal(m.interview_date);
-    const month = m.month ?? d.getMonth() + 1;
-    const label = m.label ?? MONTHS_TH[month - 1];
+    const hasDate = !!m.interview_date;
+    const d = hasDate
+      ? m.interview_date.includes("T")
+        ? new Date(m.interview_date)
+        : parseISODateLocal(m.interview_date)
+      : null;
+    const month = d ? d.getMonth() + 1 : m.month;
+    const derivedLabel = month ? MONTHS_TH[month - 1] : undefined;
+    const label = d ? derivedLabel : m.label ?? derivedLabel;
     return { ...m, month, label };
   });
 
@@ -301,11 +309,13 @@ export default function IntakeViewerWithAddModal() {
       })),
     );
     setMonthlyDraft(
-      selected.monthly.map((m: any) => ({
-        ...m,
-        open: m.open ?? true,
-        title: m.title ?? "",
-      })),
+      fillMonthly(
+        selected.monthly.map((m: any) => ({
+          ...m,
+          open: m.open ?? true,
+          title: m.title ?? "",
+        })),
+      ),
     );
     setNoticeDraft(selected.application_window.notice ?? "");
     setOpenAtDraft(selected.application_window.open_at ?? "");
@@ -387,7 +397,7 @@ export default function IntakeViewerWithAddModal() {
       monthly: monthlySaved
         .filter((m) => m.interview_date)
         .map((m) => ({
-          month: m.label ?? monthLabelFromDateLike(m.interview_date),
+          month: monthLabelFromDateLike(m.interview_date),
           title: (m.title ?? "").trim(),
           interview_date: ensureFullISO(m.interview_date),
         })),
@@ -535,14 +545,13 @@ export default function IntakeViewerWithAddModal() {
         })),
         monthly: (normalized.monthly ?? []).map((m: any) => {
           let monthName: string | undefined;
-          if (typeof (m as any).label === "string" && (m as any).label.trim()) {
-            monthName = (m as any).label.trim();
+          if (m.interview_date) {
+            monthName = monthLabelFromDateLike(toUTCStartISO(m.interview_date));
           } else if (typeof (m as any).month === "number") {
             const num = (m as any).month;
             monthName = num >= 1 && num <= 12 ? MONTHS_TH[num - 1] : undefined;
-          } else if (m.interview_date) {
-            const d = new Date(toUTCStartISO(m.interview_date));
-            monthName = MONTHS_TH[d.getMonth()];
+          } else if (typeof (m as any).label === "string" && (m as any).label.trim()) {
+            monthName = (m as any).label.trim();
           }
           return {
             month: monthName ?? "",
@@ -1221,7 +1230,7 @@ export default function IntakeViewerWithAddModal() {
                         : undefined;
                       const mm: any = d ? d.getMonth() + 1 : undefined;
                       const label =
-                        m.label ?? (mm ? MONTHS_TH[mm - 1] : undefined);
+                        mm ? MONTHS_TH[mm - 1] : m.label;
 
                       return (
                         <div
@@ -1275,7 +1284,16 @@ export default function IntakeViewerWithAddModal() {
                                   setMonthlyDraft((arr) =>
                                     arr.map((it, i) =>
                                       i === idx
-                                        ? { ...it, interview_date: iso }
+                                        ? {
+                                            ...it,
+                                            interview_date: iso,
+                                            month: iso
+                                              ? monthNumberFromDateLike(iso)
+                                              : undefined,
+                                            label: iso
+                                              ? monthLabelFromDateLike(iso)
+                                              : undefined,
+                                          }
                                         : it,
                                     ),
                                   )
