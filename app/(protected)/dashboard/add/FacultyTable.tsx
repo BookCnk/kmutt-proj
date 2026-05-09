@@ -3,14 +3,16 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  getFaculties,
+  getAdminFaculties,
   updateFaculty,
   deleteFaculty,
+  toggleFacultyActive,
 } from "@/api/facultyService";
 import {
-  getDepartmentsByFaculty,
+  getAdminDepartmentsByFaculty,
   updateDepartment,
   deleteDepartment,
+  toggleDepartmentActive,
 } from "@/api/departmentService";
 import {
   getProgramsByDepartment,
@@ -121,7 +123,7 @@ async function fetchDeptCount(
   attempt = 0,
 ): Promise<number | null> {
   try {
-    const dres: any = await getDepartmentsByFaculty(fid);
+    const dres: any = await getAdminDepartmentsByFaculty(fid);
     const count = extractDeptCount(dres);
     if (count === null && attempt < 2) {
       await delay(200 * (attempt + 1));
@@ -163,6 +165,7 @@ export default function FacultyTable() {
   const [editingDeptOrder, setEditingDeptOrder] = useState<number>(0);
   const [savingDeptId, setSavingDeptId] = useState<string | null>(null);
   const [deletingDeptId, setDeletingDeptId] = useState<string | null>(null);
+  const [togglingDeptId, setTogglingDeptId] = useState<string | null>(null);
 
   /** ---------- Programs Modal (Level 2) ---------- */
   const [progModalOpen, setProgModalOpen] = useState(false);
@@ -195,6 +198,7 @@ export default function FacultyTable() {
   const [editingFacOrder, setEditingFacOrder] = useState<number>(0);
   const [savingFacId, setSavingFacId] = useState<string | null>(null);
   const [deletingFacId, setDeletingFacId] = useState<string | null>(null);
+  const [togglingFacId, setTogglingFacId] = useState<string | null>(null);
 
   /** ---------- Custom Delete Confirmation Modal ---------- */
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -213,7 +217,7 @@ export default function FacultyTable() {
     const load = async () => {
       setLoading(true);
       try {
-        const res: any = await getFaculties();
+        const res: any = await getAdminFaculties();
         const arr = Array.isArray(res) ? res : (res?.data ?? []);
 
         const mapped: FacultyRow[] = [];
@@ -268,7 +272,7 @@ export default function FacultyTable() {
     setProgModalOpen(false);
 
     try {
-      const res: any = await getDepartmentsByFaculty(facultyId);
+      const res: any = await getAdminDepartmentsByFaculty(facultyId);
       const arr = res?.data ?? [];
       const normalized = arr.map((d: any) => ({
         ...d,
@@ -349,6 +353,30 @@ export default function FacultyTable() {
       alert("ลบคณะไม่สำเร็จ");
     } finally {
       setDeletingFacId(null);
+    }
+  };
+
+  const handleToggleFaculty = async (row: FacultyRow) => {
+    const prevActive = row.active;
+    setTogglingFacId(row.id);
+    setRows((prev) =>
+      prev.map((f) => (f.id === row.id ? { ...f, active: !f.active } : f))
+    );
+
+    try {
+      const updatedFaculty = await toggleFacultyActive(row.id);
+      const nextActive = (updatedFaculty as any)?.active ?? !prevActive;
+      setRows((prev) =>
+        prev.map((f) => (f.id === row.id ? { ...f, active: nextActive } : f))
+      );
+    } catch (err) {
+      console.error("toggleFacultyActive error:", err);
+      setRows((prev) =>
+        prev.map((f) => (f.id === row.id ? { ...f, active: prevActive } : f))
+      );
+      alert("ไม่สามารถเปลี่ยนสถานะคณะได้");
+    } finally {
+      setTogglingFacId(null);
     }
   };
 
@@ -435,6 +463,32 @@ export default function FacultyTable() {
       alert("ลบสาขาไม่สำเร็จ");
     } finally {
       setDeletingDeptId(null);
+    }
+  };
+
+  const handleToggleDepartment = async (dep: Department) => {
+    const prevActive = dep.active !== false;
+    setTogglingDeptId(dep._id);
+    setDeptRows((prev) =>
+      prev.map((d) => (d._id === dep._id ? { ...d, active: !prevActive } : d))
+    );
+
+    try {
+      const updatedDepartment = await toggleDepartmentActive(dep._id);
+      const nextActive = (updatedDepartment as any)?.active ?? !prevActive;
+      setDeptRows((prev) =>
+        prev.map((d) =>
+          d._id === dep._id ? { ...d, active: nextActive } : d
+        )
+      );
+    } catch (err) {
+      console.error("toggleDepartmentActive error:", err);
+      setDeptRows((prev) =>
+        prev.map((d) => (d._id === dep._id ? { ...d, active: prevActive } : d))
+      );
+      alert("ไม่สามารถเปลี่ยนสถานะภาค/สาขาได้");
+    } finally {
+      setTogglingDeptId(null);
     }
   };
 
@@ -769,6 +823,23 @@ export default function FacultyTable() {
                             <Button
                               type="button"
                               size="sm"
+                              variant={f.active ? "ghost" : "secondary"}
+                              className={`h-8 font-medium ${f.active ? "text-gray-500 hover:bg-gray-100" : "text-emerald-700 hover:bg-emerald-50"}`}
+                              disabled={
+                                isSaving ||
+                                isDeleting ||
+                                togglingFacId === f.id
+                              }
+                              onClick={() => handleToggleFaculty(f)}>
+                              {togglingFacId === f.id
+                                ? "กำลังเปลี่ยน..."
+                                : f.active
+                                  ? "ปิด"
+                                  : "เปิด"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
                               variant="ghost"
                               className="text-red-500 hover:bg-red-50 hover:text-red-600 h-8 font-medium"
                               disabled={isSaving || isDeleting}
@@ -936,9 +1007,26 @@ export default function FacultyTable() {
                               size="sm"
                               variant="ghost"
                               className="w-8 h-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-                              disabled={isDeleting}
+                              disabled={isDeleting || togglingDeptId === d._id}
                               onClick={() => startEditDept(d)}>
                               <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={d.active === false ? "secondary" : "ghost"}
+                              className={`h-8 px-3 ${d.active === false ? "text-emerald-700" : "text-gray-500"}`}
+                              disabled={
+                                isSaving ||
+                                isDeleting ||
+                                togglingDeptId === d._id
+                              }
+                              onClick={() => handleToggleDepartment(d)}>
+                              {togglingDeptId === d._id
+                                ? "..."
+                                : d.active === false
+                                  ? "เปิด"
+                                  : "ปิด"}
                             </Button>
                             <Button
                               type="button"

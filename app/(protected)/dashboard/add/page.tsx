@@ -1,8 +1,13 @@
 "use client";
 
-import { createDepartment } from "@/api/departmentService";
-import { getFaculties, createFaculty } from "@/api/facultyService";
-import { getDepartmentsByFaculty } from "@/api/departmentService";
+import {
+  createDepartment,
+  getAdminDepartmentsByFaculty,
+} from "@/api/departmentService";
+import {
+  getAdminFaculties,
+  createFaculty,
+} from "@/api/facultyService";
 import { createProgram } from "@/api/programService";
 import FacultyTable from "@/app/(protected)/dashboard/add/FacultyTable";
 import RoundsEditor from "@/app/(protected)/dashboard/add/RoundsEditor";
@@ -259,7 +264,7 @@ function DepartmentForm({ faculties, onSubmit }: DepartmentFormProps) {
     const load = async () => {
       setFacLoading(true);
       try {
-        const res: any = await getFaculties();
+        const res: any = await getAdminFaculties();
         // รองรับทั้งกรณี API คืน array ตรง ๆ หรือ { data: [...] }
         const arr = Array.isArray(res) ? res : (res?.data ?? []);
         const mapped: FacOption[] = arr
@@ -501,7 +506,7 @@ function CapsEditor() {
     const load = async () => {
       setFacLoading(true);
       try {
-        const res: any = await getFaculties();
+        const res: any = await getAdminFaculties();
         const arr = Array.isArray(res) ? res : (res?.data ?? []);
         const mapped: Faculty[] = arr.map((f: any) => ({
           id: String(f.id ?? f._id),
@@ -534,7 +539,7 @@ function CapsEditor() {
     const load = async () => {
       setDeptLoading(true);
       try {
-        const res: any = await getDepartmentsByFaculty(facultyId);
+        const res: any = await getAdminDepartmentsByFaculty(facultyId);
         const arr = res?.data ?? [];
         const mapped: Department[] = arr.map((d: any) => ({
           id: String(d._id ?? d.id),

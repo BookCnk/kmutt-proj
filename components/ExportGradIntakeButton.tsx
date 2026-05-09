@@ -6,6 +6,7 @@ import { getAdmissionById } from "@/api/admissionService";
 import { getActivePrograms } from "@/api/programService";
 import { exportExcelFancy, buildExcelFancyBuffer } from "@/lib/exportFancy";
 import { convertExcelToPdf } from "@/api/conversionService";
+import { isAuthorized } from "@/utils/auth";
 import { saveAs } from "file-saver";
 import { Loader2, FileSpreadsheet, X } from "lucide-react";
 
@@ -26,6 +27,7 @@ export default function ExportGradIntakeButton({
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState<ExportFormat | null>(null);
+  const isAdmin = isAuthorized(["admin"]);
 
   const close = () => {
     if (loading) return;
@@ -98,7 +100,7 @@ export default function ExportGradIntakeButton({
   };
 
   const onChoose = async (format: ExportFormat) => {
-    if (loading) return;
+    if (loading || !isAdmin) return;
     setLoading(format);
 
     try {
@@ -129,11 +131,16 @@ export default function ExportGradIntakeButton({
     }
   };
 
+  if (!isAdmin) return null;
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (!isAdmin) return;
+          setOpen(true);
+        }}
         disabled={!!loading}
         className={
           className ??

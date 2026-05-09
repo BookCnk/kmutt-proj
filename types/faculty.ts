@@ -1,6 +1,7 @@
 // types
 export type Faculty = {
-  id: string;
+  _id: string;
+  id?: string;
   title: string;
   order?: number;
   active: boolean;
@@ -10,3 +11,17 @@ export type Faculty = {
 
 export type CreateFacultyDto = { title: string; order?: number; active?: boolean };
 export type UpdateFacultyDto = Partial<CreateFacultyDto>;
+
+export type FacultyResponse = {
+  status: boolean;
+  info?: {
+    count?: number;
+    pages?: number;
+    next?: number | null;
+    prev?: number | null;
+    limit?: number;
+    currentCount?: number;
+    totalCount?: number;
+  };
+  data: Faculty[];
+};

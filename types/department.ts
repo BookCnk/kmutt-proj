@@ -1,9 +1,16 @@
 export type Department = {
   _id: string;
-  faculty_id: {
-    _id: string;
-    title: string;
-  };
+  id?: string;
+  faculty_id:
+    | string
+    | {
+        _id: string;
+        title: string;
+        order?: number;
+        active?: boolean;
+        created_at?: string;
+        updated_at?: string;
+      };
   title: string;
   order?: number;
   active: boolean;
@@ -28,11 +35,14 @@ export type UpdateDepartmentDto = {
 
 export type DepartmentResponse = {
   status: boolean;
-  info: {
-    pages: number;
-    limit: number;
-    currentCount: number;
-    totalCount: number;
+  info?: {
+    count?: number;
+    pages?: number;
+    next?: number | null;
+    prev?: number | null;
+    limit?: number;
+    currentCount?: number;
+    totalCount?: number;
   };
   data: Department[];
 };
