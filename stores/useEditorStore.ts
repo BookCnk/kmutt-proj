@@ -55,11 +55,20 @@ interface EditorState {
     scrollTarget: string | null;
     logoUrl: string;
     footerLogoUrl: string;
+    /** Per-faculty editable text for คุณสมบัติเบื้องต้น section. Key = faculty name. */
+    qualificationTexts: Record<string, string>;
+    /** Per-faculty editable text for หมายเหตุ section. Key = faculty name. */
+    remarkTexts: Record<string, string>;
+    /** Value from column S "Major Mapping (Admission Major Mapping)" in the uploaded Excel */
+    majorMapping: string;
 
     setMajorGroups: (groups: AdmissionMajorGroup[]) => void;
     scrollToFaculty: (faculty: string | null) => void;
+    setMajorMapping: (text: string) => void;
     setLogoUrl: (url: string) => void;
     setFooterLogoUrl: (url: string) => void;
+    setQualificationText: (faculty: string, text: string | null) => void;
+    setRemarkText: (faculty: string, text: string | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -67,9 +76,25 @@ export const useEditorStore = create<EditorState>((set) => ({
     scrollTarget: null,
     logoUrl: '/ICON.png',
     footerLogoUrl: '/ICON.png',
+    qualificationTexts: {},
+    remarkTexts: {},
+    majorMapping: '',
 
     setMajorGroups: (groups) => set({ majorGroups: groups, scrollTarget: null }),
     scrollToFaculty: (faculty) => set({ scrollTarget: faculty }),
+    setMajorMapping: (text) => set({ majorMapping: text }),
     setLogoUrl: (url) => set({ logoUrl: url }),
     setFooterLogoUrl: (url) => set({ footerLogoUrl: url }),
+    setQualificationText: (faculty, text) =>
+        set((s) => ({
+            qualificationTexts: text
+                ? { ...s.qualificationTexts, [faculty]: text }
+                : Object.fromEntries(Object.entries(s.qualificationTexts).filter(([k]) => k !== faculty)),
+        })),
+    setRemarkText: (faculty, text) =>
+        set((s) => ({
+            remarkTexts: text
+                ? { ...s.remarkTexts, [faculty]: text }
+                : Object.fromEntries(Object.entries(s.remarkTexts).filter(([k]) => k !== faculty)),
+        })),
 }));

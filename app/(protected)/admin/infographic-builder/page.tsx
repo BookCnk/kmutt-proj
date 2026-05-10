@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { exportAllPagesToPDF } from '@/lib/exportPdf';
 import { exportToDocx } from '@/lib/exportDocx';
@@ -12,7 +12,7 @@ import {
 } from '@/components/infographic/FacultyTOC';
 
 export default function InfographicBuilderPage() {
-    const { majorGroups, logoUrl, setLogoUrl, footerLogoUrl, setFooterLogoUrl } = useEditorStore();
+    const { majorGroups, logoUrl, setLogoUrl, footerLogoUrl, setFooterLogoUrl, majorMapping } = useEditorStore();
     const [exporting, setExporting] = useState(false);
     const [exportingDocx, setExportingDocx] = useState(false);
     const [exportProgress, setExportProgress] = useState({
@@ -25,6 +25,12 @@ export default function InfographicBuilderPage() {
     );
     const logoInputRef = useRef<HTMLInputElement>(null);
     const footerLogoInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (majorMapping) {
+            setTocContent((prev) => ({ ...prev, bannerText: majorMapping }));
+        }
+    }, [majorMapping]);
 
     async function handleExport() {
         setExporting(true);

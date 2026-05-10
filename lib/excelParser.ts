@@ -16,6 +16,7 @@ const COL = {
     weightTest: 9,
     weightAdmission: 10,
     credits: 11,
+    majorMapping: 18,
     admissionMajor: 19,
     faculty: 20,
     department: 21,
@@ -38,7 +39,12 @@ function toStr(v: unknown): string {
     return v == null ? '' : String(v).trim();
 }
 
-export async function parseExcelToGroups(file: File): Promise<AdmissionMajorGroup[]> {
+export interface ParseExcelResult {
+    groups: AdmissionMajorGroup[];
+    majorMapping: string;
+}
+
+export async function parseExcelToGroups(file: File): Promise<ParseExcelResult> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -94,7 +100,10 @@ export async function parseExcelToGroups(file: File): Promise<AdmissionMajorGrou
                     groupMap.get(key)!.criteria.push(row);
                 }
 
-                resolve(Array.from(groupMap.values()));
+                const majorMapping = toStr(
+                    dataRows.find((r) => toStr(r[COL.majorMapping]))?.[COL.majorMapping]
+                );
+                resolve({ groups: Array.from(groupMap.values()), majorMapping });
             } catch (err) {
                 reject(err);
             }
