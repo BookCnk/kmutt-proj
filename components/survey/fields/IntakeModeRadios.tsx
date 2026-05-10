@@ -372,6 +372,7 @@ export default function IntakeModeRadios({ name, admissions }: Props) {
                                 {...field}
                               />
                             </FormControl>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />

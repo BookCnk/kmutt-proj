@@ -67,6 +67,17 @@ export const baseSchema = z.object({
 
   // หมายเหตุเมื่อไม่เปิดรับสมัคร
   closeNote: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const selected = new Set(data.intakeModes ?? []);
+  const closeNote = String(data.closeNote ?? "").trim();
+
+  if (selected.has("none") && !closeNote) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["closeNote"],
+      message: "กรุณากรอกหมายเหตุเมื่อเลือกไม่เปิดรับสมัคร",
+    });
+  }
 });
 
 export type FormValues = z.infer<typeof baseSchema>;
