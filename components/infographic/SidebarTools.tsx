@@ -6,7 +6,7 @@ import { useEditorStore, groupByFaculty } from '@/stores/useEditorStore';
 import { parseExcelToGroups } from '@/lib/excelParser';
 
 export function SidebarTools() {
-    const { majorGroups, setMajorGroups, scrollToFaculty } = useEditorStore();
+    const { majorGroups, setMajorGroups, scrollToFaculty, setMajorMapping } = useEditorStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -17,8 +17,9 @@ export function SidebarTools() {
         setLoading(true);
         setError(null);
         try {
-            const groups = await parseExcelToGroups(file);
+            const { groups, majorMapping } = await parseExcelToGroups(file);
             setMajorGroups(groups);
+            if (majorMapping) setMajorMapping(majorMapping);
         } catch (err) {
             setError('ไม่สามารถอ่านไฟล์ Excel ได้');
             console.error(err);

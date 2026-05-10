@@ -59,9 +59,12 @@ interface EditorState {
     qualificationTexts: Record<string, string>;
     /** Per-faculty editable text for หมายเหตุ section. Key = faculty name. */
     remarkTexts: Record<string, string>;
+    /** Value from column S "Major Mapping (Admission Major Mapping)" in the uploaded Excel */
+    majorMapping: string;
 
     setMajorGroups: (groups: AdmissionMajorGroup[]) => void;
     scrollToFaculty: (faculty: string | null) => void;
+    setMajorMapping: (text: string) => void;
     setLogoUrl: (url: string) => void;
     setFooterLogoUrl: (url: string) => void;
     setQualificationText: (faculty: string, text: string | null) => void;
@@ -75,9 +78,11 @@ export const useEditorStore = create<EditorState>((set) => ({
     footerLogoUrl: '/ICON.png',
     qualificationTexts: {},
     remarkTexts: {},
+    majorMapping: '',
 
     setMajorGroups: (groups) => set({ majorGroups: groups, scrollTarget: null }),
     scrollToFaculty: (faculty) => set({ scrollTarget: faculty }),
+    setMajorMapping: (text) => set({ majorMapping: text }),
     setLogoUrl: (url) => set({ logoUrl: url }),
     setFooterLogoUrl: (url) => set({ footerLogoUrl: url }),
     setQualificationText: (faculty, text) =>
