@@ -6,6 +6,7 @@
 // เกณฑ์การพิจารณา table → หมายเหตุ → footer
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { useEditorStore } from "@/stores/useEditorStore";
 import type {
   AdmissionCriteriaRow,
   AdmissionMajorGroup,
@@ -65,6 +66,28 @@ function creditRows(criteria: AdmissionCriteriaRow[]) {
   );
 }
 
+/** Parse newline-separated remark text into nested main + sub items.
+ *  Lines starting with N.N (e.g. 2.1) are treated as sub-items of the preceding main item.
+ *  Lines starting with N. (or plain text) are treated as main items.
+ */
+function parseRemarkText(text: string): { text: string; subs: string[] }[] {
+  const items: { text: string; subs: string[] }[] = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^\d+\.\d+/.test(line)) {
+      // sub-item — strip the N.N prefix
+      const body = line.replace(/^\d+\.\d+\s*/, '');
+      if (items.length > 0) items[items.length - 1].subs.push(body);
+      else items.push({ text: '', subs: [body] });
+    } else {
+      // main item — strip the leading N. prefix if present
+      items.push({ text: line.replace(/^\d+\.\s*/, ''), subs: [] });
+    }
+  }
+  return items;
+}
+
 const thBase: React.CSSProperties = {
   border: "1px solid #999",
   padding: "3px 8px",
@@ -83,6 +106,14 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
   const contentRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const { qualificationTexts, remarkTexts, setQualificationText, setRemarkText } = useEditorStore();
+  const faculty = group.faculty;
+  const qualificationText = qualificationTexts[faculty] ?? null;
+  const remarkText = remarkTexts[faculty] ?? null;
+  const [showQualModal, setShowQualModal] = useState(false);
+  const [showRemarkModal, setShowRemarkModal] = useState(false);
+  const [qualDraft, setQualDraft] = useState('');
+  const [remarkDraft, setRemarkDraft] = useState('');
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -168,6 +199,22 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
   const specialTestTotal = specialCriteria.reduce((s, r) => s + (r.weightTest ?? 0), 0);
   const specialAdmissionTotal = specialCriteria.reduce((s, r) => s + (r.weightAdmission ?? 0), 0);
 
+  // ── Default text (used as textarea value when store is null) ─────────────
+  const defaultQualificationText = [
+    '- ผลการเรียน 5 - 6 ภาคการศึกษา',
+    educationLevelParts ? `- กำลังศึกษา/สำเร็จการศึกษาระดับชั้น${educationLevelParts}` : '',
+  ].filter(Boolean).join('\n');
+
+  const defaultRemarkLines: string[] = [];
+  let remarkIdx = 1;
+  if (hasGpaNoMin)
+    defaultRemarkLines.push(`${remarkIdx++}. คะแนน ${gpaNoMinLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร`);
+  if (hasTgatTpat)
+    defaultRemarkLines.push(`${remarkIdx++}. คะแนนทดสอบวิชา ${tgatTpatLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน ผู้สมัครไม่ต้องกรอกคะแนน มหาวิทยาลัยๆ จะดึงคะแนนจากฐานข้อมูลเอง`);
+  if (isEngineering)
+    defaultRemarkLines.push(`${remarkIdx++}. สำหรับคณะวิศวกรรมศาสตร์ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า เช่น CU-TEP, TU-GET, TOEIC, IELTS, TOEFL iBT, TOEFL ITP และ TETET สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio) เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ`);
+  const defaultRemarkText = defaultRemarkLines.join('\n');
+
   return (
     <div
       className="text-black"
@@ -225,25 +272,22 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
           )}
 
           {/* ── คุณสมบัติเบื้องต้น ── */}
-          <div style={{ marginBottom: 4 }}>
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: 18,
-                textDecoration: "underline",
-                marginBottom: 2,
-              }}>
-              คุณสมบัติเบื้องต้นในการสมัคร
+          <div
+            style={{ marginBottom: 4, cursor: 'pointer', borderRadius: 4, padding: '2px 4px', transition: 'background 0.15s' }}
+            className="group/qual"
+            onClick={() => { setQualDraft(qualificationText ?? defaultQualificationText); setShowQualModal(true); }}
+            title="คลิกเพื่อแก้ไข"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ fontWeight: 700, fontSize: 18, textDecoration: 'underline' }}>
+                คุณสมบัติเบื้องต้นในการสมัคร
+              </div>
+              <svg style={{ opacity: 0.4 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </div>
             <div style={{ paddingLeft: 16, lineHeight: 1.4 }}>
-              <div>
-                - ผลการเรียน 5 - 6 ภาคการศึกษา
-              </div>
-              {educationLevelParts && (
-                <div>
-                  - กำลังศึกษา/สำเร็จการศึกษาระดับชั้น{educationLevelParts}
-                </div>
-              )}
+              {(qualificationText ?? defaultQualificationText).split('\n').map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
             </div>
           </div>
 
@@ -419,48 +463,33 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
             </tbody>
           </table>
 
-          {/* ── หมายเหตุ (conditional) ── */}
+          {/* ── หมายเหตุ (conditional, click-to-edit) ── */}
           {showRemarks && (
-            <div style={{ fontSize: 18, lineHeight: 1.4, marginBottom: 4 }}>
-              <div
-                style={{
-                  fontWeight: 700,
-                  textDecoration: "underline",
-                  marginBottom: 2,
-                }}>
-                หมายเหตุ
+            <div
+              style={{ fontSize: 18, lineHeight: 1.4, marginBottom: 4, cursor: 'pointer', borderRadius: 4, padding: '2px 4px', transition: 'background 0.15s' }}
+              className="group/remark"
+              onClick={() => { setRemarkDraft(remarkText ?? defaultRemarkText); setShowRemarkModal(true); }}
+              title="คลิกเพื่อแก้ไข"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <div style={{ fontWeight: 700, textDecoration: 'underline' }}>หมายเหตุ</div>
+                <svg style={{ opacity: 0.4 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </div>
-              <ol style={{ paddingLeft: 20, margin: 0, listStyleType: "decimal" }}>
-                {/* Item 1: single <li> listing all GPA subjects (not GPAX/TGAT/TPAT) with gpaMin === 1 */}
-                {hasGpaNoMin && (
-                  <li>
-                    คะแนน {gpaNoMinLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน
-                    หากนักเรียนไม่กรอกคะแนนในระบบรับสมัคร{" "}
-                    <span style={{ fontWeight: 700, textDecoration: "underline" }}>
-                      จะถือว่าไม่ผ่านเกณฑ์การรับสมัคร
-                    </span>
+              <ol style={{ paddingLeft: 20, margin: 0, listStyleType: 'decimal' }}>
+                {parseRemarkText(remarkText ?? defaultRemarkText).map((item, i) => (
+                  <li key={i}>
+                    {item.text}
+                    {item.subs.length > 0 && (
+                      <ol style={{ paddingLeft: 20, margin: 0, listStyleType: 'none' }}>
+                        {item.subs.map((sub, j) => (
+                          <li key={j} style={{ listStyleType: 'none' }}>
+                            {`${i + 1}.${j + 1} ${sub}`}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                   </li>
-                )}
-                {/* Item 2: dynamic TGAT/TPAT subject list */}
-                {hasTgatTpat && (
-                  <li>
-                    คะแนนทดสอบวิชา {tgatTpatLabel} ไม่กำหนดขั้นต่ำแต่ต้องมีคะแนน{" "}
-                    <span style={{ fontWeight: 700 }}>
-                      ผู้สมัครไม่ต้องกรอกคะแนน
-                    </span>{" "}
-                    มหาวิทยาลัยๆ จะดึงคะแนนจากฐานข้อมูลเอง
-                  </li>
-                )}
-                {/* Item 3: Engineering only */}
-                {isEngineering && (
-                  <li>
-                    สำหรับคณะวิศวกรรมศาสตร์ผู้สมัครที่มีผลการทดสอบภาษาอังกฤษมาตรฐาน
-                    CEFR Level B2 หรือการทดสอบอื่นในระดับที่เทียบเท่า เช่น CU-TEP,
-                    TU-GET, TOEIC, IELTS, TOEFL iBT, TOEFL ITP และ TETET
-                    สามารถนำผลคะแนนมาใส่แฟ้มสะสมผลงาน (Portfolio)
-                    เพื่อใช้ในการประกอบการพิจารณาเป็นพิเศษ
-                  </li>
-                )}
+                ))}
               </ol>
             </div>
           )}
@@ -470,6 +499,62 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
 
       {/* Footer — fixed size, never scaled */}
       <PageFooter pageNumber={pageNumber} footerLogoUrl={footerLogoUrl} />
+
+      {/* ── คุณสมบัติเบื้องต้น Modal ── */}
+      {showQualModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQualModal(false); }}
+        >
+          <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', padding: '24px', width: 520, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>แก้ไข: คุณสมบัติเบื้องต้นในการสมัคร</h2>
+              <button onClick={() => setShowQualModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 20, lineHeight: 1 }}>&#x2715;</button>
+            </div>
+            <p style={{ fontSize: 18, color: '#94a3b8', margin: 0 }}>แต่ละบรรทัด = หนึ่งบรรทัด — การเปลี่ยนแปลงจะมีผลต่อทุกหน้าพร้อมกัน</p>
+            <textarea
+              autoFocus
+              style={{ fontFamily: 'THSarabun, sans-serif', fontSize: 20, lineHeight: 1.6, border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', resize: 'vertical', minHeight: 100, outline: 'none', color: '#0f172a', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#fa4616'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              value={qualDraft}
+              onChange={(e) => setQualDraft(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowQualModal(false)} style={{ padding: '7px 18px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#475569', fontWeight: 600 }}>ยกเลิก</button>
+              <button onClick={() => { setQualificationText(faculty, qualDraft || null); setShowQualModal(false); }} style={{ padding: '7px 18px', borderRadius: 7, border: 'none', background: '#fa4616', cursor: 'pointer', fontSize: 14, color: '#fff', fontWeight: 700 }}>บันทึก</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── หมายเหตุ Modal ── */}
+      {showRemarkModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowRemarkModal(false); }}
+        >
+          <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', padding: '24px', width: 1040, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>แก้ไข: หมายเหตุ</h2>
+              <button onClick={() => setShowRemarkModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 20, lineHeight: 1 }}>&#x2715;</button>
+            </div>
+            <p style={{ fontSize: 18, color: '#94a3b8', margin: 0 }}>แต่ละบรรทัด = หนึ่งข้อ (numbering จะถูกเติมอัตโนมัติ) — การเปลี่ยนแปลงจะมีผลต่อทุกหน้าพร้อมกัน</p>
+            <textarea
+              autoFocus
+              style={{ fontFamily: 'THSarabun, sans-serif', fontSize: 20, lineHeight: 1.6, border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', resize: 'vertical', minHeight: 140, outline: 'none', color: '#0f172a', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#fa4616'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              value={remarkDraft}
+              onChange={(e) => setRemarkDraft(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowRemarkModal(false)} style={{ padding: '7px 18px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#475569', fontWeight: 600 }}>ยกเลิก</button>
+              <button onClick={() => { setRemarkText(faculty, remarkDraft || null); setShowRemarkModal(false); }} style={{ padding: '7px 18px', borderRadius: 7, border: 'none', background: '#fa4616', cursor: 'pointer', fontSize: 14, color: '#fff', fontWeight: 700 }}>บันทึก</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
