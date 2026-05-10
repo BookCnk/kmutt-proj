@@ -182,10 +182,10 @@ export function MajorPage({ group, pageNumber, groups, logoUrl, footerLogoUrl }:
     r.subjectName?.includes('TGAT') || r.subjectName?.includes('TPAT')
   );
   const tgatTpatLabel = (() => {
-    const names = tgatTpatRows.map((r) => r.subjectName ?? '');
+    const names = tgatTpatRows.map((r) => r.subjectName.split(' -')[0] ?? '');
     if (names.length === 0) return 'TGAT/TPAT';
     if (names.length === 1) return names[0];
-    return names.slice(0, -1).join(', ') + ' และ ' + names[names.length - 1];
+    return names.slice(0, -1).join(', ') + '/' + names[names.length - 1];
   })();
   const mainCriteria = criteria.filter((r) =>
     MAIN_KW.some((kw) => r.subjectName?.includes(kw))
