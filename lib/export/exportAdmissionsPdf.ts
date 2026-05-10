@@ -1,5 +1,5 @@
 // src/lib/exportAdmissionsPdf.ts
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, PageSizes, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
 type ProgramInForm = {
@@ -66,6 +66,8 @@ export async function exportAdmissionsPdf(
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
+  const [a4Width, a4Height] = PageSizes.A4;
+  const landscapeA4: [number, number] = [a4Height, a4Width];
 
   const fontBytes = await fetch(fontUrl).then((res) => {
     if (!res.ok) throw new Error(`ไม่พบฟอนต์ ${fontUrl}`);
@@ -144,14 +146,14 @@ export async function exportAdmissionsPdf(
   };
 
   // ---------- page / layout ----------
-  let page = pdfDoc.addPage();
+  let page = pdfDoc.addPage(landscapeA4);
   let { width, height } = page.getSize();
 
   const usableW = width - marginX * 2;
   let y = height - marginY;
 
   const newPage = () => {
-    page = pdfDoc.addPage();
+    page = pdfDoc.addPage(landscapeA4);
     ({ width, height } = page.getSize());
     y = height - marginY;
   };
