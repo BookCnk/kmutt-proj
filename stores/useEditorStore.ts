@@ -61,6 +61,8 @@ interface EditorState {
     remarkTexts: Record<string, string>;
     /** Value from column S "Major Mapping (Admission Major Mapping)" in the uploaded Excel */
     majorMapping: string;
+    pdfVersion: 'v1' | 'v2';
+    oldAdmissionCounts: Record<string, { m6: number; program: number }>;
 
     setMajorGroups: (groups: AdmissionMajorGroup[]) => void;
     scrollToFaculty: (faculty: string | null) => void;
@@ -69,6 +71,8 @@ interface EditorState {
     setFooterLogoUrl: (url: string) => void;
     setQualificationText: (faculty: string, text: string | null) => void;
     setRemarkText: (faculty: string, text: string | null) => void;
+    setPdfVersion: (v: 'v1' | 'v2') => void;
+    setOldAdmissionCount: (key: string, m6: number, program: number) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -79,6 +83,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     qualificationTexts: {},
     remarkTexts: {},
     majorMapping: '',
+    pdfVersion: 'v1',
+    oldAdmissionCounts: {},
 
     setMajorGroups: (groups) => set({ majorGroups: groups, scrollTarget: null }),
     scrollToFaculty: (faculty) => set({ scrollTarget: faculty }),
@@ -96,5 +102,13 @@ export const useEditorStore = create<EditorState>((set) => ({
             remarkTexts: text
                 ? { ...s.remarkTexts, [faculty]: text }
                 : Object.fromEntries(Object.entries(s.remarkTexts).filter(([k]) => k !== faculty)),
+        })),
+    setPdfVersion: (v) => set({ pdfVersion: v }),
+    setOldAdmissionCount: (key, m6, program) =>
+        set((s) => ({
+            oldAdmissionCounts: {
+                ...s.oldAdmissionCounts,
+                [key]: { m6, program },
+            },
         })),
 }));

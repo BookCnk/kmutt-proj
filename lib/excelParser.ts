@@ -64,23 +64,28 @@ export async function parseExcelToGroups(file: File): Promise<ParseExcelResult> 
                 // Parse each row into AdmissionCriteriaRow
                 const criteriaRows: AdmissionCriteriaRow[] = dataRows
                     .filter((r) => r[COL.faculty] && r[COL.admissionMajor])
-                    .map((r) => ({
-                        subjectGroupMap: toStr(r[COL.subjectGroupMap]),
-                        subjectName: toStr(r[COL.name]),
-                        condition: toStr(r[COL.condition]),
-                        gpaMin: toNum(r[COL.gpaMin]),
-                        lngScore: toNum(r[COL.lngScore]),
-                        configPercent: toBool(r[COL.configPercent]),
-                        weightTest: toNum(r[COL.weightTest]),
-                        weightAdmission: toNum(r[COL.weightAdmission]),
-                        credits: toNum(r[COL.credits]),
-                        admissionMajor: toStr(r[COL.admissionMajor]),
-                        faculty: toStr(r[COL.faculty]),
-                        department: toStr(r[COL.department]),
-                        limitApplicant: toNum(r[COL.limitApplicant]) ?? 0,
-                        examTotal: toNum(r[COL.examTotal]) ?? 0,
-                        specialConditionRef: toNum(r[COL.specialConditionRef]),
-                    }));
+                    .map((r) => {
+                        const dept = toStr(r[COL.department]);
+                        const isMediaJoint = dept === "โครงการร่วมบริหารหลักสูตรมีเดียอาตส์และเทคโนโลยีมีเดีย";
+                        const parsedFaculty = isMediaJoint ? dept : toStr(r[COL.faculty]);
+                        return {
+                            subjectGroupMap: toStr(r[COL.subjectGroupMap]),
+                            subjectName: toStr(r[COL.name]),
+                            condition: toStr(r[COL.condition]),
+                            gpaMin: toNum(r[COL.gpaMin]),
+                            lngScore: toNum(r[COL.lngScore]),
+                            configPercent: toBool(r[COL.configPercent]),
+                            weightTest: toNum(r[COL.weightTest]),
+                            weightAdmission: toNum(r[COL.weightAdmission]),
+                            credits: toNum(r[COL.credits]),
+                            admissionMajor: toStr(r[COL.admissionMajor]),
+                            faculty: parsedFaculty,
+                            department: dept,
+                            limitApplicant: toNum(r[COL.limitApplicant]) ?? 0,
+                            examTotal: toNum(r[COL.examTotal]) ?? 0,
+                            specialConditionRef: toNum(r[COL.specialConditionRef]),
+                        };
+                    });
 
                 // Group by (faculty, admissionMajor)
                 const groupMap = new Map<string, AdmissionMajorGroup>();

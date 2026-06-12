@@ -1,18 +1,31 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { useEditorStore } from '@/stores/useEditorStore';
+import { useEditorStore, groupByFaculty } from '@/stores/useEditorStore';
 import { exportAllPagesToPDF } from '@/lib/exportPdf';
 import { exportToDocx } from '@/lib/exportDocx';
 import { SidebarTools } from '@/components/infographic/SidebarTools';
 import { A4Canvas } from '@/components/infographic/A4Canvas';
+import { A4CanvasV2 } from '@/components/infographic/A4CanvasV2';
 import {
     DEFAULT_FACULTY_TOC_CONTENT,
     type FacultyTOCContent,
 } from '@/components/infographic/FacultyTOC';
+import { DEFAULT_FACULTY_TOC_CONTENT_V2 } from '@/components/infographic/FacultyTOCv2';
 
 export default function InfographicBuilderPage() {
-    const { majorGroups, logoUrl, setLogoUrl, footerLogoUrl, setFooterLogoUrl, majorMapping } = useEditorStore();
+    const { 
+        majorGroups, 
+        logoUrl, 
+        setLogoUrl, 
+        footerLogoUrl, 
+        setFooterLogoUrl, 
+        majorMapping,
+        pdfVersion,
+        setPdfVersion,
+        oldAdmissionCounts,
+        setOldAdmissionCount
+    } = useEditorStore();
     const [exporting, setExporting] = useState(false);
     const [exportingDocx, setExportingDocx] = useState(false);
     const [exportProgress, setExportProgress] = useState({
@@ -23,6 +36,15 @@ export default function InfographicBuilderPage() {
     const [tocContent, setTocContent] = useState<FacultyTOCContent>(
         DEFAULT_FACULTY_TOC_CONTENT
     );
+
+    // Reset/update TOC defaults if version switches
+    useEffect(() => {
+        if (pdfVersion === 'v2') {
+            setTocContent(DEFAULT_FACULTY_TOC_CONTENT_V2);
+        } else {
+            setTocContent(DEFAULT_FACULTY_TOC_CONTENT);
+        }
+    }, [pdfVersion]);
     const logoInputRef = useRef<HTMLInputElement>(null);
     const footerLogoInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,8 +58,11 @@ export default function InfographicBuilderPage() {
         setExporting(true);
         setExportProgress({ current: 0, total: 0, percent: 0 });
 
+        const filename = pdfVersion === 'v2' ? 'KMUTT-Infographic-AR-2569' : 'KMUTT-Infographic-2569';
+        const selector = pdfVersion === 'v2' ? '[data-a4-page-v2]' : '[data-a4-page]';
+
         try {
-            await exportAllPagesToPDF('KMUTT-Infographic-2569', '[data-a4-page]', (progress) => {
+            await exportAllPagesToPDF(filename, selector, (progress) => {
                 setExportProgress(progress);
             });
         } finally {
@@ -125,10 +150,45 @@ export default function InfographicBuilderPage() {
                 </aside>
 
                 <main className="flex-1 overflow-hidden">
-                    <A4Canvas tocContent={tocContent} />
+                    {pdfVersion === 'v2' ? (
+                        <A4CanvasV2 tocContent={tocContent} />
+                    ) : (
+                        <A4Canvas tocContent={tocContent} />
+                    )}
                 </main>
 
                 <aside className="w-80 flex-shrink-0 bg-white border-l overflow-y-auto p-4">
+                    {/* PDF Version Toggle */}
+                    <div className="mb-4 pb-4 border-b border-slate-200">
+                        <h2 className="text-sm font-bold text-slate-800 mb-2">รูปแบบ PDF</h2>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPdfVersion('v1')}
+                                className={`text-xs py-2 px-3 rounded border font-semibold text-center transition-colors ${
+                                    pdfVersion === 'v1'
+                                        ? 'bg-orange-500 text-white border-orange-500'
+                                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                }`}
+                            >
+                                V1: Infographic
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPdfVersion('v2')}
+                                className={`text-xs py-2 px-3 rounded border font-semibold text-center transition-colors ${
+                                    pdfVersion === 'v2'
+                                        ? 'bg-yellow-500 text-black border-yellow-500'
+                                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                }`}
+                            >
+                                V2: AR (Active Recruitment)
+                            </button>
+                        </div>
+                    </div>
+
+
+
                     {/* Header Logo Upload */}
                     <div className="mb-4 pb-4 border-b border-slate-200">
                         <div className="flex items-center justify-between mb-2">
